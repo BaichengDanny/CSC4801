@@ -6,3 +6,10 @@ __pycache__/
 data/
 .env
 *.sqlite3
+instance/
+*.sqlite3-wal
+*.sqlite3-shm
+.DS_Store
+output/
+.superpowers/
+*.pptx

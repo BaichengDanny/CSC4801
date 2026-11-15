@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}Common Ground{% endblock %} · Recruiting</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+</head>
+<body>
+{% from 'macros.html' import csrf %}
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="{{ url_for('web.index') }}"><span class="brand-symbol" aria-hidden="true">cg</span><span>common ground<span class="brand-caption">People. Possibilities.</span></span></a>
+    {% if current_user %}
+    <div class="account-menu"><span class="account-avatar" aria-hidden="true">{{ current_user.display_name[:1]|upper }}</span><span class="account-name">{{ current_user.display_name }}<span class="account-role">{{ current_user.role }}</span></span><form method="post" action="{{ url_for('auth.logout') }}">{{ csrf() }}<button class="header-button" type="submit">Sign out</button></form></div>
+    {% else %}<span class="header-note">Find your next connection.</span>{% endif %}
+  </div>
+</header>
+{% if current_user %}
+<nav class="site-nav" aria-label="Main navigation"><div class="nav-inner">
+  <a {% if request.endpoint in ['web.dashboard', 'web.job_detail', 'web.new_job', 'web.edit_job', 'web.applicants'] %}aria-current="page"{% endif %} href="{{ url_for('web.dashboard') }}">{{ 'Discover jobs' if current_user.role == 'Candidate' else 'Your jobs' }}</a>
+  {% if current_user.role == 'Candidate' %}<a {% if request.endpoint in ['web.applications', 'web.application_detail'] %}aria-current="page"{% endif %} href="{{ url_for('web.applications') }}">My applications</a>{% else %}<a {% if request.endpoint == 'web.schedule' %}aria-current="page"{% endif %} href="{{ url_for('web.schedule') }}">Interview schedule</a>{% endif %}
+  <a {% if request.endpoint in ['web.profile', 'web.resume'] %}aria-current="page"{% endif %} href="{{ url_for('web.profile') }}">{{ 'My profile' if current_user.role == 'Candidate' else 'Company profile' }}</a>
+</div></nav>
+{% endif %}
+<main id="main" class="container {% block container_class %}{% endblock %}">
+  {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="notice {{ category }}" role="status">{{ message }}</div>{% endfor %}{% endwith %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="site-footer"><span>common ground</span><span>A little closer to your next chapter.</span></footer>
+</body>
+</html>

@@ -1,0 +1,4 @@
+{% macro csrf() -%}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{%- endmacro %}
+{% macro badge(status) -%}<span class="status status-{{ status|lower }}">{{ status }}</span>{%- endmacro %}
+{% macro skills(values) -%}<div class="skill-list">{% for skill in values %}<span class="skill">{{ skill }}</span>{% else %}<span class="muted small">All skill backgrounds welcome</span>{% endfor %}</div>{%- endmacro %}
+{% macro error_message(error) %}{% if error %}<div class="notice error" role="alert">{{ error.message }}</div>{% endif %}{% endmacro %}

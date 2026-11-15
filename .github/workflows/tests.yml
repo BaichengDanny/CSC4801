@@ -1,0 +1,29 @@
+name: Tests and container smoke check
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the complete environment
+        run: docker build -t common-ground .
+      - name: Run all tests in an isolated container
+        run: docker run --rm common-ground python -m pytest -q
+      - name: Start, seed, and smoke-test
+        run: |
+          docker run -d --name common-ground-smoke -p 127.0.0.1:8080:8080 common-ground
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/health; then break; fi
+            sleep 1
+          done
+          docker exec common-ground-smoke python -m flask --app recruiting seed --yes
+          curl --fail http://127.0.0.1:8080/login
+      - name: Container logs and cleanup
+        if: always()
+        run: |
+          docker logs common-ground-smoke || true
+          docker rm -f common-ground-smoke || true

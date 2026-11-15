@@ -7,3 +7,11 @@ __pycache__
 data
 .env
 *.sqlite3
+instance
+output
+.superpowers
+.DS_Store
+**/.DS_Store
+*.sqlite3-wal
+*.sqlite3-shm
+*.pptx

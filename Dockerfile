@@ -1,20 +1,11 @@
-# Python starter example: adapt the image and commands to your project's stack.
 FROM python:3.12.11-slim-bookworm
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    DATABASE=/app/data/recruiting.sqlite3 HOST=0.0.0.0 PORT=8080
 WORKDIR /app
-
-# Install your locked dependencies.
 COPY requirements.lock requirements.txt ./
 RUN python -m pip install --no-cache-dir -r requirements.txt
-
-# Copy source and run as an unprivileged user.
-RUN useradd --create-home --uid 10001 student
+RUN useradd --create-home --uid 10001 student && mkdir /app/data && chown student:student /app /app/data
 COPY --chown=student:student . .
 USER student
-
-# TODO: configure any writable data directories and required environment variables.
-# TODO: expose your application's port, for example:
-# EXPOSE 8080
-
-# TODO: replace this placeholder with your application's startup command.
-CMD ["python", "-c", "raise SystemExit('Template only: configure your application startup command in Dockerfile.')"]
+EXPOSE 8080
+CMD ["sh", "-c", "python -m flask --app recruiting init-db && exec python -m recruiting"]
