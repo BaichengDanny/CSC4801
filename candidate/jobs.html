@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchwork – Find Jobs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/shell.css">
+<link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/match.js"></script>
+<script src="assets/matchwork.js"></script>
+<style>
+.toolbar{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-top:16px}
+.toolbar h1{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.3px}
+.toolbar .chips{flex:1 1 auto;justify-content:flex-end}
+.filter-wrap{position:relative;flex:none}
+.filter-pop{width:280px;padding:14px;top:calc(100% + 8px)}
+.fp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.fp-head strong{font-size:14px}
+.fp-reset{border:0;background:none;padding:4px 6px;margin:-4px -6px;border-radius:6px;font-size:13px;font-weight:600;color:var(--green-700);cursor:pointer}
+.fp-reset:hover{background:var(--green-75)}
+.fp-reset:disabled{color:#A9AFAB;cursor:default;background:none}
+.filter-pop .seg{margin-bottom:14px}
+
+.split{flex:1 1 auto;min-height:0;display:flex;gap:20px;margin-top:14px}
+.list-card{flex:0 0 clamp(360px,36%,452px);min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.list-head{flex:none;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:14px 18px 12px;border-bottom:1px solid var(--row-line)}
+.list-head strong{font-size:15px;font-weight:700}
+.list-head span{font-size:13px;color:var(--muted)}
+.list{flex:1 1 auto;min-height:0;padding:6px 8px 10px}
+.row{position:relative;display:grid;grid-template-columns:44px minmax(0,1fr) auto;column-gap:12px;width:100%;padding:12px 10px;border:1px solid transparent;background:transparent;text-align:left;cursor:pointer;transition:background-color .2s,border-color .2s}
+.row + .row::after{content:"";position:absolute;left:10px;right:10px;top:-1px;height:1px;background:var(--row-line)}
+/* Same quiet selection as Saved Jobs: a faint wash, no outline */
+.row:hover{background:#FAFBFA}
+.row[aria-current="true"]{background:#F5F8F6}
+.row[aria-current="true"]::after,.row[aria-current="true"] + .row::after,.row:hover::after,.row:hover + .row::after{opacity:0}
+.row h3{font-size:15px;line-height:20px;font-weight:700;color:var(--ink);text-wrap:pretty}
+.row[aria-current="true"] h3{color:var(--green-900)}
+.row .meta{margin-top:1px;white-space:nowrap;overflow:hidden}
+.row .meta span{overflow:hidden;text-overflow:ellipsis}
+.row .tags{margin-top:8px;gap:6px}
+.row .tag{font-size:12px;line-height:20px}
+.row .more{font-size:12px;line-height:20px;color:var(--muted);font-weight:500}
+.row .score{height:24px;font-size:12.5px;padding:0 10px}
+.row .score.hi{padding-left:9px}
+.row .side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:8px}
+.row .state{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted)}
+.row .state.applied{color:var(--green-800)}
+.row .state svg path{fill:var(--green-600);stroke:var(--green-600)}
+.row.enter{animation:rowIn .4s var(--ease) both}
+@keyframes rowIn{from{opacity:0;transform:translateY(8px)}}
+.detail-card{flex:1 1 auto;min-width:0;min-height:0}
+
+@media (max-height:720px){
+  .toolbar{margin-top:12px}
+  .split{margin-top:10px}
+  .row{padding:10px}
+  .jd{padding:18px 20px 22px;gap:14px}
+}
+@media (max-width:1180px){
+  .toolbar .chips{justify-content:flex-start;overflow-x:auto;scrollbar-width:none;padding:1px}
+  .split{flex-direction:column}
+  .list-card{flex:none}
+}
+@media (max-width:520px){
+  .row{grid-template-columns:44px minmax(0,1fr)}
+  .row .side{grid-column:2;flex-direction:row;align-items:center;margin-top:8px}
+  .jd{padding:18px 16px}
+  .jd-match-top{flex-direction:column;align-items:flex-start;gap:6px}
+  .jd-match-top p{padding-left:0;border-left:0}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+    <script>MW.renderChrome('jobs');</script>
+
+    <div class="toolbar">
+      <h1>Find jobs</h1>
+      <div class="chips" id="chips" role="group" aria-label="Filter by category"><span class="chip-indicator" aria-hidden="true"></span></div>
+      <div class="filter-wrap">
+        <button type="button" class="filter-btn" id="filterBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="filterPop">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2A2F33" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><path d="M15 5v4M9 15v4"/></svg>
+          Filters <span class="filter-count num" id="filterCount">0</span><span class="sr" id="filterSr"> 0 active</span>
+        </button>
+        <div class="popover filter-pop" id="filterPop" role="dialog" aria-label="Job filters">
+          <div class="fp-head"><strong>Filters</strong><button type="button" class="fp-reset" id="fpReset" disabled>Reset</button></div>
+          <p class="fp-label">Minimum match</p>
+          <div class="seg" id="segMatch" role="group" aria-label="Minimum match">
+            <button type="button" data-v="0" aria-pressed="true">Any</button>
+            <button type="button" data-v="50" aria-pressed="false">50%+</button>
+            <button type="button" data-v="75" aria-pressed="false">75%+</button>
+            <button type="button" data-v="90" aria-pressed="false">90%+</button>
+          </div>
+          <p class="fp-label">Job type</p>
+          <div class="seg" id="segType" role="group" aria-label="Job type">
+            <button type="button" data-v="" aria-pressed="true">Any</button>
+            <button type="button" data-v="Full-time" aria-pressed="false">Full-time</button>
+            <button type="button" data-v="Contract" aria-pressed="false">Contract</button>
+            <button type="button" data-v="Internship" aria-pressed="false">Internship</button>
+          </div>
+          <p class="fp-label">Show only</p>
+          <label class="fp-check"><input type="checkbox" id="fpRemote"> Remote jobs</label>
+          <label class="fp-check"><input type="checkbox" id="fpNotApplied"> Not applied yet</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="split">
+      <section class="card list-card" aria-labelledby="list-title">
+        <div class="list-head"><strong id="list-title" aria-live="polite">Jobs</strong><span>Sorted by match score</span></div>
+        <div class="list scroll" id="list" role="list"></div>
+      </section>
+      <section class="card detail-card scroll" id="detail" aria-labelledby="jd-title" tabindex="-1"></section>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const { $, $$, esc } = MW;
+  const params = new URLSearchParams(location.search);
+  const CATEGORIES = ['All Jobs', 'Software', 'AI / ML', 'Data', 'Backend', 'Frontend', 'Mobile'];
+  const st = { cat: 'All Jobs', q: params.get('q') || '', loc: params.get('loc') || '', min: 0, type: '', remote: false, notApplied: false, sel: params.get('id') };
+
+  const shell = MW.mountShell('jobs', {
+    onSearch: (q, loc) => { st.q = q; st.loc = loc; render(true); },
+    onLayout: () => syncChips(),
+  });
+
+  /* ---------- Chips ---------- */
+  const chipsEl = $('#chips'), chipInd = $('.chip-indicator', chipsEl);
+  const syncChips = () => MW.moveIndicator(chipInd, $('.chip[aria-pressed="true"]', chipsEl), true);
+  CATEGORIES.forEach((c) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.dataset.cat = c;
+    b.setAttribute('aria-pressed', String(c === st.cat));
+    b.innerHTML = `<span>${esc(c)}</span>`;
+    b.addEventListener('click', () => {
+      if (st.cat === c) return;
+      st.cat = c;
+      $$('.chip', chipsEl).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      syncChips(); render(true);
+    });
+    chipsEl.appendChild(b);
+  });
+  chipsEl.addEventListener('keydown', (e) => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    const chips = $$('.chip', chipsEl), i = chips.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    chips[(i + (e.key === 'ArrowRight' ? 1 : chips.length - 1)) % chips.length].focus();
+  });
+
+  /* ---------- Filters ---------- */
+  MW.setupPopover($('#filterBtn'), $('#filterPop'));
+  function segWire(el, key, cast) {
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      st[key] = cast(b.dataset.v);
+      $$('button', el).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      updateCount(); render(true);
+    });
+  }
+  segWire($('#segMatch'), 'min', Number);
+  segWire($('#segType'), 'type', String);
+  $('#fpRemote').addEventListener('change', (e) => { st.remote = e.target.checked; updateCount(); render(true); });
+  $('#fpNotApplied').addEventListener('change', (e) => { st.notApplied = e.target.checked; updateCount(); render(true); });
+  function updateCount() {
+    const n = (st.min > 0) + !!st.type + st.remote + st.notApplied;
+    $('#filterCount').textContent = n;
+    $('#filterCount').classList.toggle('active', n > 0);
+    $('#filterSr').textContent = ` ${n} active`;
+    $('#fpReset').disabled = n === 0;
+  }
+  function resetAll() {
+    Object.assign(st, { cat: 'All Jobs', q: '', loc: '', min: 0, type: '', remote: false, notApplied: false });
+    $('#search').value = ''; $('#searchLoc').value = '';
+    $$('#segMatch button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === '0')));
+    $$('#segType button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === '')));
+    $('#fpRemote').checked = false; $('#fpNotApplied').checked = false;
+    $$('.chip', chipsEl).forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.cat === 'All Jobs')));
+    syncChips(); updateCount(); render(true);
+  }
+  $('#fpReset').addEventListener('click', () => {
+    Object.assign(st, { min: 0, type: '', remote: false, notApplied: false });
+    $$('#segMatch button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === '0')));
+    $$('#segType button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === '')));
+    $('#fpRemote').checked = false; $('#fpNotApplied').checked = false;
+    updateCount(); render(true);
+  });
+
+  /* ---------- List ---------- */
+  const listEl = $('#list'), detailEl = $('#detail');
+  function filtered() {
+    const q = st.q.trim().toLowerCase(), l = st.loc.trim().toLowerCase();
+    return MW.jobs().filter((j) =>
+      (st.cat === 'All Jobs' || j.cats.includes(st.cat)) &&
+      (!q || [j.title, j.company, ...j.skills].join(' ').toLowerCase().includes(q)) &&
+      (!l || j.location.toLowerCase().includes(l)) &&
+      j.match >= st.min && (!st.type || j.type === st.type) &&
+      (!st.remote || /remote/i.test(j.location)) && (!st.notApplied || !MW.appForJob(j.id)));
+  }
+  function rowHTML(j) {
+    const app = MW.appForJob(j.id), saved = MW.isSaved(j.id);
+    const shown = j.skills.slice(0, 3), extra = j.skills.length - shown.length;
+    const state = app
+      ? `<span class="state applied">${MW.ICON.checkSm}Applied</span>`
+      : saved ? `<span class="state"><svg width="12" height="12" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Saved</span>`
+      : `<span class="state">${esc(MW.ago(j.posted))}</span>`;
+    return `<button type="button" class="row" role="listitem" data-id="${esc(j.id)}" aria-current="${j.id === st.sel}">
+      ${MW.logoHTML(j, 'sm')}
+      <span style="min-width:0">
+        <h3>${esc(j.title)}</h3>
+        <span class="meta"><span>${esc(j.company)}</span><span aria-hidden="true">·</span><span>${esc(j.location)}</span></span>
+        <span class="tags">${j.skills.length ? MW.tagsHTML(shown) : '<span class="tag">No required skills</span>'}${extra > 0 ? `<span class="more">+${extra} more</span>` : ''}</span>
+      </span>
+      <span class="side">${MW.scoreHTML(j.match)}${state}</span>
+    </button>`;
+  }
+  function render(animate) {
+    const list = filtered();
+    $('#list-title').textContent = `${list.length} ${list.length === 1 ? 'job' : 'jobs'}`;
+    if (!list.length) {
+      listEl.innerHTML = `<div class="empty"><strong>No jobs match these filters</strong>${st.q.trim() ? `Nothing found for “${esc(st.q.trim())}”. ` : ''}Try a different keyword or clear your filters.<br><button type="button" class="btn btn-secondary" id="clearAll">Clear all filters</button></div>`;
+      $('#clearAll').addEventListener('click', resetAll);
+      detailEl.innerHTML = `<div class="empty" style="padding-top:80px"><strong>Pick a job to see the details</strong>Results show up on the left.</div>`;
+      return;
+    }
+    if (!list.some((j) => j.id === st.sel)) st.sel = list[0].id;
+    listEl.innerHTML = list.map(rowHTML).join('');
+    if (animate && !MW.reduceMotion) $$('.row', listEl).forEach((el, i) => { el.style.animationDelay = Math.min(i, 8) * 40 + 'ms'; el.classList.add('enter'); });
+    renderDetail(false);
+  }
+  function renderDetail(animate) {
+    const j = MW.job(st.sel);
+    if (!j) return;
+    detailEl.innerHTML = MW.jobDetailHTML(j);
+    detailEl.scrollTop = 0;
+    if (animate && !MW.reduceMotion) $('.jd', detailEl).classList.add('enter');
+    const url = new URL(location.href); url.searchParams.set('id', j.id); history.replaceState(null, '', url);
+  }
+  function select(id, focusDetail) {
+    if (id === st.sel) return;
+    st.sel = id;
+    $$('.row', listEl).forEach((r) => r.setAttribute('aria-current', String(r.dataset.id === id)));
+    renderDetail(true);
+    if (window.innerWidth <= 1180) detailEl.scrollIntoView({ behavior: MW.reduceMotion ? 'auto' : 'smooth', block: 'start' });
+    else if (focusDetail) detailEl.focus({ preventScroll: true });
+  }
+  listEl.addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) select(r.dataset.id); });
+  listEl.addEventListener('keydown', (e) => {
+    if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+    const rows = $$('.row', listEl), i = rows.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    const next = rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+    next.focus(); select(next.dataset.id);
+  });
+
+  const refreshRow = (id) => { const r = $(`.row[data-id="${id}"]`, listEl); if (r) { const j = MW.job(id); r.outerHTML = rowHTML(j); } };
+  MW.wireJobActions(detailEl, {
+    onSaved: (id, now, undone) => { refreshRow(id); if (undone) renderDetail(false); },
+    onApplied: (id) => { refreshRow(id); renderDetail(false); if (st.notApplied) render(false); },
+  });
+
+  updateCount();
+  render(false);
+  requestAnimationFrame(() => { const r = $('.row[aria-current="true"]', listEl); if (r) r.scrollIntoView({ block: 'nearest' }); });
+})();
+</script>
+<span id="mw-ready" hidden></span>
+</body>
+</html>

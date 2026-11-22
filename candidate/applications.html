@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchwork – My Applications</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/shell.css">
+<link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/match.js"></script>
+<script src="assets/matchwork.js"></script>
+<style>
+.apps-card{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:16px 0 0}
+.apps-card .page-head{padding:0 22px 0 23px}
+.tabs-row{flex:none;display:flex;align-items:center;gap:10px;margin:14px 22px 0 23px}
+.tabs-row .chips{flex:1 1 auto;overflow-x:auto;scrollbar-width:none;padding:1px}
+.thead,.arow{display:grid;grid-template-columns:44px minmax(0,1.6fr) minmax(92px,.55fr) minmax(118px,.6fr) minmax(170px,1fr) 20px;column-gap:16px;align-items:center}
+.thead{flex:none;margin:16px 14px 0;padding:0 10px 8px;border-bottom:1px solid var(--row-line);font-size:12px;font-weight:600;color:var(--muted)}
+.thead span:first-child{grid-column:1 / 3}
+.alist{flex:1 1 auto;min-height:0;padding:4px 14px 12px}
+.arow{position:relative;width:100%;padding:12px 10px;border:1px solid transparent;background:transparent;text-align:left;cursor:pointer;color:inherit;font-size:13px;transition:background-color .2s,border-color .2s}
+.arow + .arow::after{content:"";position:absolute;left:10px;right:10px;top:-1px;height:1px;background:var(--row-line)}
+/* Same quiet selection as Saved Jobs and Find Jobs: a faint wash, no outline */
+.arow:hover{background:#FAFBFA}
+.arow[aria-current="true"]{background:#F5F8F6}
+.arow[aria-current="true"]::after,.arow[aria-current="true"] + .arow::after,.arow:hover::after,.arow:hover + .arow::after{opacity:0}
+.arow h3{font-size:15px;line-height:20px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow[aria-current="true"] h3{color:var(--green-900)}
+.arow .meta{margin-top:1px;white-space:nowrap;overflow:hidden}
+.arow .when{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.arow .when small{display:block;color:var(--muted);font-size:12px}
+.ivcell{display:flex;align-items:center;gap:7px;color:var(--ink-2);min-width:0}
+.ivcell svg{flex:none;color:var(--muted)}
+.ivcell span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ivcell.none{color:#9AA19C}
+.ivcell.todo{color:var(--honey-ink);font-weight:600}
+.ivcell.todo svg{color:var(--honey-ink)}
+.arow .chev{color:#9AA19C;transition:color .2s,transform .25s var(--ease)}
+.arow:hover .chev{color:var(--green-700);transform:translateX(2px)}
+.arow.enter{animation:rowIn .4s var(--ease) both}
+@keyframes rowIn{from{opacity:0;transform:translateY(8px)}}
+
+/* Rail: application detail */
+.ad{flex:1 1 auto;min-height:0;padding:18px;display:flex;flex-direction:column;gap:16px}
+.ad-head{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:12px;align-items:center}
+.ad-head h2{font-size:18px;line-height:24px;font-weight:700}
+.ad-head .meta{margin-top:1px}
+.ad-facts{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ad-sub{font-size:14px;font-weight:700;margin-bottom:10px}
+.timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.timeline li{position:relative;display:grid;grid-template-columns:18px minmax(0,1fr) auto;column-gap:10px;align-items:start;padding-bottom:14px;font-size:14px;line-height:18px}
+.timeline li:last-child{padding-bottom:0}
+.timeline li::before{content:"";position:absolute;left:8px;top:16px;bottom:-2px;width:2px;border-radius:1px;background:#E3EAE5}
+.timeline li:last-child::before{display:none}
+.timeline .pt{width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--green-500);display:flex;align-items:center;justify-content:center}
+.timeline li:last-child .pt{background:var(--green-500)}
+.timeline li:last-child .pt::after{content:"";width:6px;height:6px;border-radius:50%;background:#fff}
+.timeline li.neg .pt{border-color:#E08A9A}
+.timeline li.neg:last-child .pt{background:#E08A9A}
+.timeline time{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.timeline .ev{font-weight:600;color:var(--ink)}
+.iv{display:flex;flex-direction:column;gap:10px}
+.iv p{font-size:13.5px;line-height:19px;color:var(--ink-2)}
+.iv-when{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;font-size:13px;line-height:18px;color:#2A2F33}
+.iv-when > span{display:flex;align-items:center;gap:6px}
+.iv .btn{align-self:flex-start}
+.ad-foot{margin-top:auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding-top:14px;border-top:1px solid var(--row-line)}
+.ad-foot p{font-size:12.5px;line-height:17px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.ad-foot p svg{flex:none}
+.ad.enter{animation:rowIn .35s var(--ease) both}
+
+@media (max-width:1320px){
+  .thead,.arow{grid-template-columns:44px minmax(0,1.6fr) minmax(110px,.6fr) minmax(150px,1fr) 20px}
+  .thead .c-applied,.arow .when{display:none}
+}
+@media (max-width:1180px){ .col-right .card{flex:none} }
+@media (max-width:760px){
+  .thead{display:none}
+  .arow{grid-template-columns:44px minmax(0,1fr) auto;row-gap:8px}
+  .arow .status{grid-column:3;grid-row:1}
+  .arow .ivcell{grid-column:2 / 4}
+  .arow .chev{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+    <script>MW.renderChrome('applications');</script>
+    <div class="body">
+      <div class="col-left">
+        <section class="card apps-card" aria-labelledby="apps-title">
+          <div class="page-head">
+            <div>
+              <h1 id="apps-title">My applications</h1>
+              <p>Track every job you applied to. Employers update the status as they review you.</p>
+            </div>
+            <a class="link-arrow" href="jobs">Find more jobs
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+          </div>
+          <div class="tabs-row">
+            <div class="chips" id="tabs" role="group" aria-label="Filter by status"><span class="chip-indicator" aria-hidden="true"></span></div>
+          </div>
+          <div class="thead" aria-hidden="true"><span>Job</span><span class="c-applied">Applied</span><span>Status</span><span>Interview</span><span></span></div>
+          <div class="alist scroll" id="alist" role="list" aria-live="polite"></div>
+        </section>
+      </div>
+      <div class="col-right">
+        <section class="card" id="rail" aria-label="Application details" style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden"></section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const { $, $$, esc, ICON } = MW;
+  const STATUSES = ['All', 'Pending', 'Interviewing', 'Accepted', 'Rejected'];
+  const qs = new URLSearchParams(location.search);
+  const st = { tab: STATUSES.includes(qs.get('status')) ? qs.get('status') : 'All', sel: location.hash.slice(1) || null };
+
+  MW.mountShell('applications', { onLayout: () => syncTabs() });
+
+  const tabsEl = $('#tabs'), ind = $('.chip-indicator', tabsEl);
+  const syncTabs = () => MW.moveIndicator(ind, $('.chip[aria-pressed="true"]', tabsEl), true);
+  const apps = () => MW.state.applications.map((a) => ({ ...a, job: MW.job(a.jobId) })).sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt));
+  function renderTabs() {
+    const all = apps();
+    tabsEl.querySelectorAll('.chip').forEach((c) => c.remove());
+    STATUSES.forEach((s) => {
+      const n = s === 'All' ? all.length : all.filter((a) => a.status === s).length;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.dataset.s = s;
+      b.setAttribute('aria-pressed', String(s === st.tab));
+      b.innerHTML = `<span>${s === 'All' ? 'All' : esc(s)}</span><span class="count">${n}</span>`;
+      b.addEventListener('click', () => {
+        if (st.tab === s) return;
+        st.tab = s;
+        $$('.chip', tabsEl).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        syncTabs(); renderList(true);
+        const url = new URL(location.href); s === 'All' ? url.searchParams.delete('status') : url.searchParams.set('status', s); history.replaceState(null, '', url);
+      });
+      tabsEl.appendChild(b);
+    });
+    syncTabs();
+  }
+
+  function ivCell(a) {
+    if (a.slotId) {
+      const sl = MW.slot(a.slotId), past = new Date(sl.start) < MW.NOW;
+      return `<span class="ivcell">${ICON.cal}<span>${past ? 'Held ' : ''}${esc(MW.fmt(sl.start, { weekday: 'short', month: 'short', day: 'numeric' }))}, ${esc(MW.fmtTime(sl.start))}</span></span>`;
+    }
+    if (a.status === 'Interviewing') return `<span class="ivcell todo">${ICON.clock}<span>Pick a time</span></span>`;
+    return `<span class="ivcell none"><span>Not scheduled</span></span>`;
+  }
+  function rowHTML(a) {
+    const j = a.job;
+    return `<button type="button" class="arow" role="listitem" data-app="${esc(a.id)}" aria-current="${a.id === st.sel}">
+      ${MW.logoHTML(j, 'sm')}
+      <span style="min-width:0"><h3>${esc(j.title)}</h3><span class="meta"><span>${esc(j.company)}</span><span aria-hidden="true">·</span><span>${esc(j.location)}</span></span></span>
+      <span class="when">${esc(MW.fmtShort(a.appliedAt))}<small>${esc(MW.ago(a.appliedAt))}</small></span>
+      <span>${MW.statusHTML(a.status)}</span>
+      ${ivCell(a)}
+      <span class="chev">${ICON.chev}</span>
+    </button>`;
+  }
+  const listEl = $('#alist'), rail = $('#rail');
+  function renderList(animate) {
+    const list = apps().filter((a) => st.tab === 'All' || a.status === st.tab);
+    if (!list.length) {
+      listEl.innerHTML = st.tab === 'All'
+        ? `<div class="empty"><strong>No applications yet</strong>When you apply to a job it shows up here with its status.<br><a class="btn btn-primary" href="jobs">Find jobs</a></div>`
+        : `<div class="empty"><strong>No ${esc(st.tab.toLowerCase())} applications</strong>Applications move here when an employer sets them to ${esc(st.tab)}.</div>`;
+      rail.innerHTML = `<div class="empty" style="margin:auto"><strong>Nothing selected</strong>Choose an application to see its history.</div>`;
+      return;
+    }
+    if (!list.some((a) => a.id === st.sel)) st.sel = list[0].id;
+    listEl.innerHTML = list.map(rowHTML).join('');
+    if (animate && !MW.reduceMotion) $$('.arow', listEl).forEach((el, i) => { el.style.animationDelay = i * 45 + 'ms'; el.classList.add('enter'); });
+    renderRail(false);
+  }
+
+  function renderRail(animate) {
+    const a = apps().find((x) => x.id === st.sel);
+    if (!a) return;
+    const j = a.job, sl = a.slotId ? MW.slot(a.slotId) : null;
+    let iv;
+    if (sl) {
+      const past = new Date(sl.start) < MW.NOW;
+      iv = `<div class="panel iv"><div class="ad-sub" style="margin:0">${past ? 'Interview held' : 'Interview booked'}</div>
+        <div class="iv-when"><span>${ICON.cal}${esc(MW.fmtDate(sl.start))}</span><span>${ICON.clock}${esc(MW.fmtRange(sl.start, sl.end))}</span></div>
+        ${past ? '' : `<a class="btn btn-secondary" href="interviews">See in Interviews</a>`}</div>`;
+    } else if (a.status === 'Interviewing') {
+      const n = MW.openSlotsFor(a).length;
+      iv = `<div class="panel iv"><div class="ad-sub" style="margin:0">Choose your interview time</div>
+        <p>${esc(j.company)} invited you to a 30-minute interview. ${n ? `${n} times are open.` : 'No open times right now. Check back soon.'}</p>
+        ${n ? `<a class="btn btn-primary" href="interviews#book-${esc(a.id)}">Book a time</a>` : ''}</div>`;
+    } else {
+      iv = `<div class="panel iv"><div class="ad-sub" style="margin:0">Interview</div><p>${a.status === 'Pending'
+        ? `You can book a time once ${esc(j.company)} moves your application to Interviewing.`
+        : 'No interview was booked for this application.'}</p></div>`;
+    }
+    rail.innerHTML = `<div class="ad${animate && !MW.reduceMotion ? ' enter' : ''}">
+      <div class="ad-head">${MW.logoHTML(j, 'sm')}<div style="min-width:0"><h2>${esc(j.title)}</h2><div class="meta"><span>${esc(j.company)}</span><span aria-hidden="true">·</span><span>${esc(j.location)}</span></div></div></div>
+      <div class="ad-facts">${MW.statusHTML(a.status)}${MW.scoreHTML(j.match)}</div>
+      <div>
+        <div class="ad-sub">History</div>
+        <ol class="timeline">${a.events.map(([ev, at]) => `<li class="${ev === 'Rejected' ? 'neg' : ''}"><span class="pt" aria-hidden="true"></span><span class="ev">${esc(ev)}</span><time datetime="${esc(at)}">${esc(MW.fmtShort(at))}</time></li>`).join('')}</ol>
+      </div>
+      ${iv}
+      <div class="ad-foot">
+        <p>${ICON.lock}Only ${esc(j.company)} can change this status.</p>
+        <a class="link-arrow" href="jobs?id=${esc(j.id)}">View job ${ICON.arrow}</a>
+      </div>
+    </div>`;
+    history.replaceState(null, '', '#' + a.id);
+  }
+  function select(id) {
+    if (id === st.sel) return;
+    st.sel = id;
+    $$('.arow', listEl).forEach((r) => r.setAttribute('aria-current', String(r.dataset.app === id)));
+    renderRail(true);
+    if (window.innerWidth <= 1180) rail.scrollIntoView({ behavior: MW.reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  }
+  listEl.addEventListener('click', (e) => { const r = e.target.closest('.arow'); if (r) select(r.dataset.app); });
+  listEl.addEventListener('keydown', (e) => {
+    if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+    const rows = $$('.arow', listEl), i = rows.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    const next = rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+    next.focus(); select(next.dataset.app);
+  });
+
+  renderTabs();
+  renderList(false);
+})();
+</script>
+<span id="mw-ready" hidden></span>
+</body>
+</html>

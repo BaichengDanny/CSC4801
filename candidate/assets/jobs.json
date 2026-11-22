@@ -1,0 +1,1223 @@
+{
+  "companies": {
+    "Google": {
+      "about": "Search, cloud and consumer products used by billions of people. Engineering teams work across infrastructure, data and product.",
+      "size": "10,000+ employees",
+      "industry": "Internet"
+    },
+    "Meta": {
+      "about": "Builds apps and technologies that help people connect, including Facebook, Instagram and WhatsApp.",
+      "size": "10,000+ employees",
+      "industry": "Internet"
+    },
+    "Microsoft": {
+      "about": "Develops software, cloud services and devices for people and organizations around the world.",
+      "size": "10,000+ employees",
+      "industry": "Software"
+    },
+    "Lumen AI": {
+      "about": "A 60-person applied ML company building recommendation systems for media and retail apps.",
+      "size": "51–200 employees",
+      "industry": "Artificial intelligence"
+    },
+    "Northwind Analytics": {
+      "about": "Analytics consultancy that designs data platforms for mid-size retailers and logistics firms.",
+      "size": "201–500 employees",
+      "industry": "Data services"
+    },
+    "Harbor Health": {
+      "about": "Patient scheduling and records software used by 400 clinics across the West Coast.",
+      "size": "501–1,000 employees",
+      "industry": "Health tech"
+    },
+    "Kestrel Robotics": {
+      "about": "Builds autonomous floor robots for warehouses and the cloud software that coordinates them.",
+      "size": "201–500 employees",
+      "industry": "Robotics"
+    },
+    "Tidewater Labs": {
+      "about": "Makes search and discovery tools for public libraries and university archives.",
+      "size": "51–200 employees",
+      "industry": "Software"
+    },
+    "Pinecrest Bank": {
+      "about": "A regional bank serving Oregon and Washington, rebuilding its online banking in-house.",
+      "size": "1,001–5,000 employees",
+      "industry": "Banking"
+    },
+    "Orbit Freight": {
+      "about": "Digital freight brokerage matching shippers with carriers across North America.",
+      "size": "501–1,000 employees",
+      "industry": "Logistics"
+    },
+    "Stripe": {
+      "about": "Payments infrastructure for online businesses, from checkout to billing and fraud prevention.",
+      "industry": "Financial technology",
+      "logo": "assets/logos/stripe.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Databricks": {
+      "about": "Data and AI platform built around the lakehouse, used for analytics, data engineering and machine learning.",
+      "industry": "Data and AI software",
+      "logo": "assets/logos/databricks.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Discord": {
+      "about": "Voice, video and text chat app where communities and friends hang out.",
+      "industry": "Consumer software",
+      "logo": "assets/logos/discord.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Figma": {
+      "about": "Collaborative design tool in the browser, plus products for prototyping, whiteboarding and building sites.",
+      "industry": "Design software",
+      "logo": "assets/logos/figma.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Instacart": {
+      "about": "Online grocery marketplace connecting shoppers, retailers and personal shoppers in North America.",
+      "industry": "E-commerce",
+      "logo": "assets/logos/instacart.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Notion": {
+      "about": "Connected workspace for docs, wikis, projects and AI, used by teams of every size.",
+      "industry": "Productivity software",
+      "logo": "assets/logos/notion.svg",
+      "w": 32,
+      "h": 32
+    },
+    "OpenAI": {
+      "about": "AI research and deployment company behind ChatGPT, Codex and the OpenAI API.",
+      "industry": "Artificial intelligence",
+      "logo": "assets/logos/openai.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Palantir": {
+      "about": "Software platforms (Foundry, Gotham, AIP) that help organizations integrate data and run operations.",
+      "industry": "Data software",
+      "logo": "assets/logos/palantir.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Pinterest": {
+      "about": "Visual discovery platform where people find ideas for recipes, style, home and more.",
+      "industry": "Internet",
+      "logo": "assets/logos/pinterest.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Ramp": {
+      "about": "Corporate cards and finance automation software for expenses, bill pay and procurement.",
+      "industry": "Financial technology",
+      "logo": "assets/logos/ramp.png",
+      "w": 32,
+      "h": 32
+    },
+    "Reddit": {
+      "about": "Network of communities where people talk about their interests, from news to hobbies.",
+      "industry": "Internet",
+      "logo": "assets/logos/reddit.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Robinhood": {
+      "about": "Investing, crypto, retirement and banking app for individual customers.",
+      "industry": "Financial services",
+      "logo": "assets/logos/robinhood.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Spotify": {
+      "about": "Audio streaming service for music, podcasts and audiobooks.",
+      "industry": "Media and entertainment",
+      "logo": "assets/logos/spotify.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Coinbase": {
+      "about": "Platform for buying, selling and storing crypto, with tools for developers and institutions.",
+      "industry": "Cryptocurrency",
+      "logo": "assets/logos/coinbase.png",
+      "w": 32,
+      "h": 32
+    },
+    "Airbnb": {
+      "about": "Marketplace for stays and experiences hosted by people around the world.",
+      "industry": "Travel",
+      "logo": "assets/logos/airbnb.svg",
+      "w": 32,
+      "h": 32
+    },
+    "Ferncliff Studio": {
+      "about": "A product studio that pairs graduate engineers with mentors on client projects for 12 months.",
+      "size": "11–50 employees",
+      "industry": "Software services"
+    }
+  },
+  "jobs": [
+    {
+      "id": "g",
+      "seq": 1,
+      "logo": "assets/logos/google.png",
+      "w": 31,
+      "h": 32,
+      "title": "Software Engineer",
+      "company": "Google",
+      "location": "Mountain View, CA",
+      "type": "Full-time",
+      "posted": "2026-11-13",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Build and improve scalable systems used by millions of users.",
+      "body": "Join the Storage Infrastructure team that keeps product data available and consistent across regions.\n- Design and build services that handle millions of requests per second\n- Improve reliability through better testing, rollout and monitoring\n- Review code and mentor engineers on your team",
+      "skills": [
+        "Python",
+        "Java",
+        "SQL",
+        "Distributed Systems"
+      ]
+    },
+    {
+      "id": "m",
+      "seq": 2,
+      "logo": "assets/logos/meta.png",
+      "w": 35,
+      "h": 24,
+      "title": "Backend Engineer",
+      "company": "Meta",
+      "location": "Menlo Park, CA",
+      "type": "Full-time",
+      "posted": "2026-10-29",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Design and develop reliable backend services at scale.",
+      "body": "Work on the messaging backend that delivers billions of messages a day.\n- Own services end to end, from design review to on-call\n- Tune storage and caching layers for latency and cost\n- Partner with product teams on new features",
+      "skills": [
+        "Python",
+        "Go",
+        "SQL",
+        "Distributed Systems"
+      ]
+    },
+    {
+      "id": "ms",
+      "seq": 3,
+      "logo": "assets/logos/microsoft.png",
+      "w": 31,
+      "h": 32,
+      "title": "Full Stack Engineer",
+      "company": "Microsoft",
+      "location": "Redmond, WA",
+      "type": "Full-time",
+      "posted": "2026-11-10",
+      "cats": [
+        "Software",
+        "Frontend"
+      ],
+      "desc": "Work on end-to-end features across web and cloud platforms.",
+      "body": "Build customer-facing features in the Azure portal, from React components to the Node.js services behind them.\n- Ship features across the web client and APIs\n- Write accessible, well-tested UI\n- Work with designers and PMs in two-week cycles",
+      "skills": [
+        "JavaScript",
+        "React",
+        "Node.js",
+        "SQL"
+      ]
+    },
+    {
+      "id": "l",
+      "seq": 4,
+      "mono": "L",
+      "tint": "#5B3FC4",
+      "tileBg": "#F4F1FD",
+      "title": "Machine Learning Engineer",
+      "company": "Lumen AI",
+      "location": "San Francisco, CA",
+      "type": "Full-time",
+      "posted": "2026-11-12",
+      "cats": [
+        "AI / ML",
+        "Data"
+      ],
+      "desc": "Train and ship ranking models that power personalized recommendations.",
+      "body": "Own ranking models from offline experiments to production serving.\n- Train and evaluate recommendation models in PyTorch\n- Build feature pipelines with SQL and Python\n- Run A/B tests and report results to customers",
+      "skills": [
+        "Python",
+        "PyTorch",
+        "SQL",
+        "TensorFlow"
+      ]
+    },
+    {
+      "id": "n",
+      "seq": 5,
+      "mono": "N",
+      "tint": "#B2410F",
+      "tileBg": "#FDF2EA",
+      "title": "Data Engineer",
+      "company": "Northwind Analytics",
+      "location": "Seattle, WA",
+      "type": "Full-time",
+      "posted": "2026-10-08",
+      "cats": [
+        "Data"
+      ],
+      "desc": "Build reliable data pipelines and warehouse models for analytics teams.",
+      "body": "Design batch and streaming pipelines for client data warehouses.\n- Model data in dbt and orchestrate jobs in Airflow\n- Process event streams with Kafka and Spark\n- Keep pipelines observable and cheap to run",
+      "skills": [
+        "SQL",
+        "Python",
+        "Java",
+        "Airflow",
+        "Spark",
+        "dbt",
+        "Kafka"
+      ]
+    },
+    {
+      "id": "hh",
+      "seq": 6,
+      "mono": "H",
+      "tint": "#0F6E7A",
+      "tileBg": "#E9F5F6",
+      "title": "Platform Engineer",
+      "company": "Harbor Health",
+      "location": "Portland, OR",
+      "type": "Full-time",
+      "posted": "2026-10-05",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Run the platform that keeps clinic scheduling online around the clock.",
+      "body": "Help clinics stay online by building the internal platform our product teams deploy to.\n- Maintain Kubernetes clusters and deployment tooling\n- Build Java services for scheduling and audit logs\n- Improve database performance and backups",
+      "skills": [
+        "Java",
+        "SQL",
+        "Kubernetes"
+      ]
+    },
+    {
+      "id": "kr",
+      "seq": 7,
+      "mono": "K",
+      "tint": "#9A5B00",
+      "tileBg": "#FBF3E4",
+      "title": "Backend Engineer, Fleet Services",
+      "company": "Kestrel Robotics",
+      "location": "Remote (US)",
+      "type": "Full-time",
+      "posted": "2026-11-09",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Coordinate hundreds of warehouse robots through fast, fault-tolerant services.",
+      "body": "Build the services that assign tasks to robots and track them in real time.\n- Design gRPC APIs used by robots and dashboards\n- Handle partial failure across unreliable warehouse networks\n- Profile and speed up hot paths in Python services",
+      "skills": [
+        "Python",
+        "Distributed Systems",
+        "gRPC"
+      ]
+    },
+    {
+      "id": "tw",
+      "seq": 8,
+      "mono": "T",
+      "tint": "#1F5FA8",
+      "tileBg": "#EAF1FA",
+      "title": "Software Engineer, Search",
+      "company": "Tidewater Labs",
+      "location": "Oakland, CA",
+      "type": "Full-time",
+      "posted": "2026-11-04",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Make library catalogs and archives easier to search.",
+      "body": "Improve relevance and speed for search across 40 million catalog records.\n- Build indexing pipelines in Java and Python\n- Tune Elasticsearch ranking with librarians as your users\n- Scale query serving across a small cluster",
+      "skills": [
+        "Java",
+        "Python",
+        "Elasticsearch",
+        "Distributed Systems",
+        "SQL"
+      ]
+    },
+    {
+      "id": "pb",
+      "seq": 9,
+      "mono": "P",
+      "tint": "#2D6A3E",
+      "tileBg": "#EDF5EE",
+      "title": "Frontend Engineer",
+      "company": "Pinecrest Bank",
+      "location": "Remote (US)",
+      "type": "Contract",
+      "posted": "2026-11-06",
+      "cats": [
+        "Software",
+        "Frontend"
+      ],
+      "desc": "Rebuild online banking screens with a focus on accessibility.",
+      "body": "Help rebuild the online banking experience used by 300,000 customers.\n- Build React and TypeScript components for the design system\n- Meet WCAG 2.2 AA across every flow\n- Write clean, maintainable CSS",
+      "skills": [
+        "React",
+        "TypeScript",
+        "CSS",
+        "Accessibility"
+      ]
+    },
+    {
+      "id": "ob",
+      "seq": 10,
+      "mono": "O",
+      "tint": "#5E5E66",
+      "tileBg": "#F2F2F4",
+      "title": "Site Reliability Engineer",
+      "company": "Orbit Freight",
+      "location": "Denver, CO",
+      "type": "Full-time",
+      "posted": "2026-11-11",
+      "cats": [
+        "Software"
+      ],
+      "desc": "Keep the freight marketplace fast and available during peak shipping.",
+      "body": "Own uptime for the marketplace that books 20,000 loads a day.\n- Automate infrastructure with Terraform\n- Run Kubernetes workloads and tune Linux hosts\n- Write Go tools for incident response",
+      "skills": [
+        "Go",
+        "Kubernetes",
+        "Terraform",
+        "Linux"
+      ]
+    },
+    {
+      "id": "fc",
+      "seq": 11,
+      "mono": "F",
+      "tint": "#7A3E8E",
+      "tileBg": "#F6EEF8",
+      "title": "Graduate Engineer Rotation",
+      "company": "Ferncliff Studio",
+      "location": "Remote (US)",
+      "type": "Full-time",
+      "posted": "2026-11-14",
+      "cats": [
+        "Software"
+      ],
+      "desc": "A 12-month rotation across three client teams. No specific skills required.",
+      "body": "Rotate through three client projects over 12 months with a dedicated mentor.\n- Ship production work from your first month\n- Try frontend, backend and data work before choosing a track\n- Weekly pairing sessions and a learning budget",
+      "skills": []
+    },
+    {
+      "id": "r-stripe-radar",
+      "seq": 100,
+      "mono": "S",
+      "tint": "#533AFD",
+      "tileBg": "#EFEDFF",
+      "title": "Backend / API Engineer, Radar",
+      "company": "Stripe",
+      "location": "San Francisco, Seattle or New York",
+      "type": "Full-time",
+      "posted": "2026-10-19",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Build the low-latency services and enterprise APIs behind Stripe’s fraud-prevention product.",
+      "body": "Radar scores payments for fraud across Stripe’s network. This team owns the backend that serves those decisions and the APIs businesses use to plug Radar into their own payment flows.\n- Design and run low-latency services that sit in the payment path\n- Build enterprise APIs for fraud and abuse controls\n- Work with ML engineers to ship model-backed features safely",
+      "skills": [
+        "Distributed Systems",
+        "Machine Learning"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://stripe.com/jobs/search?gh_jid=8301253",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-stripe-bridge",
+      "seq": 101,
+      "mono": "S",
+      "tint": "#533AFD",
+      "tileBg": "#EFEDFF",
+      "title": "Full Stack Engineer, Bridge",
+      "company": "Stripe",
+      "location": "San Francisco or New York",
+      "type": "Full-time",
+      "posted": "2026-08-20",
+      "cats": [
+        "Software",
+        "Frontend",
+        "Backend"
+      ],
+      "desc": "Ship end-to-end features for Bridge, Stripe’s stablecoin payments and payouts platform.",
+      "body": "Bridge moves money globally through virtual accounts and payouts. Engineers here own projects from design to launch, often without a dedicated product manager.\n- Build frontend apps, backend services and APIs for payments and payouts\n- Design interfaces for developers and operations teams\n- Debug production issues across the whole stack",
+      "skills": [
+        "SQL",
+        "Distributed Systems"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://stripe.com/jobs/search?gh_jid=8142764",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-stripe-privy",
+      "seq": 102,
+      "mono": "S",
+      "tint": "#533AFD",
+      "tileBg": "#EFEDFF",
+      "title": "Infrastructure Engineer, Privy",
+      "company": "Stripe",
+      "location": "New York, NY",
+      "type": "Full-time",
+      "posted": "2026-01-02",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Keep Privy’s wallet and authentication infrastructure highly available and secure.",
+      "body": "Privy, part of Stripe, gives developers embedded wallets and sign-in. The team favors proven tools so effort goes into security-critical product work.\n- Run highly available production systems on AWS\n- Manage infrastructure as code with Terraform\n- Build simple developer experiences around authentication",
+      "skills": [
+        "TypeScript",
+        "Python",
+        "Terraform",
+        "AWS",
+        "Node.js"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://stripe.com/jobs/search?gh_jid=7462961",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-databricks-access",
+      "seq": 103,
+      "mono": "D",
+      "tint": "#C2381F",
+      "tileBg": "#FDEDEA",
+      "title": "Senior Software Engineer - Access Management",
+      "company": "Databricks",
+      "location": "Bellevue, WA",
+      "type": "Full-time",
+      "posted": "2026-11-04",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Evolve the authorization service that decides who can access what across Databricks.",
+      "body": "The team owns permission checks for the whole platform, a high-throughput, low-latency service.\n- Consolidate permission checks under one authorization model\n- Build fine-grained controls such as role-based access and scoped service identities\n- Improve availability and reliability of a critical service",
+      "skills": [
+        "Java",
+        "Scala",
+        "C++",
+        "Distributed Systems"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8931033002",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-discord-revenue",
+      "seq": 104,
+      "mono": "D",
+      "tint": "#4752C4",
+      "tileBg": "#EEF0FC",
+      "title": "Senior Software Engineer, Consumer Revenue",
+      "company": "Discord",
+      "location": "San Francisco Bay Area",
+      "type": "Full-time",
+      "posted": "2026-11-12",
+      "cats": [
+        "Software",
+        "Frontend"
+      ],
+      "desc": "Build Discord’s premium experiences, including Nitro, the shop and server boosts.",
+      "body": "Consumer Revenue squads build what subscribers pay for, without taking anything away from free users.\n- Ship product features across web and mobile clients\n- Work on surfaces like Nitro, shop, boosting and user identity\n- Balance premium value with the core free experience",
+      "skills": [
+        "React",
+        "TypeScript",
+        "Python",
+        "React Native"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://job-boards.greenhouse.io/discord/jobs/8731320002",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-discord-ml",
+      "seq": 105,
+      "mono": "D",
+      "tint": "#4752C4",
+      "tileBg": "#EEF0FC",
+      "title": "Senior Machine Learning Engineer (Growth)",
+      "company": "Discord",
+      "location": "San Francisco Bay Area",
+      "type": "Full-time",
+      "posted": "2026-11-04",
+      "cats": [
+        "AI / ML"
+      ],
+      "desc": "Build recommendation systems that help new users find their first communities.",
+      "body": "The Engagement ML team works with the Onboarding squad to turn a first session into a lasting habit.\n- Design and scale recommenders for servers, people and content\n- Own models end to end, from data to production\n- Run experiments with product and data science partners",
+      "skills": [
+        "Python",
+        "PyTorch",
+        "TensorFlow",
+        "Machine Learning"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://job-boards.greenhouse.io/discord/jobs/8910013002",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-figma-platform",
+      "seq": 106,
+      "mono": "F",
+      "tint": "#A23DD8",
+      "tileBg": "#F5ECFB",
+      "title": "Software Engineer - Application Platform",
+      "company": "Figma",
+      "location": "San Francisco, New York or Remote (US)",
+      "type": "Full-time",
+      "posted": "2026-11-06",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Improve the shared Ruby frameworks and tooling that Figma’s backend engineers build on.",
+      "body": "This team builds for other engineers: the frameworks, local workflows and paved paths behind Figma’s backend.\n- Evolve shared frameworks for APIs, async jobs and data access\n- Modernize a large Ruby codebase with safe architectural changes\n- Speed up local development, tests and CI",
+      "skills": [
+        "Ruby",
+        "Distributed Systems",
+        "AWS",
+        "Kubernetes",
+        "Terraform"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://boards.greenhouse.io/figma/jobs/6242561004?gh_jid=6242561004",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-figma-data-intern",
+      "seq": 107,
+      "mono": "F",
+      "tint": "#A23DD8",
+      "tileBg": "#F5ECFB",
+      "title": "Data Engineer Intern (2027)",
+      "company": "Figma",
+      "location": "San Francisco or New York",
+      "type": "Internship",
+      "posted": "2026-09-23",
+      "cats": [
+        "Data"
+      ],
+      "desc": "Summer internship building and documenting data pipelines into Figma’s warehouse.",
+      "body": "Interns pair with engineers and analysts to make Figma’s data reliable and easy to use.\n- Build, test and document data pipelines\n- Help design trusted, well-documented core datasets\n- Tune pipelines for performance as data grows",
+      "skills": [
+        "Python",
+        "SQL"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://boards.greenhouse.io/figma/jobs/6178851004?gh_jid=6178851004",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-instacart-ads",
+      "seq": 108,
+      "mono": "I",
+      "tint": "#0A7A2E",
+      "tileBg": "#E8F5EC",
+      "title": "Senior Software Engineer II, Ads Data Solutions Engineering",
+      "company": "Instacart",
+      "location": "Remote (US)",
+      "type": "Full-time",
+      "posted": "2026-10-14",
+      "cats": [
+        "Data",
+        "Backend"
+      ],
+      "desc": "Tech-lead the data platform behind Instacart’s advertising integrations and clean rooms.",
+      "body": "A senior individual-contributor role leading architecture for ads data workflows with external platforms.\n- Design reusable pipelines for off-platform ads, clean rooms and taxonomy\n- Improve testing, CI/CD, observability and cost\n- Mentor engineers and set review standards",
+      "skills": [
+        "Python",
+        "SQL",
+        "Spark",
+        "Airflow",
+        "dbt",
+        "Snowflake"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://instacart.careers/job/?gh_jid=8281965",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-instacart-ml",
+      "seq": 109,
+      "mono": "I",
+      "tint": "#0A7A2E",
+      "tileBg": "#E8F5EC",
+      "title": "Senior Machine Learning Engineer, Fulfillment",
+      "company": "Instacart",
+      "location": "Remote (US)",
+      "type": "Full-time",
+      "posted": "2026-10-30",
+      "cats": [
+        "AI / ML"
+      ],
+      "desc": "Build production ML that makes grocery fulfillment faster and more reliable.",
+      "body": "Work across the full ML lifecycle on problems in shopping and delivery operations.\n- Frame problems, build features and train models\n- Deploy, monitor and keep improving models in production\n- Partner with product, data science and platform teams",
+      "skills": [
+        "Python",
+        "SQL",
+        "Machine Learning",
+        "Kubernetes",
+        "Docker"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://instacart.careers/job/?gh_jid=8240305",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-notion-data",
+      "seq": 110,
+      "mono": "N",
+      "tint": "#2F3437",
+      "tileBg": "#F1F1EF",
+      "title": "Data Engineer, Product",
+      "company": "Notion",
+      "location": "San Francisco, CA",
+      "type": "Full-time",
+      "posted": "2026-10-28",
+      "cats": [
+        "Data"
+      ],
+      "desc": "Build the trusted datasets Notion’s product and business teams decide with.",
+      "body": "Data engineers here define how data flows across the company and own the core sources of truth.\n- Define ETL processes and data infrastructure\n- Build core datasets for product, finance and sales teams\n- Monitor pipelines that scale with Notion’s growth",
+      "skills": [
+        "SQL",
+        "Python",
+        "Airflow",
+        "dbt",
+        "Spark",
+        "Snowflake"
+      ],
+      "source": {
+        "board": "Ashby",
+        "url": "https://jobs.ashbyhq.com/notion/73a71747-28d3-4dda-a718-77336056e687",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-notion-intern",
+      "seq": 111,
+      "mono": "N",
+      "tint": "#2F3437",
+      "tileBg": "#F1F1EF",
+      "title": "Software Engineer Intern (Summer 2027)",
+      "company": "Notion",
+      "location": "San Francisco or New York",
+      "type": "Internship",
+      "posted": "2026-08-14",
+      "cats": [
+        "Software"
+      ],
+      "desc": "Summer internship shipping full-stack features in the Notion product.",
+      "body": "Interns write production code across Notion’s stack with an AI-first approach to product work.\n- Build new capabilities into the Notion product\n- Work across web services, databases and tools\n- Write clean, tested and documented code",
+      "skills": [
+        "TypeScript",
+        "Node.js",
+        "Python"
+      ],
+      "source": {
+        "board": "Ashby",
+        "url": "https://jobs.ashbyhq.com/notion/3fba1c39-c5cb-47d7-9ad2-1cec4d7e9d0c",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-notion-devplat",
+      "seq": 112,
+      "mono": "N",
+      "tint": "#2F3437",
+      "tileBg": "#F1F1EF",
+      "title": "Software Engineer, Developer Platform",
+      "company": "Notion",
+      "location": "San Francisco, CA",
+      "type": "Full-time",
+      "posted": "2026-10-19",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Build the APIs and integration tools that connect Notion to other apps.",
+      "body": "Developer Platform makes Notion extensible, from public APIs to tools for AI agents.\n- Evolve APIs, MCP tools and integration infrastructure\n- Help builders create reliable automations on Notion\n- Take features from research through launch",
+      "skills": [
+        "TypeScript",
+        "LLMs"
+      ],
+      "source": {
+        "board": "Ashby",
+        "url": "https://jobs.ashbyhq.com/notion/8c0bf773-e536-45c9-9a6c-8ee478148cc8",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-openai-applied",
+      "seq": 113,
+      "mono": "O",
+      "tint": "#10A37F",
+      "tileBg": "#E7F6F2",
+      "title": "Backend Software Engineer, Applied Foundations",
+      "company": "OpenAI",
+      "location": "San Francisco, CA",
+      "type": "Full-time",
+      "posted": "2026-05-07",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Build the identity, payments and safety platform layers under ChatGPT and Codex.",
+      "body": "Applied Foundations owns the shared platform that OpenAI’s apps run on, at global scale.\n- Design secure services for identity, access and commerce\n- Build safety systems shared across products\n- Keep platform services reliable for millions of users",
+      "skills": [
+        "Python",
+        "Rust",
+        "Distributed Systems"
+      ],
+      "source": {
+        "board": "Ashby",
+        "url": "https://jobs.ashbyhq.com/openai/b398e1c6-0c32-4464-bb34-6ccda901b688",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-openai-devices",
+      "seq": 114,
+      "mono": "O",
+      "tint": "#10A37F",
+      "tileBg": "#E7F6F2",
+      "title": "Backend Engineer, Consumer Devices",
+      "company": "OpenAI",
+      "location": "San Francisco, CA",
+      "type": "Full-time",
+      "posted": "2026-01-20",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Build the backend services and APIs for OpenAI’s consumer hardware products.",
+      "body": "This team supports new device products, from early prototypes to large deployments.\n- Architect secure, high-performance backend systems\n- Design APIs and data models for device features\n- Work closely with hardware and full-stack teams",
+      "skills": [
+        "Python",
+        "Distributed Systems"
+      ],
+      "source": {
+        "board": "Ashby",
+        "url": "https://jobs.ashbyhq.com/openai/8e301350-62fb-4251-bc34-c7036498f08c",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-palantir-connectors",
+      "seq": 115,
+      "mono": "P",
+      "tint": "#1F2933",
+      "tileBg": "#EEF0F2",
+      "title": "Backend Software Engineer - Data Connectors",
+      "company": "Palantir",
+      "location": "New York, NY",
+      "type": "Full-time",
+      "posted": "2026-11-04",
+      "cats": [
+        "Software",
+        "Backend",
+        "Data"
+      ],
+      "desc": "Build the connectors that move data between customer systems and Palantir Foundry.",
+      "body": "The Connectivity team integrates databases, enterprise apps, cloud storage and streams with Foundry.\n- Build and maintain data connectors and sync infrastructure\n- Support batch, streaming and write-back to operational systems\n- Keep connections reliable for AI workflows built on top",
+      "skills": [
+        "Java",
+        "Python",
+        "Kafka",
+        "Kubernetes"
+      ],
+      "source": {
+        "board": "Lever",
+        "url": "https://jobs.lever.co/palantir/9aadca04-df88-4b46-95d8-c3b2628b30b0",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-palantir-data",
+      "seq": 116,
+      "mono": "P",
+      "tint": "#1F2933",
+      "tileBg": "#EEF0F2",
+      "title": "Data Engineer - Talent Acquisition Operations",
+      "company": "Palantir",
+      "location": "New York, NY",
+      "type": "Full-time",
+      "posted": "2026-10-07",
+      "cats": [
+        "Data"
+      ],
+      "desc": "Turn recruiting processes into reliable datasets, dashboards and automations.",
+      "body": "A data role at the meeting point of engineering and business operations.\n- Build data foundations and reporting for hiring operations\n- Automate workflows with recruiting, security and privacy partners\n- Ship dashboards and internal tools",
+      "skills": [
+        "Python",
+        "SQL",
+        "TypeScript"
+      ],
+      "source": {
+        "board": "Lever",
+        "url": "https://jobs.lever.co/palantir/1b690123-1766-4e75-a0ef-0f58afa864b4",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-pinterest-data",
+      "seq": 117,
+      "mono": "P",
+      "tint": "#C8102E",
+      "tileBg": "#FCEBEE",
+      "title": "Software Engineer II, Data Analytics & Engineering",
+      "company": "Pinterest",
+      "location": "San Francisco or Remote (US)",
+      "type": "Full-time",
+      "posted": "2026-09-18",
+      "cats": [
+        "Data"
+      ],
+      "desc": "Set instrumentation standards and build analysis pipelines for product teams.",
+      "body": "This team helps engineers and data scientists trust their metrics.\n- Define instrumentation and experimentation standards\n- Build scalable analysis pipelines and tooling\n- Make trusted datasets and metric definitions self-serve",
+      "skills": [
+        "SQL",
+        "Python"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://www.pinterestcareers.com/jobs/?gh_jid=8213988",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-pinterest-intern",
+      "seq": 118,
+      "mono": "P",
+      "tint": "#C8102E",
+      "tileBg": "#FCEBEE",
+      "title": "Software Engineer Intern 2027 (USA)",
+      "company": "Pinterest",
+      "location": "San Francisco or Remote (US)",
+      "type": "Internship",
+      "posted": "2026-10-01",
+      "cats": [
+        "Software"
+      ],
+      "desc": "Summer internship delivering scoped engineering projects with a mentor.",
+      "body": "Interns own scoped tasks end to end with support from a mentor and their team.\n- Ship well-documented, tested code\n- Use AI tools in everyday engineering work\n- Share ideas openly as you grow",
+      "skills": [
+        "Python",
+        "Java",
+        "JavaScript",
+        "React"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://www.pinterestcareers.com/jobs/?gh_jid=7838577",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-ramp-ops",
+      "seq": 119,
+      "mono": "R",
+      "tint": "#6B6B00",
+      "tileBg": "#F6F6DC",
+      "title": "Backend Engineer, Ops Engineering",
+      "company": "Ramp",
+      "location": "New York, NY",
+      "type": "Full-time",
+      "posted": "2026-03-04",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Build the internal tools and integrations Ramp’s operations teams rely on.",
+      "body": "Ops Engineering builds full-stack internal apps that help support and operations teams move faster.\n- Build backend services and APIs for internal tooling\n- Integrate platforms like Zendesk and Retool\n- Use AI to automate operational workflows",
+      "skills": [
+        "Python",
+        "TypeScript",
+        "PostgreSQL",
+        "Redis",
+        "React"
+      ],
+      "source": {
+        "board": "Ashby",
+        "url": "https://jobs.ashbyhq.com/ramp/7bfa613e-151c-469b-9973-c89ee3d14838",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-ramp-ml",
+      "seq": 120,
+      "mono": "R",
+      "tint": "#6B6B00",
+      "tileBg": "#F6F6DC",
+      "title": "Machine Learning Engineer",
+      "company": "Ramp",
+      "location": "New York, NY",
+      "type": "Full-time",
+      "posted": "2026-09-23",
+      "cats": [
+        "AI / ML"
+      ],
+      "desc": "Lead the models and data architecture that stop fraud at Ramp.",
+      "body": "Build fraud models that stop threats while keeping friction low for real customers.\n- Train and evaluate models on large financial datasets\n- Design the data architecture behind them\n- Set the roadmap with product and engineering partners",
+      "skills": [
+        "Python",
+        "PyTorch",
+        "SQL",
+        "Snowflake",
+        "Machine Learning"
+      ],
+      "source": {
+        "board": "Ashby",
+        "url": "https://jobs.ashbyhq.com/ramp/2888b101-b1da-4e53-a02e-1bb9b1b5a951",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-reddit-compliance",
+      "seq": 121,
+      "mono": "R",
+      "tint": "#D93A00",
+      "tileBg": "#FDEEE8",
+      "title": "Senior Backend Engineer, Compliance Engineering",
+      "company": "Reddit",
+      "location": "Remote (US)",
+      "type": "Full-time",
+      "posted": "2026-08-13",
+      "cats": [
+        "Software",
+        "Backend"
+      ],
+      "desc": "Adapt Reddit’s platforms to new privacy, security and regulatory requirements.",
+      "body": "A visible team building trusted, compliant experiences across Reddit.\n- Own product areas from technical design to rollout\n- Partner with product and engineering teams company-wide\n- Shape a new product space in privacy and compliance",
+      "skills": [
+        "Python",
+        "PostgreSQL",
+        "Redis",
+        "GraphQL",
+        "Kubernetes"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://job-boards.greenhouse.io/reddit/jobs/8128860",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-reddit-ads",
+      "seq": 122,
+      "mono": "R",
+      "tint": "#D93A00",
+      "tileBg": "#FDEEE8",
+      "title": "Senior Frontend Engineer, Ads Formats",
+      "company": "Reddit",
+      "location": "Remote (US)",
+      "type": "Full-time",
+      "posted": "2026-10-29",
+      "cats": [
+        "Software",
+        "Frontend"
+      ],
+      "desc": "Build fast, accessible ad formats across Reddit’s desktop and mobile web.",
+      "body": "Work on browser-level problems that keep ads fast and dependable for every reader.\n- Develop resilient frontend features in TypeScript\n- Protect site performance and accessibility\n- Make product and engineering tradeoffs with design partners",
+      "skills": [
+        "JavaScript",
+        "TypeScript",
+        "React",
+        "CSS",
+        "Accessibility"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://job-boards.greenhouse.io/reddit/jobs/8287466",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-robinhood-cards",
+      "seq": 123,
+      "mono": "R",
+      "tint": "#2E7D1F",
+      "tileBg": "#ECF6EA",
+      "title": "Full Stack Software Engineer, Credit Cards & Banking",
+      "company": "Robinhood",
+      "location": "Menlo Park, Bellevue or New York",
+      "type": "Full-time",
+      "posted": "2026-06-17",
+      "cats": [
+        "Software",
+        "Frontend",
+        "Mobile"
+      ],
+      "desc": "Build Robinhood’s credit card and banking apps, from mobile screens to backend.",
+      "body": "This team owns the whole customer-facing product for credit cards and banking.\n- Ship features across the mobile app and backend systems\n- Drive features from design to launch with full ownership\n- Scale a highly rated standalone app",
+      "skills": [
+        "React",
+        "React Native",
+        "TypeScript",
+        "Scala"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://boards.greenhouse.io/robinhood/jobs/8008723?t=gh_src=&gh_jid=8008723",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-spotify-music",
+      "seq": 124,
+      "mono": "S",
+      "tint": "#1A8A44",
+      "tileBg": "#E8F6ED",
+      "title": "Full Stack Engineer - Music",
+      "company": "Spotify",
+      "location": "New York, NY",
+      "type": "Full-time",
+      "posted": "2026-10-02",
+      "cats": [
+        "Software",
+        "Frontend",
+        "Backend"
+      ],
+      "desc": "Build Java services and React SDKs behind Spotify’s music experiences.",
+      "body": "Work across backend services and the frontend SDKs that connect listeners to Spotify’s infrastructure.\n- Build and maintain scalable Java services\n- Evolve APIs that link user experiences to internal systems\n- Develop frontend SDKs in React and TypeScript",
+      "skills": [
+        "Java",
+        "React",
+        "TypeScript"
+      ],
+      "source": {
+        "board": "Lever",
+        "url": "https://jobs.lever.co/spotify/9899871a-4307-4367-9f74-039569d7a650",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-coinbase-portfolio",
+      "seq": 125,
+      "mono": "C",
+      "tint": "#0052FF",
+      "tileBg": "#E9EFFF",
+      "title": "Senior Frontend Engineer, Portfolio",
+      "company": "Coinbase",
+      "location": "Remote (US)",
+      "type": "Full-time",
+      "posted": "2026-10-16",
+      "cats": [
+        "Software",
+        "Frontend"
+      ],
+      "desc": "Own the balances, holdings and returns views in Coinbase’s web and mobile apps.",
+      "body": "Portfolio shows customers what they own, in real time, at Coinbase scale.\n- Build fast, accessible UI for live financial data\n- Drive frontend architecture, testing and performance\n- Take ambiguous problems from scoping to rollout",
+      "skills": [
+        "React",
+        "TypeScript",
+        "GraphQL",
+        "Accessibility"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://www.coinbase.com/careers/positions/8285182?gh_jid=8285182",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-coinbase-ml-intern",
+      "seq": 126,
+      "mono": "C",
+      "tint": "#0052FF",
+      "tileBg": "#E9EFFF",
+      "title": "Machine Learning Engineer Intern",
+      "company": "Coinbase",
+      "location": "San Francisco, CA (hybrid)",
+      "type": "Internship",
+      "posted": "2026-09-08",
+      "cats": [
+        "AI / ML"
+      ],
+      "desc": "PhD internship applying modern ML to crypto and blockchain problems.",
+      "body": "Interns run an end-to-end research project and take models toward production.\n- Develop and deploy ML models and pipelines\n- Apply new techniques to a defined business problem\n- Present findings to cross-functional teams",
+      "skills": [
+        "Python",
+        "PyTorch",
+        "TensorFlow",
+        "Machine Learning"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://www.coinbase.com/careers/positions/8175441?gh_jid=8175441",
+        "imported": "2026-11-18"
+      }
+    },
+    {
+      "id": "r-airbnb-ios",
+      "seq": 127,
+      "mono": "A",
+      "tint": "#E0294F",
+      "tileBg": "#FDEBEF",
+      "title": "Senior Software Engineer, iOS Platform",
+      "company": "Airbnb",
+      "location": "United States",
+      "type": "Full-time",
+      "posted": "2026-10-09",
+      "cats": [
+        "Software",
+        "Mobile"
+      ],
+      "desc": "Build the frameworks, tooling and CI that Airbnb’s iOS engineers work with.",
+      "body": "iOS Platform makes iOS development at Airbnb fast and high quality.\n- Maintain core libraries behind most of the iOS app\n- Improve build systems, CI and testing\n- Build AI automations for developer workflows",
+      "skills": [
+        "Swift",
+        "iOS"
+      ],
+      "source": {
+        "board": "Greenhouse",
+        "url": "https://careers.airbnb.com/positions/8262812?gh_jid=8262812",
+        "imported": "2026-11-18"
+      }
+    }
+  ]
+}

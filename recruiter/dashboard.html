@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchwork – Employer Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Shared shell (sidebar, top bar, cards, pills, popovers, toast) from the candidate side -->
+<link rel="stylesheet" href="../candidate/assets/shell.css">
+<link rel="stylesheet" href="assets/recruiter.css">
+<link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/match.js"></script>
+<script src="assets/recruiter.js"></script>
+<style>
+/* ---------- Top bar: one search field with a shortcut hint ---------- */
+
+/* ---------- Welcome ---------- */
+.welcome{position:relative;flex:none;overflow:hidden;padding:0 14px 14px;display:flex;flex-direction:column}
+.welcome-top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;min-height:124px}
+.welcome-text{align-self:flex-start;min-width:0;padding:18px 0 0 10px}
+.eyebrow{font-size:15px;line-height:20px;font-weight:500;color:var(--muted)}
+.welcome h1{margin-top:2px;font-size:28px;line-height:36px;font-weight:700;letter-spacing:-.5px}
+.welcome p{margin-top:4px;font-size:15px;line-height:20px;color:#555A60;max-width:460px}
+.welcome-illo{flex:none;width:204px;height:136px;margin:0 6px -16px 0;object-fit:contain;object-position:bottom}
+
+.stats{position:relative;z-index:1;display:flex;min-height:64px;background:var(--green-50);border:1px solid #EEF0F0;border-radius:calc(var(--r-md) * var(--sq))}
+.stat{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:11px;padding:0 16px;margin:11px 0;text-decoration:none;color:inherit}
+.stat + .stat{border-left:1px solid #E5E8E6}
+.stat .ico{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;transition:transform .35s var(--ease-spring)}
+.stat:hover .ico{transform:scale(1.1) rotate(-6deg)}
+.stat-num{display:flex;align-items:center;gap:8px;font-size:20px;line-height:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat-delta{height:20px;padding:0 7px;border-radius:10px;background:var(--green-100);color:var(--green-900);font-size:11.5px;line-height:20px;font-weight:600;white-space:nowrap}
+.stat-label{display:block;font-size:13px;line-height:18px;color:#4F555B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .2s}
+.stat:hover .stat-label{color:var(--green-700)}
+
+/* ---------- List cards ---------- */
+.list-card{flex:1 1 0;min-height:0;display:flex;flex-direction:column;padding:14px 22px 8px 23px}
+.list-head{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.list-head h2{font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.3px}
+.list-head p{margin-top:2px;font-size:14px;line-height:20px;color:#555A60}
+.list-head .link-arrow{flex:none;margin-right:-9px}
+.rows{flex:1 1 auto;min-height:0;overflow:hidden;display:flex;flex-direction:column;margin-top:10px}
+.row{position:relative;z-index:0;flex:1 1 0;min-height:54px;max-height:76px;display:grid;align-items:center;column-gap:16px;padding:6px 4px 6px 3px;border-top:1px solid var(--row-line);text-decoration:none;color:inherit}
+.row::before{content:"";position:absolute;inset:3px -9px;border-radius:calc(var(--r-md) * var(--sq));background:#FAFBFA;opacity:0;transition:opacity .2s;z-index:-1}
+.row:hover::before{opacity:1}
+.row.enter{animation:rowIn .45s var(--ease) both}
+@keyframes rowIn{from{opacity:0;transform:translateY(8px)}}
+
+/* Applicant row: avatar · name/role · skills · match · status · chevron */
+.app-row{grid-template-columns:40px minmax(130px,1.1fr) minmax(0,1.3fr) 112px 112px 20px}
+.person-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--ink-2);transition:transform .3s var(--ease)}
+.app-row:hover .person-av{transform:translateY(-2px)}
+.who{min-width:0}
+.who b{display:block;font-size:15px;line-height:20px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who span{display:block;font-size:13px;line-height:18px;color:var(--muted-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app-row .tags{flex-wrap:nowrap;overflow:hidden;gap:6px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 22px),transparent)}
+.app-row .score,.app-row .status{justify-self:start}
+.row-chev{color:#9AA19C;transition:color .2s,transform .25s var(--ease)}
+.row:hover .row-chev{color:var(--green-700);transform:translateX(3px)}
+
+/* Job posting row: logo · title/meta · applications · interviewing · status · menu */
+.job-row{grid-template-columns:44px minmax(0,1.6fr) minmax(96px,.7fr) minmax(96px,.7fr) 82px 36px}
+.job-row:hover .logo-tile{transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+.job-row h3{font-size:15px;line-height:20px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.job-row h3 a{text-decoration:none;background:linear-gradient(currentColor,currentColor) 0 100%/0 1.5px no-repeat;transition:background-size .3s var(--ease)}
+.job-row h3 a:hover{background-size:100% 1.5px}
+.job-row .meta{margin-top:1px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+.count b{display:block;font-size:16px;line-height:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.count span{display:block;font-size:12.5px;line-height:17px;color:var(--muted-2)}
+.status.active{background:var(--green-100);color:var(--green-900)}
+.status.closed{background:#F2F3F4;color:#4F555B}
+.more-wrap{position:relative;justify-self:end}
+.more-btn{width:34px;height:34px;border:0;background:transparent;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:calc(var(--r-sm) * var(--sq));transition:background-color .2s}
+.more-btn:hover,.more-btn[aria-expanded="true"]{background:#F0F1F1}
+.more-wrap .popover{min-width:190px;top:calc(100% + 4px)}
+
+/* ---------- Right rail ---------- */
+.rail-head{display:flex;align-items:center;justify-content:space-between;height:24px}
+.rail-head .link-arrow{height:28px;margin-right:-9px}
+.iv-card{flex:none}
+.iv-day{display:flex;flex-direction:column;padding:0;background:var(--lavender-wash);border-color:#E6E0F7;overflow:hidden}
+.iv-day-head{display:flex;align-items:center;gap:10px;padding:12px 14px 8px;font-size:15px;font-weight:700}
+.iv-day-head .ico{width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center}
+.iv-slot{position:relative;display:grid;grid-template-columns:20px minmax(0,1fr) 18px;align-items:center;gap:12px;margin:0 6px;padding:10px 8px;border-radius:calc(var(--r-sm) * var(--sq));text-decoration:none;color:inherit;transition:background-color .2s}
+.iv-slot + .iv-slot{border-top:1px solid rgba(91,63,196,.1)}
+.iv-slot:last-child{margin-bottom:6px}
+.iv-slot:hover{background:rgba(255,255,255,.6)}
+.iv-slot svg{color:var(--ink-2)}
+.iv-slot b{display:block;font-size:14.5px;line-height:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.iv-slot span{display:block;font-size:13px;line-height:18px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iv-slot .row-chev{color:var(--ink-2)}
+.iv-slot:hover .row-chev{color:var(--green-900);transform:translateX(3px)}
+.iv-none{margin:0 6px 6px;padding:6px 8px 10px;font-size:13.5px;line-height:19px;color:var(--ink-2)}
+.iv-later{font-size:13px;line-height:18px;color:var(--muted)}
+.iv-later b{color:var(--ink-2);font-weight:600}
+
+.qa-card{flex:1 1 auto;min-height:0;overflow:hidden}
+.qa-list{display:flex;flex-direction:column;gap:10px}
+.qa{display:grid;grid-template-columns:34px minmax(0,1fr) 18px;align-items:center;gap:12px;height:54px;padding:0 14px 0 12px;border:1px solid var(--line-3);background:#fff;color:var(--ink);text-decoration:none;font-size:15px;font-weight:600;border-radius:calc(var(--r-md) * var(--sq));cursor:pointer;text-align:left;transition:border-color .2s,background-color .2s}
+.qa .qa-ico{width:34px;height:34px;border-radius:50%;background:#F3F5F4;display:flex;align-items:center;justify-content:center;transition:background-color .2s}
+.qa .row-chev{color:#9AA19C}
+.qa:hover{border-color:#DFE5E1;background:#FAFBFB}
+.qa:hover .qa-ico{background:var(--green-75)}
+.qa:hover .row-chev{color:var(--green-700);transform:translateX(3px)}
+.qa.primary .qa-ico{background:var(--green-700);color:#fff}
+.qa.primary:hover .qa-ico{background:var(--green-900)}
+
+/* Hiring pipeline: one bar per stage, counts across all postings */
+.pipe{display:flex;flex-direction:column;gap:9px;margin-top:2px}
+.pipe-row{display:grid;grid-template-columns:88px minmax(0,1fr) 28px;align-items:center;gap:10px;font-size:13px;color:var(--ink-2)}
+.pipe-row b{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+.pipe-row{margin:0 -8px;padding:3px 8px;border-radius:calc(10px * var(--sq));transition:background-color .2s,color .2s}
+.pipe-row:hover{background:var(--green-50);color:var(--green-900)}
+.pipe-row:hover .pipe-bar{background:#E5EAE6}
+.pipe{gap:3px}
+.pipe-bar{height:8px;border-radius:4px;background:#EEF1EF;overflow:hidden}
+.pipe-bar i{display:block;height:100%;border-radius:4px;width:0;transition:width 1s var(--ease)}
+.qa-sep{height:1px;background:var(--row-line);margin:2px 0}
+
+/* ---------- Height breakpoints: tighten before anything clips ---------- */
+@media (max-height:780px){
+  .main{padding-top:10px;padding-bottom:12px}
+  .body{margin-top:10px}
+  .col-left,.col-right{gap:12px}
+  .welcome-top{min-height:104px}
+  .welcome-text{padding-top:14px}
+  .welcome h1{font-size:26px;line-height:32px}
+  .welcome p{font-size:14px}
+  .welcome-illo{width:170px;height:113px;margin-bottom:-13px}
+  .stats{min-height:56px}
+  .stat{margin:8px 0}
+  .stat .ico{width:34px;height:34px}
+  .list-card{padding-top:12px}
+  .list-head h2{font-size:18px;line-height:24px}
+  .list-head p{font-size:13px;line-height:18px}
+  .rail-card{padding:14px 16px;gap:10px}
+  .qa{height:48px}
+  .pipe{gap:1px}
+}
+@media (max-height:700px){
+  .list-head p,.iv-later{display:none}
+  .welcome-top{min-height:90px}
+  .welcome-illo{width:148px;height:99px;margin-bottom:-11px}
+}
+@media (max-width:1400px){
+  .app-row{grid-template-columns:40px minmax(120px,1fr) minmax(0,1fr) 104px 104px 20px;column-gap:12px}
+  .job-row{column-gap:12px}
+}
+@media (max-width:1180px), (max-height:620px){
+  .rows,.qa-card{overflow:visible}
+  .list-card{flex:none}
+  .row{flex:none;min-height:64px}
+}
+@media (max-width:1180px){
+  .col-right{flex-direction:row;flex-wrap:wrap}
+  .col-right > *{flex:1 1 300px}
+}
+@media (max-width:860px){
+  .welcome-illo{width:150px;height:100px;margin-bottom:-12px}
+  .stats{flex-wrap:wrap}
+  .stat{flex-basis:45%}
+  .stat:nth-child(3){border-left:0}
+  .app-row{grid-template-columns:40px minmax(0,1fr) auto 20px;row-gap:6px;padding:10px 4px 10px 3px}
+  .app-row .tags,.app-row .score{display:none}
+  .job-row{grid-template-columns:44px minmax(0,1fr) auto 36px;padding:10px 4px 10px 3px}
+  .job-row .count{display:none}
+}
+@media (max-width:520px){
+  .welcome-illo{display:none}
+  .list-card{padding-left:16px;padding-right:16px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <svg class="deco-br" width="230" height="120" viewBox="0 0 230 120" aria-hidden="true"><path d="M230 0 C200 20 150 40 120 70 C95 95 60 110 0 120 L230 120Z" fill="#F2F3F3"/><path d="M230 30 C205 55 180 80 140 100 C120 110 100 116 80 120 L230 120Z" fill="#ECEEEE"/></svg>
+
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <!-- ============ Main ============ -->
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+    <script>RW.renderChrome('dashboard');</script>
+
+    <div class="body">
+      <!-- Left column -->
+      <div class="col-left">
+        <section class="card welcome" aria-labelledby="welcome-title">
+          <div class="welcome-top">
+            <div class="welcome-text">
+              <div class="eyebrow" id="greeting">Good afternoon,</div>
+              <h1 id="welcome-title"></h1>
+              <p>Manage your jobs, review applicants, and schedule interviews.</p>
+            </div>
+            <img class="welcome-illo" src="assets/welcome.webp" width="204" height="136" decoding="async" alt="">
+          </div>
+          <div class="stats">
+            <a href="jobs" class="stat">
+              <span class="ico" style="background:#E9F2EB"><svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="#16163A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="22" height="16" rx="3" fill="#FFFFFF"/><path d="M12 10V7.5A1.5 1.5 0 0 1 13.5 6h5A1.5 1.5 0 0 1 20 7.5V10"/><path d="M5 15.5h22" /><rect x="13.5" y="13.5" width="5" height="4" rx="1.2" fill="#A9CDB4" stroke-width="1.4"/></svg></span>
+              <span><span class="stat-num"><span data-count="0" id="stJobs">0</span><span class="stat-delta" id="stDelta" hidden></span></span><span class="stat-label">Total Jobs</span></span>
+            </a>
+            <a href="applicants" class="stat">
+              <span class="ico" style="background:#FFF4DA"><svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="#16163A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="20.5" cy="11" r="4" fill="#F5B84A"/><path d="M14 26c0-4 3-6.5 6.5-6.5S27 22 27 26" fill="#F5B84A"/><circle cx="12" cy="12" r="4.5" fill="#FFFFFF"/><path d="M4.5 26.5c0-4.4 3.3-7 7.5-7s7.5 2.6 7.5 7z" fill="#FFFFFF"/></svg></span>
+              <span><span class="stat-num"><span data-count="0" id="stApps">0</span></span><span class="stat-label">Applications</span></span>
+            </a>
+            <a href="applicants?status=Interviewing" class="stat">
+              <span class="ico" style="background:#EFEAFC"><svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="#16163A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="7" width="22" height="20" rx="3.5" fill="#FFFFFF"/><path d="M5 10.5A3.5 3.5 0 0 1 8.5 7h15A3.5 3.5 0 0 1 27 10.5V13H5z" fill="#A893F0"/><path d="M11 4.5v5M21 4.5v5"/><circle cx="11" cy="18" r="1.2" fill="#16163A" stroke="none"/><circle cx="16" cy="18" r="1.2" fill="#16163A" stroke="none"/><circle cx="11" cy="22.5" r="1.2" fill="#16163A" stroke="none"/><rect x="18.5" y="19.5" width="5" height="4.5" rx="1.2" fill="#F5B84A" stroke-width="1.4"/></svg></span>
+              <span><span class="stat-num"><span data-count="0" id="stIv">0</span></span><span class="stat-label">Interviewing</span></span>
+            </a>
+            <a href="applicants?status=Accepted" class="stat">
+              <span class="ico" style="background:#E6F2EA"><svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="#16163A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="15" cy="17" r="10" fill="#7EC08F"/><path d="m10.5 17 3 3 6-6.5" stroke="#FFFFFF" stroke-width="2.6"/><path d="M26 3.5v4.5M23.75 5.75h4.5" stroke="#F5B84A" stroke-width="2"/></svg></span>
+              <span><span class="stat-num"><span data-count="0" id="stAcc">0</span></span><span class="stat-label">Accepted</span></span>
+            </a>
+          </div>
+        </section>
+
+        <section class="card list-card" aria-labelledby="apps-title">
+          <div class="list-head">
+            <div>
+              <h2 id="apps-title">Recent Applicants</h2>
+              <p>Latest applications across your jobs, best match first.</p>
+            </div>
+            <a href="applicants" class="link-arrow">View All Applicants
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+          </div>
+          <div class="rows" id="applicants"></div>
+        </section>
+
+        <section class="card list-card" aria-labelledby="jobs-title">
+          <div class="list-head">
+            <div>
+              <h2 id="jobs-title">Your Job Postings</h2>
+              <p>Jobs you've created and are currently hiring for.</p>
+            </div>
+            <a href="jobs" class="link-arrow">View All Jobs
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+          </div>
+          <div class="rows" id="postings"></div>
+        </section>
+      </div>
+
+      <!-- Right rail -->
+      <div class="col-right">
+        <section class="card rail-card iv-card" aria-labelledby="iv-title">
+          <div class="rail-head">
+            <h2 id="iv-title">Upcoming Interviews</h2>
+            <a href="interviews" class="link-arrow">View All
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+          </div>
+          <div class="panel iv-day">
+            <div class="iv-day-head">
+              <span class="ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3C4043" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg></span>
+              <span id="ivDayLabel">Today</span>
+            </div>
+            <div id="ivToday"></div>
+          </div>
+          <p class="iv-later" id="ivLater"></p>
+        </section>
+
+        <section class="card rail-card qa-card" aria-labelledby="qa-title">
+          <h2 id="qa-title">Quick Actions</h2>
+          <div class="qa-list">
+            <a href="jobs?new=1" class="qa primary">
+              <span class="qa-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+              <span>Post a New Job</span>
+              <svg class="row-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
+            <a href="interviews#availability" class="qa">
+              <span class="qa-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4M12 13.5v5M9.5 16h5"/></svg></span>
+              <span>Create Interview Slot</span>
+              <svg class="row-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
+            <a href="company?edit=1" class="qa">
+              <span class="qa-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></span>
+              <span>Edit Company Profile</span>
+              <svg class="row-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
+          </div>
+          <div class="qa-sep" aria-hidden="true"></div>
+          <div class="rail-head"><h2 class="section-title" id="pipe-title">Hiring Pipeline</h2></div>
+          <div class="pipe" id="pipeline" aria-labelledby="pipe-title"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="assets/dashboard.js"></script>
+<span id="mw-ready" hidden></span>
+</body>
+</html>

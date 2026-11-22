@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchwork – My Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/shell.css">
+<link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/match.js"></script>
+<script src="assets/matchwork.js"></script>
+<style>
+.col-left.scroll{padding-right:2px}
+.col-left > .card{flex:none;scroll-margin-top:8px}
+.sec{padding:18px 22px 20px 23px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px 16px}
+.sec-head h2{font-size:18px;line-height:24px;font-weight:700}
+.sec-head p{margin-top:2px;font-size:14px;line-height:20px;color:#555A60;max-width:520px}
+
+/* Basics */
+.who{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:20px;align-items:center}
+.who .avatar{width:76px;height:76px;font-size:26px;font-weight:700;background:#E3E2E7}
+.who h1{font-size:28px;line-height:36px;font-weight:700;letter-spacing:-.5px}
+.who .headline{margin-top:2px;font-size:15px;line-height:20px;color:var(--ink-2)}
+.who .meta{margin-top:6px}
+.prefs{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px;margin-top:4px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field.full{grid-column:1 / -1}
+.field label,.field .lbl{font-size:13px;font-weight:600;color:var(--ink-2)}
+.field small{font-size:12.5px;color:var(--muted)}
+.input{height:42px;padding:0 12px;border:1px solid #D9DEDB;background:#fff;font-size:14px;outline:none;caret-color:var(--green-700);transition:border-color .18s,background-color .18s,box-shadow .18s}
+.input:hover{border-color:#C3CCC6}
+.input:focus{border-color:var(--green-600);box-shadow:0 0 0 3px rgba(62,123,90,.14)}
+.input[aria-invalid="true"]{border-color:var(--danger)}
+.err{font-size:12.5px;font-weight:500;color:var(--danger)}
+.form-actions{grid-column:1 / -1;display:flex;justify-content:flex-end;gap:10px;padding-top:4px}
+.form .seg{justify-self:start}
+
+/* Skills */
+.skill-box{margin-top:14px;padding:10px;border:1px solid #D9DEDB;background:#fff;display:flex;flex-wrap:wrap;gap:8px;align-items:center;cursor:text;transition:border-color .18s,box-shadow .18s}
+.skill-box:hover{border-color:#C3CCC6}
+.skill-box:focus-within{border-color:var(--green-600);box-shadow:0 0 0 3px rgba(62,123,90,.14)}
+.sk{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 4px 0 12px;border-radius:16px;background:var(--green-100);color:var(--green-900);font-size:14px;font-weight:600}
+.sk.new{animation:skIn .35s var(--ease-spring) both}
+@keyframes skIn{from{transform:scale(.7);opacity:0}}
+.sk button{width:24px;height:24px;border:0;border-radius:50%;background:transparent;color:var(--green-800);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color .15s}
+.sk button:hover{background:rgba(31,77,52,.12)}
+.skill-box input{flex:1 1 160px;min-width:120px;height:32px;border:0;outline:none;background:transparent;font-size:14px;caret-color:var(--green-700)}
+.skill-box input::placeholder{color:#6B7075}
+.sk-note{margin-top:8px;min-height:18px;font-size:12.5px;color:var(--muted)}
+.sk-note.warn{color:var(--honey-ink);font-weight:500}
+.suggest{margin-top:12px}
+.suggest p{font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:8px}
+.suggest .chip{height:30px;padding:0 12px 0 9px;font-size:13.5px}
+.suggest .chip svg{color:var(--green-700)}
+.suggest .chip small{font-size:12px;color:var(--muted);font-weight:500;-webkit-text-stroke:0}
+.impact{margin-top:16px;display:flex;flex-direction:column;gap:10px}
+.impact[hidden]{display:none}
+.impact-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.impact-top strong{font-size:14px}
+.impact-top .btns{display:flex;gap:8px}
+.deltas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.deltas li{display:grid;grid-template-columns:36px minmax(0,1fr) auto;column-gap:12px;align-items:center;padding:8px 0;border-top:1px solid #E7ECE8}
+.deltas li:first-child{border-top:0}
+.deltas .t{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deltas .c{font-size:12.5px;color:var(--muted)}
+.delta{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.delta .from{color:var(--muted);font-weight:500;text-decoration:line-through;text-decoration-color:#C3C8C5}
+.delta .up{color:var(--match-green)}
+.delta .down{color:var(--honey-ink)}
+.impact .none{font-size:13.5px;color:var(--ink-2)}
+
+/* Resume */
+.private{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:13px;background:#F2F3F4;color:var(--ink-2);font-size:12.5px;font-weight:600;white-space:nowrap}
+.resume-view{position:relative;margin-top:14px;padding:16px 18px;max-height:300px;overflow:hidden;white-space:pre-wrap;font-size:14px;line-height:22px;color:var(--ink-2)}
+.resume-view.open{max-height:none}
+.resume-view:not(.open)::after{content:"";position:absolute;left:0;right:0;bottom:0;height:72px;background:linear-gradient(rgba(247,249,247,0),var(--green-50));border-radius:0 0 calc(var(--r-md) * var(--sq)) calc(var(--r-md) * var(--sq))}
+.resume-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+.resume-foot span{font-size:13px;color:var(--muted)}
+.resume-foot .btns{display:flex;gap:8px}
+textarea.input{height:auto;min-height:320px;padding:14px 16px;line-height:22px;resize:vertical;width:100%}
+.ta-meta{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* Rail */
+.profile-body{display:flex;align-items:center;gap:24px;padding-left:4px}
+.ring{position:relative;width:96px;height:96px;flex:none}
+.ring svg{width:100%;height:100%}
+.ring-progress{transition:stroke-dasharray 1.1s var(--ease)}
+.ring-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-label b{font-size:21px;line-height:24px;font-weight:800;color:var(--green-900);letter-spacing:-.3px;font-variant-numeric:tabular-nums}
+.ring-label span{font-size:11px;line-height:14px;font-weight:500;color:var(--muted)}
+.checklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:20px}
+.checklist li{display:flex;align-items:center;gap:10px}
+.checklist .todo a{color:var(--muted);text-decoration:none}
+.checklist .todo a:hover{color:var(--green-700);text-decoration:underline;text-underline-offset:3px}
+.tops{display:flex;flex-direction:column}
+.top{display:grid;grid-template-columns:36px minmax(0,1fr) auto;column-gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--row-line);text-decoration:none;color:inherit}
+.top:first-child{border-top:0;padding-top:0}
+.top .t{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top:hover .t{color:var(--green-900);text-decoration:underline;text-underline-offset:3px}
+.top .c{font-size:12.5px;color:var(--muted)}
+.top .score{height:24px;font-size:12.5px;padding:0 10px}
+.rail-head{display:flex;align-items:center;justify-content:space-between}
+.rail-head .link-arrow{margin-right:-9px;height:28px}
+
+@media (max-width:1180px){ .col-right{flex-direction:row;flex-wrap:wrap} .col-right > *{flex:1 1 300px} }
+@media (max-width:640px){
+  .who{grid-template-columns:auto minmax(0,1fr)}
+  .who .btn{grid-column:1 / -1;justify-self:start;margin-top:12px}
+  .who .avatar{width:60px;height:60px;font-size:21px}
+  .who h1{font-size:24px;line-height:30px}
+  .form{grid-template-columns:1fr}
+  .sec{padding:16px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+    <script>MW.renderChrome('profile');</script>
+    <div class="body">
+      <div class="col-left scroll">
+        <section class="card sec" id="basics" aria-label="Basic information"></section>
+
+        <section class="card sec" id="skills" aria-labelledby="skills-title">
+          <div class="sec-head">
+            <div><h2 id="skills-title">Technical skills</h2><p>Your match score for every job is the share of its required skills you list here.</p></div>
+          </div>
+          <div class="skill-box r-md" id="skillBox">
+            <input id="skillInput" type="text" placeholder="Add a skill and press Enter" aria-label="Add a skill" aria-describedby="skNote" autocomplete="off" maxlength="40">
+          </div>
+          <p class="sk-note" id="skNote" aria-live="polite">Press Enter or comma to add. Capitals and duplicates do not matter.</p>
+          <div class="suggest" id="suggest"></div>
+          <div class="panel impact" id="impact" hidden></div>
+        </section>
+
+        <section class="card sec" id="resume" aria-labelledby="resume-title"></section>
+      </div>
+
+      <div class="col-right">
+        <section class="card rail-card" aria-labelledby="pc-title">
+          <h2 id="pc-title">Profile completion</h2>
+          <div class="profile-body">
+            <div class="ring">
+              <svg width="104" height="104" viewBox="0 0 104 104" role="img" id="ringSvg">
+                <defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8CC39E"/><stop offset="1" stop-color="#2F6B4A"/></linearGradient></defs>
+                <circle cx="52" cy="52" r="46" fill="none" stroke="#EEF0EF" stroke-width="10"/>
+                <circle cx="52" cy="52" r="35" fill="#F7F8F8"/>
+                <circle class="ring-progress" id="ringProgress" cx="52" cy="52" r="46" fill="none" stroke="url(#ringGrad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 289" transform="rotate(-90 52 52)"/>
+              </svg>
+              <span class="ring-label"><b id="ringNum">0%</b><span>Complete</span></span>
+            </div>
+            <ul class="checklist" id="checklist"></ul>
+          </div>
+        </section>
+        <section class="card rail-card" aria-labelledby="tm-title" style="flex:1 1 auto;min-height:0">
+          <div class="rail-head"><h2 id="tm-title">Your best matches</h2>
+            <a class="link-arrow" href="jobs">All jobs <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          </div>
+          <div class="tops" id="tops"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const { $, $$, esc, ICON } = MW;
+  MW.mountShell('profile');
+  const P = () => MW.state.profile;
+
+  /* ---------- Basics ---------- */
+  let editingBasics = false;
+  function renderBasics() {
+    const p = P(), el = $('#basics');
+    const prefs = p.prefs || null;
+    if (!editingBasics) {
+      el.innerHTML = `<div class="who">
+          <span class="avatar" aria-hidden="true">${esc(MW.initials(p.name))}</span>
+          <div style="min-width:0">
+            <h1>${esc(p.name)}</h1>
+            ${p.headline ? `<p class="headline">${esc(p.headline)}</p>` : ''}
+            <div class="meta">${ICON.pin}<span>${esc(p.location || 'Add your location')}</span><span aria-hidden="true">·</span><span>${esc(p.email)}</span></div>
+          </div>
+          <button type="button" class="btn btn-secondary" id="editBasics">Edit profile</button>
+        </div>
+        <div class="prefs">${prefs
+          ? `<span class="tag">${esc(prefs.type === 'Any' ? 'Full-time or contract' : prefs.type)}</span>${prefs.remote ? '<span class="tag">Open to remote</span>' : ''}`
+          : `<button type="button" class="btn btn-text" id="addPrefs" style="margin-left:-9px">Add work preferences</button>`}</div>`;
+      $('#editBasics').addEventListener('click', () => { editingBasics = true; renderBasics(); $('#fName').focus(); });
+      const ap = $('#addPrefs'); if (ap) ap.addEventListener('click', () => { editingBasics = true; renderBasics(); $('#segPref button[aria-pressed="true"]').focus(); });
+      return;
+    }
+    const pr = prefs || { type: 'Full-time', remote: false };
+    el.innerHTML = `<div class="sec-head"><div><h2>Edit profile</h2><p>Employers see your display name and skills on your applications.</p></div></div>
+      <form class="form" id="basicsForm" novalidate style="margin-top:14px">
+        <div class="field"><label for="fName">Display name</label><input class="input r-sm" id="fName" value="${esc(p.name)}" maxlength="60" required aria-describedby="fNameErr"><span class="err" id="fNameErr" hidden>Enter a display name.</span></div>
+        <div class="field"><label for="fLoc">Location</label><input class="input r-sm" id="fLoc" value="${esc(p.location)}" maxlength="60" placeholder="City, state"></div>
+        <div class="field full"><label for="fHead">Headline</label><input class="input r-sm" id="fHead" value="${esc(p.headline)}" maxlength="90" placeholder="What you do, in one line"></div>
+        <div class="field"><span class="lbl" id="prefLbl">Job type you want</span>
+          <div class="seg" id="segPref" role="group" aria-labelledby="prefLbl">${['Full-time', 'Contract', 'Any'].map((t) => `<button type="button" data-v="${t}" aria-pressed="${pr.type === t}">${t === 'Any' ? 'Either' : t}</button>`).join('')}</div></div>
+        <div class="field"><span class="lbl">Location preference</span><label class="fp-check" style="padding-top:8px"><input type="checkbox" id="fRemote"${pr.remote ? ' checked' : ''}> Open to remote work</label></div>
+        <div class="form-actions"><button type="button" class="btn btn-quiet" id="cancelBasics">Cancel</button><button type="submit" class="btn btn-primary">Save profile</button></div>
+      </form>`;
+    $('#segPref').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $$('#segPref button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
+    $('#cancelBasics').addEventListener('click', () => { editingBasics = false; renderBasics(); $('#editBasics').focus(); });
+    $('#basicsForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = $('#fName').value.trim();
+      $('#fName').setAttribute('aria-invalid', String(!name)); $('#fNameErr').hidden = !!name;
+      if (!name) { $('#fName').focus(); return; }
+      const type = $('#segPref button[aria-pressed="true"]').dataset.v;
+      MW.updateProfile({ name, location: $('#fLoc').value.trim(), headline: $('#fHead').value.trim(), prefs: { type, remote: $('#fRemote').checked }, extras: true });
+      editingBasics = false; renderBasics(); renderRail();
+      MW.toast('Profile saved');
+      $('#editBasics').focus();
+    });
+  }
+
+  /* ---------- Skills (draft + live match preview) ---------- */
+  let draft = P().skills.slice();
+  const norm = (s) => s.trim().toLowerCase();
+  const box = $('#skillBox'), input = $('#skillInput'), note = $('#skNote');
+  const NOTE = 'Press Enter or comma to add. Capitals and duplicates do not matter.';
+  function renderSkills(newOne) {
+    $$('.sk', box).forEach((n) => n.remove());
+    draft.forEach((s) => {
+      const chip = document.createElement('span');
+      chip.className = 'sk' + (newOne && norm(newOne) === norm(s) ? ' new' : '');
+      chip.innerHTML = `${esc(s)}<button type="button" aria-label="Remove ${esc(s)}">${ICON.x}</button>`;
+      chip.querySelector('button').addEventListener('click', () => { removeSkill(s); input.focus(); });
+      box.insertBefore(chip, input);
+    });
+    renderSuggest(); renderImpact();
+  }
+  function addSkill(raw) {
+    const s = raw.replace(/\s+/g, ' ').trim();
+    if (!s) return;
+    const dup = draft.find((d) => norm(d) === norm(s));
+    if (dup) { note.textContent = `${dup} is already in your skills.`; note.classList.add('warn'); return; }
+    draft.push(s); note.textContent = `Added ${s}.`; note.classList.remove('warn');
+    renderSkills(s);
+  }
+  function removeSkill(s) { draft = draft.filter((d) => d !== s); note.textContent = `Removed ${s}.`; note.classList.remove('warn'); renderSkills(); }
+  box.addEventListener('click', (e) => { if (e.target === box) input.focus(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addSkill(input.value); input.value = ''; }
+    else if (e.key === 'Backspace' && !input.value && draft.length) removeSkill(draft[draft.length - 1]);
+  });
+  input.addEventListener('input', () => { if (input.value.includes(',')) { input.value.split(',').forEach(addSkill); input.value = ''; } else if (note.classList.contains('warn')) { note.textContent = NOTE; note.classList.remove('warn'); } });
+
+  function renderSuggest() {
+    const have = MW.normalizeSkills(draft), count = new Map();
+    MW.jobs().forEach((j) => j.skills.forEach((s) => { if (!have.has(norm(s))) count.set(s, (count.get(s) || 0) + 1); }));
+    const top = [...count.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 6);
+    $('#suggest').innerHTML = top.length ? `<p>Skills open jobs ask for</p><div class="chips" style="flex-wrap:wrap">${top.map(([s, n]) =>
+      `<button type="button" class="chip" data-add="${esc(s)}" aria-label="Add ${esc(s)}, required by ${n} ${n === 1 ? 'job' : 'jobs'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${esc(s)}<small>${n} ${n === 1 ? 'job' : 'jobs'}</small></button>`).join('')}</div>` : '';
+  }
+  $('#suggest').addEventListener('click', (e) => { const b = e.target.closest('[data-add]'); if (b) addSkill(b.dataset.add); });
+
+  function sameSet(a, b) { const A = MW.normalizeSkills(a), B = MW.normalizeSkills(b); return A.size === B.size && [...A].every((x) => B.has(x)); }
+  function renderImpact() {
+    const el = $('#impact');
+    const saved = P().skills;
+    if (sameSet(draft, saved) && draft.length === saved.length) { el.hidden = true; return; }
+    const deltas = MW.jobs().map((j) => ({ j, from: MW.matchScore(saved, j.skills), to: MW.matchScore(draft, j.skills) })).filter((d) => d.from !== d.to)
+      .sort((a, b) => Math.abs(b.to - b.from) - Math.abs(a.to - a.from));
+    el.hidden = false;
+    el.innerHTML = `<div class="impact-top"><strong>${deltas.length ? `${deltas.length} ${deltas.length === 1 ? 'match changes' : 'matches change'} if you save` : 'No match scores change'}</strong>
+        <div class="btns"><button type="button" class="btn btn-quiet" id="skDiscard">Discard</button><button type="button" class="btn btn-primary" id="skSave">Save skills</button></div></div>
+      ${deltas.length ? `<ul class="deltas">${deltas.slice(0, 5).map(({ j, from, to }) => `<li>${MW.logoHTML(j, 'xs')}<span style="min-width:0"><span class="t" style="display:block">${esc(j.title)}</span><span class="c">${esc(j.company)}</span></span>
+        <span class="delta"><span class="from">${from}%</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="${to > from ? 'up' : 'down'}">${to}%</span></span></li>`).join('')}</ul>` : '<p class="none">These skills are not required by any open job.</p>'}`;
+    $('#skDiscard').addEventListener('click', () => { draft = P().skills.slice(); note.textContent = NOTE; note.classList.remove('warn'); renderSkills(); });
+    $('#skSave').addEventListener('click', () => {
+      MW.updateProfile({ skills: draft.slice() });
+      renderSkills(); renderRail();
+      MW.toast('Skills saved. Match scores are updated.');
+    });
+  }
+  window.addEventListener('beforeunload', (e) => { if (!sameSet(draft, P().skills)) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ---------- Resume ---------- */
+  let editingResume = false, openResume = false;
+  function renderResume() {
+    const p = P(), el = $('#resume');
+    const head = `<div class="sec-head"><div><h2 id="resume-title">Resume</h2><p>Paste your resume as plain text. It is not used for match scores.</p></div>
+      <span class="private">${ICON.lock}Only you can see this</span></div>`;
+    if (!editingResume) {
+      const has = p.resume && p.resume.trim();
+      el.innerHTML = head + (has ? `
+        <div class="panel resume-view${openResume ? ' open' : ''}" id="resumeText">${esc(p.resume)}</div>
+        <div class="resume-foot"><span>Updated ${esc(MW.fmtDate(p.resumeUpdated))}</span>
+          <div class="btns"><button type="button" class="btn btn-text" id="toggleResume" aria-expanded="${openResume}" aria-controls="resumeText">${openResume ? 'Show less' : 'Show full resume'}</button><button type="button" class="btn btn-secondary" id="editResume">Replace resume</button></div></div>`
+        : `<div class="empty"><strong>No resume yet</strong>Paste the text of your resume so it is ready when you apply.<br><button type="button" class="btn btn-primary" id="editResume">Add resume</button></div>`);
+      $('#editResume').addEventListener('click', () => { editingResume = true; renderResume(); $('#resumeInput').focus(); });
+      const t = $('#toggleResume'); if (t) t.addEventListener('click', () => { openResume = !openResume; renderResume(); $('#toggleResume').focus(); });
+      return;
+    }
+    el.innerHTML = head + `<div class="field" style="margin-top:14px">
+        <label for="resumeInput" class="sr">Resume text</label>
+        <textarea class="input r-md" id="resumeInput" maxlength="20000" spellcheck="true">${esc(p.resume)}</textarea>
+        <div class="ta-meta"><span>Plain text only. Saving replaces your current resume.</span><span id="taCount"></span></div>
+      </div>
+      <div class="resume-foot" style="justify-content:flex-end"><div class="btns"><button type="button" class="btn btn-quiet" id="cancelResume">Cancel</button><button type="button" class="btn btn-primary" id="saveResume">Save resume</button></div></div>`;
+    const ta = $('#resumeInput'), cnt = () => { $('#taCount').textContent = `${ta.value.length.toLocaleString()} / 20,000`; };
+    cnt(); ta.addEventListener('input', cnt);
+    $('#cancelResume').addEventListener('click', () => { editingResume = false; renderResume(); $('#editResume').focus(); });
+    $('#saveResume').addEventListener('click', () => {
+      MW.updateProfile({ resume: ta.value, resumeUpdated: new Date(MW.NOW.getTime() + 15 * 60e3).toISOString() });
+      editingResume = false; renderResume(); renderRail();
+      MW.toast('Resume saved');
+      $('#editResume').focus();
+    });
+  }
+
+  /* ---------- Rail ---------- */
+  let ringShown = -1;
+  function renderRail() {
+    const { items, pct } = MW.profileCompletion();
+    $('#checklist').innerHTML = items.map((i) => i.done
+      ? `<li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#4E9A68"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>${esc(i.label)}<span class="sr"> (complete)</span></li>`
+      : `<li class="todo"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.2" fill="#fff" stroke="#9AA3A0" stroke-width="1.6" stroke-dasharray="3 2.4"/></svg><a href="${esc(i.href.replace('profile', ''))}">${esc(i.label)}<span class="sr"> (not complete)</span></a></li>`).join('');
+    $('#ringSvg').setAttribute('aria-label', `Profile ${pct}% complete`);
+    if (ringShown < 0 && !MW.firstVisit('ring')) { const ring = $('#ringProgress'); ring.style.transition = 'none'; ring.style.strokeDasharray = `${(2 * Math.PI * 46 * pct / 100).toFixed(1)} ${(2 * Math.PI * 46).toFixed(1)}`; $('#ringNum').textContent = pct + '%'; requestAnimationFrame(() => { ring.style.transition = ''; }); }
+    else if (pct !== ringShown) animateRing(ringShown < 0 ? 0 : ringShown, pct);
+    ringShown = pct;
+    $('#tops').innerHTML = MW.jobs().slice(0, 4).map((j) => `<a class="top" href="jobs?id=${esc(j.id)}">${MW.logoHTML(j, 'xs')}<span style="min-width:0"><span class="t" style="display:block">${esc(j.title)}</span><span class="c">${esc(j.company)}</span></span>${MW.scoreHTML(j.match)}</a>`).join('');
+  }
+  function animateRing(from, pct) {
+    const C = 2 * Math.PI * 46, ring = $('#ringProgress'), num = $('#ringNum');
+    requestAnimationFrame(() => { ring.style.strokeDasharray = `${(C * pct / 100).toFixed(1)} ${C.toFixed(1)}`; });
+    if (MW.reduceMotion) { num.textContent = pct + '%'; return; }
+    const t0 = performance.now();
+    const step = (t) => { const p = Math.min(1, (t - t0) / 1100), e = 1 - Math.pow(1 - p, 3); num.textContent = Math.round(from + (pct - from) * e) + '%'; if (p < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+  $('#checklist').addEventListener('click', (e) => {
+    const a = e.target.closest('a'); if (!a) return;
+    if (a.getAttribute('href') === '#basics' && !editingBasics) { e.preventDefault(); editingBasics = true; renderBasics(); $('#basics').scrollIntoView({ block: 'start' }); $('#fName').focus(); }
+  });
+
+  renderBasics(); renderSkills(); renderResume();
+  renderRail();
+  if (location.hash === '#skills') requestAnimationFrame(() => input.focus({ preventScroll: true }));
+  if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) requestAnimationFrame(() => t.scrollIntoView({ block: 'start' })); }
+})();
+</script>
+<span id="mw-ready" hidden></span>
+</body>
+</html>

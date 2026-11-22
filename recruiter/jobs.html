@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchwork – My Jobs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../candidate/assets/shell.css">
+<link rel="stylesheet" href="assets/recruiter.css">
+<link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/match.js"></script>
+<script src="assets/recruiter.js"></script>
+<style>
+.thead,.jrow{grid-template-columns:44px minmax(0,1.7fr) 92px 92px 86px 20px}
+.thead span:first-child{grid-column:1 / 3}
+.jrow .count{color:var(--ink);font-size:15px}
+.jrow .count .review{display:block;margin-top:1px;font-size:12px;line-height:16px;font-weight:600;color:var(--honey-ink)}
+.jrow .count.zero{color:#9AA19C}
+.jrow.closed h3{color:var(--ink-2)}
+.jrow.closed .logo-tile{opacity:.55}
+.jrow:hover .logo-tile{transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+
+.rail-scroll{flex:1 1 auto;min-height:0}
+.req{display:flex;flex-wrap:wrap;gap:6px}
+.req .tag{background:#F1F4F2;color:var(--ink-2);font-weight:600}
+.facts-line{font-size:13.5px;line-height:19px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.facts-line b{color:var(--ink);font-weight:700}
+.jd-lede{font-size:14px;line-height:21px;color:var(--ink);font-weight:500}
+.ad-actions .btn-primary{flex:1 1 auto}
+.manage{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--row-line)}
+.manage-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.manage-row .btn{margin-left:-9px}
+.manage-row .btn-danger-quiet{margin:0 -9px 0 0}
+
+/* Editor */
+.editor{padding:18px;display:flex;flex-direction:column;gap:16px}
+.editor-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.editor-head h2{font-size:18px;line-height:24px;font-weight:700}
+.editor .form-actions{position:sticky;bottom:0;margin:0 -18px -18px;padding:12px 18px;background:linear-gradient(rgba(255,255,255,0),#fff 14px)}
+.editor.enter{animation:rowIn .32s var(--ease) both}
+
+@media (max-width:1320px){
+  .thead,.jrow{grid-template-columns:44px minmax(0,1.7fr) 84px 86px 20px}
+  .thead .c-iv,.jrow .c-iv{display:none}
+}
+@media (max-width:760px){
+  .thead{display:none}
+  .jrow{grid-template-columns:44px minmax(0,1fr) auto auto;column-gap:12px}
+  .jrow .c-iv,.jrow .chev,.jrow .posted,.jrow .st.is-active{display:none}
+  .jrow .c-apps{text-align:right}
+  .jrow .c-apps.zero{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <svg class="deco-br" width="230" height="120" viewBox="0 0 230 120" aria-hidden="true"><path d="M230 0 C200 20 150 40 120 70 C95 95 60 110 0 120 L230 120Z" fill="#F2F3F3"/><path d="M230 30 C205 55 180 80 140 100 C120 110 100 116 80 120 L230 120Z" fill="#ECEEEE"/></svg>
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+    <script>RW.renderChrome('jobs');</script>
+    <div class="body">
+      <div class="col-left">
+        <section class="card list-page" aria-labelledby="jobs-title">
+          <div class="page-head">
+            <div>
+              <h1 id="jobs-title">My jobs</h1>
+              <p>Create and edit your postings. Close a job to stop new applications; jobs with applicants can't be deleted.</p>
+            </div>
+            <a class="btn btn-primary" href="jobs?new=1" id="newJob">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Post a job
+            </a>
+          </div>
+          <div class="toolbar">
+            <div class="chips" id="tabs" role="group" aria-label="Filter by posting status"><span class="chip-indicator" aria-hidden="true"></span></div>
+          </div>
+          <div class="thead" aria-hidden="true"><span>Job</span><span>Applicants</span><span class="c-iv">Interviewing</span><span>Status</span><span></span></div>
+          <div class="list scroll" id="list" aria-live="polite"></div>
+        </section>
+      </div>
+      <div class="col-right">
+        <section class="card rail" id="rail" aria-label="Job details"></section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const { $, $$, esc, ICON } = RW;
+  const FILTERS = ['All', 'Active', 'Closed'];
+  const qs = RW.params();
+  const st = {
+    filter: FILTERS.includes(qs.get('status')) ? qs.get('status') : 'All',
+    sel: qs.get('id') || RW.hash() || null,
+    mode: qs.get('new') ? 'new' : qs.get('edit') ? 'edit' : 'view',
+    confirm: !!qs.get('delete'),
+    dirty: false,
+  };
+
+  RW.mountShell('jobs', { onLayout: () => syncTabs() });
+
+  const tabsEl = $('#tabs'), ind = $('.chip-indicator', tabsEl), listEl = $('#list'), rail = $('#rail');
+  const syncTabs = () => RW.moveIndicator(ind, $('.chip[aria-pressed="true"]', tabsEl), true);
+  const visible = () => RW.jobs().filter((j) => st.filter === 'All' || j.status === st.filter);
+
+  /* Keep the URL in step with what is on screen, so reload and Back land in the same place. */
+  function syncURL() {
+    const u = RW.url();
+    ['id', 'new', 'edit', 'delete'].forEach((k) => u.searchParams.delete(k));
+    st.filter === 'All' ? u.searchParams.delete('status') : u.searchParams.set('status', st.filter);
+    if (st.mode === 'new') u.searchParams.set('new', '1');
+    else if (st.sel) { u.searchParams.set('id', st.sel); if (st.mode === 'edit') u.searchParams.set('edit', '1'); }
+    u.hash = '';
+    history.replaceState(null, '', u);
+  }
+
+  function renderTabs() {
+    const all = RW.jobs();
+    tabsEl.querySelectorAll('.chip').forEach((c) => c.remove());
+    FILTERS.forEach((f) => {
+      const n = f === 'All' ? all.length : all.filter((j) => j.status === f).length;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip';
+      b.setAttribute('aria-pressed', String(f === st.filter));
+      b.innerHTML = `<span>${esc(f)}</span><span class="count">${n}</span>`;
+      b.addEventListener('click', () => {
+        if (st.filter === f || !leaveEditor()) return;
+        st.filter = f;
+        $$('.chip', tabsEl).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        syncTabs(); renderList(true);
+      });
+      tabsEl.appendChild(b);
+    });
+    syncTabs();
+  }
+
+  function rowHTML(j) {
+    return `<button type="button" class="lrow jrow${j.status === 'Closed' ? ' closed' : ''}" data-id="${esc(j.id)}" aria-label="${esc(j.title)}, ${j.apps} applicant${j.apps === 1 ? '' : 's'}${j.pending ? `, ${j.pending} to review` : ''}, ${j.interviewing} interviewing, ${esc(j.status)}" aria-current="${j.id === st.sel && st.mode !== 'new'}">
+      ${RW.logoHTML('sm')}
+      <span style="min-width:0"><h3>${esc(j.title)}</h3><span class="meta"><span class="type">${esc(j.type)}</span><span aria-hidden="true">·</span><span>${esc(j.location)}</span><span class="posted"><span aria-hidden="true">·</span> Posted ${esc(RW.fmtShort(j.posted))}</span></span></span>
+      <span class="count c-apps${j.apps ? '' : ' zero'}">${j.apps}${j.pending ? `<span class="review">${j.pending} to review</span>` : ''}</span>
+      <span class="count c-iv${j.interviewing ? '' : ' zero'}">${j.interviewing}</span>
+      <span class="st${j.status === 'Active' ? ' is-active' : ''}">${RW.statusHTML(j.status)}</span>
+      <span class="chev">${ICON.chev}</span>
+    </button>`;
+  }
+
+  function renderList(animate, flashId) {
+    const list = visible();
+    if (!list.length) {
+      listEl.innerHTML = st.filter === 'All'
+        ? `<div class="empty"><strong>No jobs yet</strong>Post your first job and matched candidates can apply.<br><a class="btn btn-primary" href="jobs?new=1">Post a job</a></div>`
+        : `<div class="empty"><strong>No ${esc(st.filter.toLowerCase())} jobs</strong>${st.filter === 'Closed' ? 'Jobs you close stop taking applications and show up here.' : 'Reopen a closed job or post a new one.'}</div>`;
+      if (st.mode === 'view') { st.sel = null; renderRail(); }
+      return;
+    }
+    if (st.mode !== 'new' && !list.some((j) => j.id === st.sel)) { st.sel = list[0].id; if (st.mode === 'edit') st.mode = 'view'; }
+    listEl.innerHTML = list.map(rowHTML).join('');
+    if (animate && !RW.reduceMotion) $$('.lrow', listEl).forEach((el, i) => { el.style.animationDelay = Math.min(i, 8) * 40 + 'ms'; el.classList.add('enter'); });
+    if (flashId) { const r = $(`.lrow[data-id="${CSS.escape(flashId)}"]`, listEl); if (r) { r.classList.add('flash'); r.scrollIntoView({ block: 'nearest' }); } }
+    renderRail(false);
+  }
+
+  /* ---------- Rail: job detail ---------- */
+  function detailHTML(j) {
+    const reqs = j.skills.length
+      ? `<div class="req">${j.skills.map((s) => `<span class="tag">${esc(s)}</span>`).join('')}</div>`
+      : `<p class="ad-text">No required skills, so every applicant scores 100%.</p>`;
+    return `<div class="ad scroll" data-id="${esc(j.id)}">
+      <div class="ad-head">${RW.logoHTML('sm')}<div style="min-width:0"><h2>${esc(j.title)}</h2><div class="meta"><span class="type">${esc(j.type)}</span><span aria-hidden="true">·</span><span>${esc(j.location)}</span></div></div></div>
+      <div class="ad-facts">${RW.statusHTML(j.status)}<span class="facts-line"><b>${j.apps}</b> applicant${j.apps === 1 ? '' : 's'} · <b>${j.interviewing}</b> interviewing · posted ${esc(RW.fmtShort(j.posted))}</span></div>
+      <div class="ad-actions" id="actions">
+        <a class="btn btn-primary" href="applicants?job=${encodeURIComponent(j.id)}">View applicants</a>
+        <button type="button" class="btn btn-secondary" data-act="edit">${ICON.edit}Edit</button>
+      </div>
+      <div><div class="ad-sub">Required skills</div>${reqs}</div>
+      <div><div class="ad-sub">About the role</div><div class="ad-body"><p class="jd-lede">${esc(j.desc)}</p>${RW.bodyHTML(j.body)}</div></div>
+      <div class="manage">
+        <div id="confirmSlot"></div>
+        <div class="manage-row">
+          <button type="button" class="btn btn-quiet" data-act="toggle">${j.status === 'Active' ? 'Close posting' : 'Reopen posting'}</button>
+          <button type="button" class="btn btn-danger-quiet" data-act="delete">${ICON.trash}Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function confirmHTML(j) {
+    const b = RW.deleteBlockers(j.id);
+    if (b.blocked) {
+      return `<div class="note honey enter" role="alert"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>
+        <div><b>This job can't be deleted.</b> It has ${b.apps} application${b.apps === 1 ? '' : 's'}, and their status and interview history stay with it. Close the posting to stop new applications.
+        <div class="btns">${j.status === 'Active' ? '<button type="button" class="btn btn-secondary" data-act="close-instead">Close posting</button>' : ''}<button type="button" class="btn btn-quiet" data-act="cancel">Keep it</button></div></div></div>`;
+    }
+    return `<div class="note danger enter" role="alert"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+      <div><b>Delete “${esc(j.title)}”?</b> It has no applicants or interview slots. This can't be undone.
+      <div class="btns"><button type="button" class="btn btn-danger" data-act="confirm-delete">Delete posting</button><button type="button" class="btn btn-quiet" data-act="cancel">Cancel</button></div></div></div>`;
+  }
+
+  /* ---------- Rail: create / edit form ---------- */
+  let draftSkills = [];
+  function editorHTML(j) {
+    const v = j || { title: '', location: '', type: 'Full-time', status: 'Active', desc: '', body: '', skills: [] };
+    const seg = (name, options, cur) => `<div class="seg" role="group" aria-label="${name}" data-seg="${name}">${options.map((o) => `<button type="button" aria-pressed="${o === cur}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
+    return `<form class="editor scroll" id="editor" novalidate>
+      <div class="editor-head"><h2>${j ? 'Edit job' : 'Post a job'}</h2>${j ? RW.statusHTML(j.status) : ''}</div>
+      <div class="form one">
+        <div class="field"><label for="fTitle">Job title <i aria-hidden="true">*</i></label>
+          <input class="input" id="fTitle" name="title" maxlength="90" value="${esc(v.title)}" placeholder="e.g. Backend Engineer, Catalog API" aria-describedby="eTitle" required>
+          <span class="err" id="eTitle"></span></div>
+        <div class="field"><label for="fLoc">Location</label>
+          <input class="input" id="fLoc" name="location" maxlength="60" value="${esc(v.location)}" placeholder="City, state, or Remote"></div>
+        <div class="field"><span class="lbl" id="lType">Job type</span>${seg('Job type', RW.JOB_TYPES, v.type)}</div>
+        <div class="field"><label for="fDesc">Summary <i aria-hidden="true">*</i></label>
+          <input class="input" id="fDesc" name="desc" maxlength="160" value="${esc(v.desc)}" placeholder="One line on what this person will do" aria-describedby="eDesc hDesc" required>
+          <small id="hDesc">Candidates see this first, on every job card.</small>
+          <span class="err" id="eDesc"></span></div>
+        <div class="field"><label for="fBody">Details</label>
+          <textarea class="input" id="fBody" name="body" rows="5" maxlength="2000" placeholder="Responsibilities, team, what success looks like" aria-describedby="hBody">${esc(v.body)}</textarea>
+          <small id="hBody">Start a line with “- ” to make it a bullet.</small></div>
+        <div class="field"><label for="fSkill">Required skills</label>
+          <div class="skill-box" id="skillBox"><input id="fSkill" placeholder="Type a skill, press Enter" aria-describedby="hSkill" autocomplete="off"></div>
+          <small id="hSkill">An applicant's match score is the share of these skills they list. Leave it empty and everyone scores 100%.</small></div>
+        ${j ? `<div class="field"><span class="lbl">Posting status</span>${seg('Posting status', ['Active', 'Closed'], v.status)}<small>Closed jobs stay visible to you but stop taking applications.</small></div>` : ''}
+        <div class="form-actions">
+          <button type="button" class="btn btn-quiet" data-act="cancel-edit">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveJob" title="Ctrl+Enter">${j ? 'Save changes' : 'Post job'}</button>
+        </div>
+      </div>
+    </form>`;
+  }
+
+  function wireEditor(j) {
+    const form = $('#editor'), box = $('#skillBox'), input = $('#fSkill');
+    draftSkills = j ? j.skills.slice() : [];
+    const drawSkills = (added) => {
+      $$('.sk', box).forEach((x) => x.remove());
+      draftSkills.forEach((s) => {
+        const el = document.createElement('span');
+        el.className = 'sk' + (s === added ? ' new' : '');
+        el.innerHTML = `${esc(s)}<button type="button" aria-label="Remove ${esc(s)}">${ICON.x}</button>`;
+        el.querySelector('button').addEventListener('click', () => { draftSkills = draftSkills.filter((x) => x !== s); st.dirty = true; drawSkills(); input.focus(); });
+        box.insertBefore(el, input);
+      });
+    };
+    const addSkill = () => {
+      const parts = input.value.split(',').map((s) => s.trim()).filter(Boolean);
+      if (!parts.length) return false;
+      let last = null;
+      parts.forEach((p) => { if (!draftSkills.some((x) => x.toLowerCase() === p.toLowerCase())) { draftSkills.push(p); last = p; } });
+      input.value = ''; st.dirty = true; drawSkills(last);
+      return true;
+    };
+    drawSkills();
+    box.addEventListener('click', (e) => { if (e.target === box) input.focus(); });
+    input.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ',') && !e.isComposing) { e.preventDefault(); addSkill(); }
+      else if (e.key === 'Backspace' && !input.value && draftSkills.length) { draftSkills.pop(); st.dirty = true; drawSkills(); }
+    });
+    input.addEventListener('blur', addSkill);
+    $$('[data-seg]', form).forEach((g) => g.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      $$('button', g).forEach((x) => x.setAttribute('aria-pressed', String(x === b))); st.dirty = true;
+    }));
+    form.addEventListener('input', (e) => {
+      st.dirty = true;
+      const i = e.target;
+      if (i.getAttribute('aria-invalid')) { i.removeAttribute('aria-invalid'); const er = $('#e' + i.id.slice(1)); if (er) er.textContent = ''; }
+    });
+    form.addEventListener('submit', (e) => { e.preventDefault(); save(j); });
+    $('#fTitle').focus({ preventScroll: true });
+    /* Ctrl/Cmd+Enter saves, Escape cancels (popovers handle their own Escape first). */
+    form.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.requestSubmit(); }
+      else if (e.key === 'Escape' && !document.querySelector('.popover.open')) { e.preventDefault(); $('[data-act="cancel-edit"]', form).click(); }
+    });
+  }
+
+  function save(j) {
+    $('#fSkill').dispatchEvent(new Event('blur'));
+    const segVal = (name) => { const b = $(`[data-seg="${name}"] [aria-pressed="true"]`); return b ? b.dataset.v : undefined; };
+    const data = { title: $('#fTitle').value, location: $('#fLoc').value, type: segVal('Job type'), desc: $('#fDesc').value, body: $('#fBody').value, skills: draftSkills.slice() };
+    if (j) data.status = segVal('Posting status');
+    const res = j ? RW.updateJob(j.id, data) : RW.createJob(data);
+    const fields = { title: ['#fTitle', '#eTitle'], desc: ['#fDesc', '#eDesc'] };
+    Object.values(fields).forEach(([i, e]) => { $(i).removeAttribute('aria-invalid'); $(e).textContent = ''; });
+    if (!res.ok) {
+      if (res.errors) {
+        let first = null;
+        Object.entries(res.errors).forEach(([k, msg]) => { const f = fields[k]; if (!f) return; $(f[0]).setAttribute('aria-invalid', 'true'); $(f[1]).textContent = msg; first = first || $(f[0]); });
+        if (first) { first.focus(); first.classList.remove('shake'); void first.offsetWidth; first.classList.add('shake'); }
+      } else RW.toast(res.message, { error: true });
+      return;
+    }
+    st.dirty = false; st.mode = 'view'; st.sel = res.job.id;
+    if (!j && st.filter === 'Closed') st.filter = 'All';
+    RW.toast(j ? 'Changes saved' : `Posted “${res.job.title}”`);
+    renderTabs(); renderList(false, res.job.id);
+  }
+
+  /* Leaving the form with edits asks first, the same way a page change would. */
+  function leaveEditor() {
+    if ((st.mode === 'edit' || st.mode === 'new') && st.dirty && !window.confirm('Discard your changes to this job?')) return false;
+    st.dirty = false;
+    return true;
+  }
+  window.addEventListener('beforeunload', (e) => { if (st.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  function renderRail(animate = true) {
+    const j = st.sel ? RW.job(st.sel) : null;
+    if (st.mode === 'new') { rail.innerHTML = editorHTML(null); wireEditor(null); }
+    else if (!j) { rail.innerHTML = `<div class="empty"><strong>No job selected</strong>Choose a job to see its details, or post a new one.</div>`; }
+    else if (st.mode === 'edit') { rail.innerHTML = editorHTML(j); wireEditor(j); }
+    else {
+      rail.innerHTML = detailHTML(j);
+      if (st.confirm) { $('#confirmSlot').innerHTML = confirmHTML(j); st.confirm = false; }
+    }
+    const first = rail.firstElementChild;
+    if (animate && first && !RW.reduceMotion) first.classList.add('enter');
+    syncURL();
+  }
+
+  function select(id) {
+    if (id === st.sel && st.mode === 'view') return;
+    if (!leaveEditor()) return;
+    st.sel = id; st.mode = 'view';
+    $$('.lrow', listEl).forEach((r) => r.setAttribute('aria-current', String(r.dataset.id === id)));
+    renderRail(true);
+    if (window.innerWidth <= 1180) rail.scrollIntoView({ behavior: RW.reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  }
+  listEl.addEventListener('click', (e) => { const r = e.target.closest('.lrow'); if (r) select(r.dataset.id); });
+  listEl.addEventListener('keydown', (e) => {
+    if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+    const rows = $$('.lrow', listEl), i = rows.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    const next = rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+    next.focus(); select(next.dataset.id);
+  });
+
+  $('#newJob').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (st.mode === 'new' || !leaveEditor()) return;
+    st.mode = 'new';
+    $$('.lrow', listEl).forEach((r) => r.setAttribute('aria-current', 'false'));
+    renderRail(true);
+    if (window.innerWidth <= 1180) rail.scrollIntoView({ behavior: RW.reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  });
+
+  function setStatus(j, status, undoable) {
+    const prev = j.status;
+    const res = RW.updateJob(j.id, { status });
+    if (!res.ok) { RW.toast(res.message, { error: true }); return; }
+    if (st.filter !== 'All' && st.filter !== status) st.filter = 'All';
+    renderTabs(); renderList(false, j.id);
+    RW.toast(status === 'Closed' ? `Closed “${j.title}”. It no longer takes applications.` : `Reopened “${j.title}”`,
+      undoable ? { undo: () => setStatus(RW.job(j.id), prev, false) } : {});
+  }
+
+  rail.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const j = st.sel ? RW.job(st.sel) : null;
+    switch (b.dataset.act) {
+      case 'edit': st.mode = 'edit'; st.dirty = false; renderRail(true); break;
+      case 'cancel-edit': if (!leaveEditor()) return; st.mode = 'view'; if (!st.sel || !RW.job(st.sel)) { const f = visible()[0]; st.sel = f ? f.id : null; } $$('.lrow', listEl).forEach((r) => r.setAttribute('aria-current', String(r.dataset.id === st.sel))); renderRail(true); break;
+      case 'toggle': if (j) setStatus(j, j.status === 'Active' ? 'Closed' : 'Active', true); break;
+      case 'delete': if (j) { $('#confirmSlot').innerHTML = confirmHTML(j); const btn = $('#confirmSlot button'); if (btn) btn.focus(); } break;
+      case 'cancel': $('#confirmSlot').innerHTML = ''; $('[data-act="delete"]', rail).focus(); break;
+      case 'close-instead': if (j) setStatus(j, 'Closed', true); break;
+      case 'confirm-delete': {
+        if (!j) return;
+        const res = RW.deleteJob(j.id);
+        if (!res.ok) { RW.toast(res.message, { error: true }); $('#confirmSlot').innerHTML = confirmHTML(j); return; }
+        const rows = visible(), idx = Math.max(0, rows.findIndex((x) => x.id === j.id));
+        const row = $(`.lrow[data-id="${CSS.escape(j.id)}"]`, listEl);
+        const finish = () => {
+          const left = visible();
+          st.sel = left.length ? left[Math.min(idx, left.length - 1)].id : null;
+          renderTabs(); renderList(false);
+          RW.toast(`Deleted “${j.title}”`);
+        };
+        if (row && !RW.reduceMotion) { row.style.transition = 'opacity .2s, transform .25s var(--ease)'; row.style.opacity = '0'; row.style.transform = 'translateX(-12px)'; setTimeout(finish, 220); }
+        else finish();
+        break;
+      }
+    }
+  });
+
+  renderTabs();
+  renderList(false);
+})();
+</script>
+<span id="mw-ready" hidden></span>
+</body>
+</html>
