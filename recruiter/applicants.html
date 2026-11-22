@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchwork – Applicants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../candidate/assets/shell.css">
+<link rel="stylesheet" href="assets/recruiter.css">
+<link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/match.js"></script>
+<script src="assets/recruiter.js"></script>
+<style>
+.job-pick{flex:0 1 280px;min-width:180px;height:34px;font-weight:600}
+.req-strip{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:12px 22px 0 23px;font-size:13px;color:var(--muted)}
+.req-strip .tag{background:#F1F4F2;color:var(--ink-2);font-weight:600}
+.req-strip[hidden]{display:none}
+/* Table: who they are · how well they match · where they are in the pipeline.
+   Skill tags live in the detail panel; the row keeps one strong line and one quiet line per cell.
+   Columns follow the card's own width, so the rail never squeezes the table into a scrollbar. */
+.list-page{container-type:inline-size;container-name:aplist}
+.thead,.prow{grid-template-columns:40px minmax(0,1.45fr) minmax(124px,1fr) minmax(132px,1fr) 16px;column-gap:20px}
+.thead span:first-child{grid-column:1 / 3}
+.prow{padding-top:13px;padding-bottom:13px}
+.prow .who{min-width:0}
+.prow .who b{display:block;font-size:15px;line-height:20px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .who .sub{margin-top:2px}
+.prow[aria-current="true"] .who b{color:var(--green-900)}
+.prow .person-av{transition:transform .3s var(--ease)}
+.prow:hover .person-av{transform:translateY(-2px)}
+.cell{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}
+.cell .score,.cell .status{height:24px;font-size:12.5px}
+.cell small,.cell .ivcell{max-width:100%;font-size:12.5px;line-height:16px;color:var(--muted)}
+.cell small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.cell .ivcell svg{width:13px;height:13px}
+.cell .ivcell.todo{color:var(--honey-ink)}
+.prow .status{transition:background-color .25s,color .25s}
+.prow .status.changed{animation:pop .45s var(--ease-spring)}
+.clear-q{display:inline-flex;align-items:center;gap:6px}
+@container aplist (max-width:600px){
+  .thead{display:none}
+  .prow{grid-template-columns:40px minmax(0,1fr) auto;row-gap:10px;column-gap:14px}
+  .prow .c-match{grid-column:3;grid-row:1;align-items:flex-end}
+  .prow .c-stage{grid-column:2 / 4;grid-row:2;flex-direction:row;align-items:center;gap:10px}
+  .prow .chev{display:none}
+}
+
+/* Rail */
+.ad.applicant{gap:20px}
+.ad.applicant .ad-head{align-items:start}
+.applied{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 16px;margin:0;padding:12px 14px;font-size:13.5px;line-height:19px;border-radius:calc(var(--r-md) * var(--sq));background:var(--green-50);border:1px solid #EEF0F0}
+.applied dt{color:var(--muted)}
+.applied dd{margin:0;min-width:0;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.status-grid button{--dot:#8A9096;display:flex;align-items:center;gap:9px;height:40px;padding:0 12px;border:1px solid var(--line-2);background:#fff;color:var(--ink-2);font-size:14px;font-weight:600;text-align:left;cursor:pointer;border-radius:calc(var(--r-sm) * var(--sq));transition:background-color .18s,border-color .18s,color .18s,transform .15s}
+.status-grid button::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--dot)}
+.status-grid button:hover{border-color:#C9D2CC;background:#FAFBFA;color:var(--ink)}
+.status-grid button:active{transform:scale(.98)}
+.status-grid button[data-v="Interviewing"]{--dot:var(--lavender-ink)}
+.status-grid button[data-v="Rejected"]{--dot:var(--blush-ink)}
+.status-grid button[data-v="Accepted"]{--dot:var(--green-500)}
+.status-grid button[aria-pressed="true"]{cursor:default;border-color:transparent;background:#F2F3F4;color:#3F4448}
+.status-grid button[data-v="Interviewing"][aria-pressed="true"]{background:var(--lavender-wash);color:var(--lavender-ink)}
+.status-grid button[data-v="Rejected"][aria-pressed="true"]{background:var(--blush-wash);color:var(--blush-ink)}
+.status-grid button[data-v="Accepted"][aria-pressed="true"]{background:var(--green-100);color:var(--green-900)}
+.status-ctl .note{margin-top:10px}
+.iv-panel{display:flex;flex-direction:column;gap:6px;padding:12px 14px}
+.iv-panel .iv-when{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13.5px;color:#2A2F33;font-variant-numeric:tabular-nums}
+.iv-panel .iv-when span{display:flex;align-items:center;gap:6px}
+.iv-panel p{font-size:13.5px;line-height:19px;color:var(--ink-2)}
+.ad-head .meta{flex-wrap:wrap;column-gap:12px}
+.ad-head .meta .loc{display:inline-flex;align-items:center;gap:5px}
+.contact{display:inline-flex;align-items:center;gap:5px;min-width:0;color:var(--green-700);font-weight:600;text-decoration:none}
+.contact span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.contact:hover{color:var(--green-900);text-decoration:underline;text-underline-offset:3px}
+
+@media (max-width:640px){
+  .req-strip{margin-left:16px;margin-right:16px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <svg class="deco-br" width="230" height="120" viewBox="0 0 230 120" aria-hidden="true"><path d="M230 0 C200 20 150 40 120 70 C95 95 60 110 0 120 L230 120Z" fill="#F2F3F3"/><path d="M230 30 C205 55 180 80 140 100 C120 110 100 116 80 120 L230 120Z" fill="#ECEEEE"/></svg>
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+    <script>RW.renderChrome('applicants');</script>
+    <div class="body">
+      <div class="col-left">
+        <section class="card list-page" aria-labelledby="ap-title">
+          <div class="page-head">
+            <div>
+              <h1 id="ap-title">Applicants</h1>
+              <p id="ap-sub">Best match first. Pick a job, then move each applicant through your pipeline.</p>
+            </div>
+          </div>
+          <div class="toolbar">
+            <label class="sr" for="jobPick">Job</label>
+            <select class="input job-pick" id="jobPick"></select>
+            <div class="chips" id="tabs" role="group" aria-label="Filter by status"><span class="chip-indicator" aria-hidden="true"></span></div>
+          </div>
+          <div class="req-strip" id="reqStrip" hidden></div>
+          <div class="thead" aria-hidden="true"><span>Candidate</span><span>Match</span><span>Stage</span><span></span></div>
+          <div class="list scroll" id="list" aria-live="polite"></div>
+        </section>
+      </div>
+      <div class="col-right">
+        <section class="card rail" id="rail" aria-label="Applicant details"></section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const { $, $$, esc, ICON } = RW;
+  const TABS = ['All', ...RW.STATUSES];
+  const qs = RW.params();
+  const st = {
+    job: RW.job(qs.get('job')) ? qs.get('job') : 'all',
+    tab: TABS.includes(qs.get('status')) ? qs.get('status') : 'All',
+    q: (qs.get('q') || '').trim(),
+    sel: RW.hash() || null,
+  };
+  /* A deep link to one application opens on its job. */
+  if (st.sel && st.job === 'all') { const a = RW.application(st.sel); if (a) st.job = a.jobId; }
+
+  RW.mountShell('applicants', { onLayout: () => syncTabs(), onSearch: (q) => { st.q = q; renderTabs(); renderList(true); } });
+
+  const tabsEl = $('#tabs'), ind = $('.chip-indicator', tabsEl), listEl = $('#list'), rail = $('#rail'), pick = $('#jobPick');
+  const syncTabs = () => RW.moveIndicator(ind, $('.chip[aria-pressed="true"]', tabsEl), true);
+
+  function syncURL() {
+    const u = RW.url();
+    st.job === 'all' ? u.searchParams.delete('job') : u.searchParams.set('job', st.job);
+    st.tab === 'All' ? u.searchParams.delete('status') : u.searchParams.set('status', st.tab);
+    st.q ? u.searchParams.set('q', st.q) : u.searchParams.delete('q');
+    u.hash = st.sel ? st.sel : '';
+    history.replaceState(null, '', u);
+  }
+
+  /* FP-EMP-3: one job's applicants come from RW.applicants(jobId), already sorted by the shared contract. */
+  function base() {
+    let list = st.job === 'all' ? RW.allApplicants() : (RW.applicants(st.job).list || []);
+    if (st.q) {
+      const q = st.q.toLowerCase();
+      list = list.filter((a) => [a.name, a.cand.headline, a.job.title, ...a.cand.skills].some((s) => String(s).toLowerCase().includes(q)));
+    }
+    return list;
+  }
+  const visible = () => base().filter((a) => st.tab === 'All' || a.status === st.tab);
+
+  function renderPick() {
+    const jobs = RW.jobs();
+    const total = jobs.reduce((n, j) => n + j.apps, 0);
+    pick.innerHTML = `<option value="all">All jobs (${total})</option>` + jobs.map((j) => `<option value="${esc(j.id)}">${esc(j.title)}${j.status === 'Closed' ? ' · Closed' : ''} (${j.apps})</option>`).join('');
+    pick.value = st.job;
+  }
+  pick.addEventListener('change', () => { st.job = pick.value; st.sel = null; renderTabs(); renderList(true); });
+
+  function renderStrip() {
+    const strip = $('#reqStrip');
+    const j = st.job === 'all' ? null : RW.job(st.job);
+    if (!j && !st.q) { strip.hidden = true; return; }
+    strip.hidden = false;
+    strip.innerHTML = (j ? (j.skills.length
+      ? `<span>Required:</span>${j.skills.map((s) => `<span class="tag">${esc(s)}</span>`).join('')}`
+      : '<span>No required skills, so every applicant scores 100%.</span>') : '')
+      + (st.q ? `<button type="button" class="btn btn-quiet clear-q" id="clearQ">${ICON.x}Clear “${esc(st.q)}”</button>` : '');
+    const c = $('#clearQ');
+    if (c) c.addEventListener('click', () => { st.q = ''; $('#search').value = ''; renderTabs(); renderList(true); });
+  }
+
+  function renderTabs() {
+    const all = base();
+    tabsEl.querySelectorAll('.chip').forEach((c) => c.remove());
+    TABS.forEach((s) => {
+      const n = s === 'All' ? all.length : all.filter((a) => a.status === s).length;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.dataset.s = s;
+      b.setAttribute('aria-pressed', String(s === st.tab));
+      b.innerHTML = `<span>${esc(s)}</span><span class="count">${n}</span>`;
+      b.addEventListener('click', () => {
+        if (st.tab === s) return;
+        st.tab = s;
+        $$('.chip', tabsEl).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        syncTabs(); renderList(true);
+      });
+      tabsEl.appendChild(b);
+    });
+    syncTabs();
+    renderStrip();
+  }
+
+  /* "3 of 5 required skills": the quiet line under the score. */
+  function skillsLine(a) {
+    const req = RW.normalizeSkills(a.job.skills);
+    if (!req.size) return 'No required skills';
+    const have = [...req].filter((s) => RW.hasSkill(a.cand.skills, s)).length;
+    return `${have} of ${req.size} required skills`;
+  }
+  /* Status, plus the interview only when there is one to report. */
+  function stageInner(a) {
+    const iv = a.slot || a.status === 'Interviewing' ? RW.ivCellHTML(a) : '';
+    return RW.statusHTML(a.status) + iv;
+  }
+  function rowLabel(a) {
+    return `${a.name}, ${a.job.title}, ${a.match}% match, ${skillsLine(a)}, ${a.status}`;
+  }
+  function rowHTML(a) {
+    return `<button type="button" class="lrow prow" data-app="${esc(a.id)}" aria-current="${a.id === st.sel}" aria-label="${esc(rowLabel(a))}">
+      ${RW.avatarHTML(a.cand)}
+      <span class="who"><b>${esc(a.name)}</b><span class="sub">${esc(st.job === 'all' ? a.job.title : a.cand.headline)}</span></span>
+      <span class="cell c-match">${RW.scoreHTML(a.match)}<small>${esc(skillsLine(a))}</small></span>
+      <span class="cell c-stage">${stageInner(a)}</span>
+      <span class="chev">${ICON.chev}</span>
+    </button>`;
+  }
+
+  function renderList(animate) {
+    const list = visible();
+    if (!list.length) {
+      const j = st.job === 'all' ? null : RW.job(st.job);
+      listEl.innerHTML = st.q
+        ? `<div class="empty"><strong>No applicants match “${esc(st.q)}”</strong>Try a name, a skill like Python, or a job title.</div>`
+        : st.tab !== 'All'
+          ? `<div class="empty"><strong>No ${esc(st.tab.toLowerCase())} applicants</strong>Applicants show up here when you set them to ${esc(st.tab)}.</div>`
+          : `<div class="empty"><strong>No applicants yet</strong>${j ? `When candidates apply to ${esc(j.title)} they show up here, best match first.` : 'When candidates apply to your jobs they show up here.'}</div>`;
+      st.sel = null; renderRail(false); syncURL();
+      return;
+    }
+    if (!list.some((a) => a.id === st.sel)) st.sel = list[0].id;
+    listEl.innerHTML = list.map(rowHTML).join('');
+    if (animate && !RW.reduceMotion) $$('.lrow', listEl).forEach((el, i) => { el.style.animationDelay = Math.min(i, 8) * 40 + 'ms'; el.classList.add('enter'); });
+    const cur = $('.lrow[aria-current="true"]', listEl);
+    if (cur && !animate) cur.scrollIntoView({ block: 'nearest' });
+    renderRail(false);
+  }
+
+  /* ---------- Rail ---------- */
+  function statusNote(a) {
+    if (a.slot && a.status !== 'Interviewing') {
+      const past = new Date(a.slot.start) < RW.NOW;
+      return `<div class="note quiet">${ICON.cal}<div>${past ? 'Their interview' : `Their interview on <b>${esc(RW.fmtDate(a.slot.start))}</b>`} stays on record with this application, and the slot stays unavailable to others.</div></div>`;
+    }
+    if (a.status === 'Interviewing' && !a.slot) {
+      const n = RW.openSlots().length;
+      return n
+        ? `<div class="note quiet">${ICON.clock}<div>${esc(a.name.split(' ')[0])} can now book one of your <b>${n} open slot${n === 1 ? '' : 's'}</b>.</div></div>`
+        : `<div class="note honey">${ICON.clock}<div>You have no open slots, so ${esc(a.name.split(' ')[0])} can't book yet. <a href="interviews" style="color:inherit;font-weight:700">Add availability</a></div></div>`;
+    }
+    return '';
+  }
+  function interviewHTML(a) {
+    if (a.slot) {
+      const past = new Date(a.slot.start) < RW.NOW;
+      return `<div class="panel iv-panel"><div class="ad-sub" style="margin:0">${past ? 'Interview held' : 'Interview booked'}</div>
+        <div class="iv-when"><span>${ICON.cal}${esc(RW.fmtDate(a.slot.start))}</span><span>${ICON.clock}${esc(RW.fmtRange(a.slot.start, a.slot.end))} PT</span></div></div>`;
+    }
+    return `<div class="panel iv-panel"><div class="ad-sub" style="margin:0">Interview</div><p>${a.status === 'Interviewing'
+      ? 'Not booked yet. The candidate picks a time from your open slots.'
+      : a.status === 'Pending' ? 'Move them to Interviewing to let them book a time.' : 'No interview was booked.'}</p></div>`;
+  }
+  function railHTML(a) {
+    const req = RW.normalizeSkills(a.job.skills);
+    const have = [...req].filter((s) => RW.hasSkill(a.cand.skills, s)).length;
+    const summary = req.size ? `Has <b>${have}</b> of <b>${req.size}</b> required skills` : 'This job lists no required skills';
+    return `<div class="ad applicant scroll" data-app="${esc(a.id)}">
+      <div class="ad-head">${RW.avatarHTML(a.cand, 'lg')}<div style="min-width:0"><h2>${esc(a.name)}</h2><div class="meta"><span>${esc(a.cand.headline)}</span></div><div class="meta"><span class="loc">${ICON.pin}${esc(a.cand.location)}</span><a class="contact" href="mailto:${esc(a.cand.email)}">${ICON.mail}<span>${esc(a.cand.email)}</span></a></div></div></div>
+      <dl class="applied"><dt>Applied for</dt><dd>${esc(a.job.title)}</dd><dt>Applied on</dt><dd>${esc(RW.fmtDate(a.appliedAt))}</dd></dl>
+      <div class="status-ctl">
+        <div class="ad-sub" id="stLbl">Status</div>
+        <div class="status-grid" role="group" aria-labelledby="stLbl">${RW.STATUSES.map((s) => `<button type="button" data-v="${s}" aria-pressed="${a.status === s}">${s}</button>`).join('')}</div>
+        ${statusNote(a)}
+      </div>
+      <div class="panel match-panel">
+        <div class="match-top"><div><span class="match-pct">${a.match}%</span><span class="match-label">match</span></div><p>${summary}</p></div>
+        ${req.size ? `<div class="overlap" aria-hidden="true">${[...req].map((s) => `<i class="${RW.hasSkill(a.cand.skills, s) ? 'on' : ''}"></i>`).join('')}</div>` : ''}
+        <div class="tags">${RW.candTagsHTML(a.cand, a.job)}</div>
+      </div>
+      ${interviewHTML(a)}
+      <div>
+        <div class="ad-sub">History</div>
+        <ol class="timeline">${a.events.map(([ev, at], i) => `<li class="${ev === 'Rejected' ? 'neg' : ''}${i === a.events.length - 1 && a._fresh ? ' new' : ''}"><span class="pt" aria-hidden="true"></span><span class="ev">${esc(ev)}</span><time datetime="${esc(at)}">${esc(RW.fmtShort(at))}</time></li>`).join('')}</ol>
+      </div>
+      <div class="ad-foot">
+        <p>${ICON.lock}Their resume is private to them.</p>
+        <a class="link-arrow" href="jobs?id=${encodeURIComponent(a.jobId)}">View job ${ICON.arrow}</a>
+      </div>
+    </div>`;
+  }
+  function renderRail(animate, fresh) {
+    const a = st.sel ? RW.application(st.sel) : null;
+    if (!a) { rail.innerHTML = `<div class="empty"><strong>No applicant selected</strong>Choose an applicant to see their match and history.</div>`; return; }
+    a._fresh = !!fresh;
+    const scrollTop = rail.firstElementChild ? rail.firstElementChild.scrollTop : 0;
+    rail.innerHTML = railHTML(a);
+    if (animate && !RW.reduceMotion) rail.firstElementChild.classList.add('enter');
+    else rail.firstElementChild.scrollTop = scrollTop;
+    syncURL();
+  }
+
+  function select(id) {
+    if (id === st.sel) return;
+    st.sel = id;
+    $$('.lrow', listEl).forEach((r) => r.setAttribute('aria-current', String(r.dataset.app === id)));
+    renderRail(true);
+    if (window.innerWidth <= 1180) rail.scrollIntoView({ behavior: RW.reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  }
+  listEl.addEventListener('click', (e) => { const r = e.target.closest('.lrow'); if (r) select(r.dataset.app); });
+  listEl.addEventListener('keydown', (e) => {
+    if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+    const rows = $$('.lrow', listEl), i = rows.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    const next = rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+    next.focus(); select(next.dataset.app);
+  });
+
+  /* Status change: update the row in place, keep the selection, and offer undo. */
+  function changeStatus(id, status, undoable) {
+    const before = RW.application(id);
+    const res = RW.setStatus(id, status);
+    if (!res.ok) { RW.toast(res.message, { error: true }); return; }
+    if (res.unchanged) return;
+    const row = $(`.lrow[data-app="${CSS.escape(id)}"]`, listEl);
+    const stillShown = st.tab === 'All' || st.tab === status;
+    renderTabs();
+    if (row && stillShown) {
+      const now = RW.application(id);
+      $('.c-stage', row).innerHTML = stageInner(now);
+      $('.c-stage .status', row).classList.add('changed');
+      row.setAttribute('aria-label', rowLabel(now));
+      renderRail(false, true);
+    } else {
+      renderList(false);
+    }
+    RW.toast(`${before.name}: ${before.status} → ${status}`, undoable ? { undo: () => changeStatus(id, before.status, false) } : {});
+  }
+  rail.addEventListener('click', (e) => {
+    const b = e.target.closest('.status-grid button');
+    if (!b || b.getAttribute('aria-pressed') === 'true') return;
+    changeStatus(st.sel, b.dataset.v, true);
+    const nb = $(`.status-grid button[data-v="${b.dataset.v}"]`, rail);
+    if (nb) nb.focus();
+  });
+
+  renderPick();
+  renderTabs();
+  renderList(false);
+})();
+</script>
+<span id="mw-ready" hidden></span>
+</body>
+</html>

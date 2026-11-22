@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchwork – Saved Jobs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/shell.css">
+<link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/match.js"></script>
+<script src="assets/matchwork.js"></script>
+<style>
+.saved-card{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:16px 0 0}
+.saved-card .page-head{padding:0 22px 0 23px}
+.sort{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.jobs{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin-top:14px;padding:0 22px 16px 23px}
+.job{position:relative;z-index:0;display:grid;grid-template-columns:56px minmax(0,1fr) auto;column-gap:16px;padding:14px 8px 14px 3px;border-top:1px solid var(--row-line);cursor:pointer}
+/* Selection is a faint wash inside the row's own hairlines: no outline, no bulge past the list edge */
+.job::before{content:"";position:absolute;inset:3px -8px 3px -9px;border-radius:calc(var(--r-md) * var(--sq));background:#FAFBFA;opacity:0;transition:opacity .2s,background-color .2s;z-index:-1}
+.job:hover::before{opacity:1}
+.job[aria-current="true"]::before{opacity:1;background:#F5F8F6}
+.job:hover .logo-tile{transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+.job h3{margin-top:1px;font-size:16px;line-height:20px;font-weight:700}
+.job h3 button{all:unset;cursor:pointer;background:linear-gradient(currentColor,currentColor) 0 100%/0 1.5px no-repeat;transition:background-size .3s var(--ease)}
+.job h3 button:hover{background-size:100% 1.5px}
+.job h3 button:focus-visible{outline:2px solid var(--green-600);outline-offset:2px;border-radius:4px}
+.job[aria-current="true"] h3{color:var(--green-900)}
+.job .meta{margin-top:2px}
+.job .meta .mi{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.side-info{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.job .desc{margin-top:3px;font-size:13px;line-height:18px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.job .tags{margin-top:7px}
+.job-side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:12px}
+.job-side .saved-at{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.actions{display:flex;align-items:center;gap:12px}
+.job.enter{animation:rowIn .45s var(--ease) both}
+.job.leave{animation:rowOut .32s var(--ease) both}
+@keyframes rowIn{from{opacity:0;transform:translateY(8px)}}
+@keyframes rowOut{to{opacity:0;transform:translateX(-12px)}}
+/* Unsaved high matches under the list: fills the card when the list is short, sits after it when long */
+.more{flex:none;margin-top:30px}
+.more-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:0 0 10px 3px}
+.more-head h2{font-size:16px;line-height:20px;font-weight:700}
+.more-head p{margin-top:2px;font-size:13px;line-height:18px;color:var(--muted)}
+.more-head .link-arrow{flex:none;margin-right:-9px}
+.more-head .link-arrow svg{transition:transform .25s var(--ease)}
+.more-head .link-arrow:hover svg{transform:translateX(3px)}
+.sug{position:relative;z-index:0;display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;align-items:center;column-gap:14px;padding:10px 8px 10px 3px;border-top:1px solid var(--row-line)}
+.sug::before{content:"";position:absolute;inset:3px -8px 3px -9px;border-radius:calc(var(--r-md) * var(--sq));background:#FAFBFA;opacity:0;transition:opacity .2s;z-index:-1}
+.sug:hover::before{opacity:1}
+.sug:hover .logo-tile{transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+.sug h3{font-size:15px;line-height:20px;font-weight:700}
+.sug h3 a{color:inherit;text-decoration:none;border-radius:4px}
+.sug h3 a::after{content:"";position:absolute;inset:0}
+.sug h3 a:hover{color:var(--green-900)}
+.sug .meta{margin-top:1px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+.sug .meta span{flex:none}
+.sug .meta span:last-child{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.sug .score{height:24px;font-size:12.5px;padding:0 10px}
+.sug .score.hi{padding-left:9px}
+.sug .save-btn{position:relative;z-index:1;width:36px;height:34px}
+.rail-detail{flex:1 1 auto;min-height:0}
+.rail-detail .jd{padding:18px 18px 22px;gap:16px}
+.rail-detail .jd-head{grid-template-columns:44px minmax(0,1fr);column-gap:12px}
+.rail-detail .jd-head .logo-tile{width:44px;height:44px}
+.rail-detail .jd-head .logo-tile img{transform:scale(.82)}
+.rail-detail .jd-title h2{font-size:18px;line-height:24px}
+.rail-detail .jd-match-top{flex-wrap:wrap;gap:8px 14px}
+.rail-detail .jd-match-top p{padding-left:14px}
+@media (max-height:720px){ .job{padding-top:10px;padding-bottom:10px} }
+@media (max-width:1180px){ .rail-detail{flex:none} }
+@media (max-width:860px){
+  .job{grid-template-columns:48px minmax(0,1fr)}
+  .job .logo-tile{width:48px;height:48px}
+  .job-side{grid-column:1 / -1;flex-direction:row;align-items:center;margin-top:10px}
+  .side-info{align-items:flex-start;gap:4px}
+}
+@media (max-width:560px){
+  .saved-card .page-head{padding:0 16px}
+  .jobs{padding:0 16px 14px}
+  .sort{width:100%;justify-content:space-between}
+  .more-head{flex-direction:column;align-items:flex-start;gap:4px}
+  .more-head .link-arrow{margin-left:-9px}
+  .sug{grid-template-columns:44px minmax(0,1fr) auto}
+  .sug .score{grid-column:2;grid-row:2;justify-self:start;margin-top:6px}
+  .sug .save-btn{grid-column:3;grid-row:1 / span 2}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+    <script>MW.renderChrome('saved');</script>
+    <div class="body">
+      <div class="col-left">
+        <section class="card saved-card" aria-labelledby="saved-title">
+          <div class="page-head">
+            <div>
+              <h1 id="saved-title">Saved jobs</h1>
+              <p id="savedSub">Jobs you bookmarked. Apply when you are ready.</p>
+            </div>
+            <div class="sort"><span id="sortLabel">Sort by</span>
+              <div class="seg" id="segSort" role="group" aria-labelledby="sortLabel">
+                <button type="button" data-v="match" aria-pressed="true">Best match</button>
+                <button type="button" data-v="recent" aria-pressed="false">Recently saved</button>
+              </div>
+            </div>
+          </div>
+          <div class="jobs scroll" id="jobs" aria-live="polite"></div>
+        </section>
+      </div>
+      <div class="col-right">
+        <section class="card rail-detail scroll" id="detail" aria-label="Job details"></section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const { $, $$, esc } = MW;
+  const st = { sort: 'match', sel: null, showing: [] };
+  MW.mountShell('saved');
+
+  const jobsEl = $('#jobs'), detailEl = $('#detail');
+  function savedList() {
+    const saved = MW.state.saved;
+    const list = MW.jobs().filter((j) => j.id in saved);
+    return st.sort === 'recent' ? list.sort((a, b) => new Date(saved[b.id]) - new Date(saved[a.id])) : list;
+  }
+  function rowHTML(j) {
+    const app = MW.appForJob(j.id);
+    return `<article class="job" data-id="${esc(j.id)}" aria-current="${j.id === st.sel}">
+      ${MW.logoHTML(j)}
+      <div style="min-width:0">
+        <h3><button type="button" data-act="open">${esc(j.title)}</button></h3>
+        <div class="meta"><span>${esc(j.company)}</span><span aria-hidden="true">·</span><span class="mi">${MW.ICON.pin}${esc(j.location)}</span><span aria-hidden="true">·</span><span class="mi type">${MW.ICON.bag}${esc(j.type)}</span></div>
+        <p class="desc">${esc(j.desc)}</p>
+        <div class="tags">${j.skills.length ? MW.tagsHTML(j.skills) : '<span class="tag">No required skills</span>'}</div>
+      </div>
+      <div class="job-side">
+        <div class="side-info">${MW.scoreHTML(j.match)}<span class="saved-at">Saved ${esc(MW.ago(MW.state.saved[j.id]).toLowerCase())}</span></div>
+        <div class="actions">
+          <button type="button" class="save-btn" data-act="save" aria-pressed="true" aria-label="Remove saved ${esc(j.title)} at ${esc(j.company)}">${MW.ICON.bookmark}</button>
+          <button type="button" class="apply-btn${app ? ' applied' : ''}" data-act="apply" ${app ? 'aria-disabled="true"' : ''} aria-label="${app ? 'Applied to' : 'Apply to'} ${esc(j.title)} at ${esc(j.company)}">${MW.applyInner(!!app)}</button>
+        </div>
+      </div>
+    </article>`;
+  }
+  function sugHTML(j) {
+    return `<div class="sug" data-id="${esc(j.id)}">
+      ${MW.logoHTML(j, 'sm')}
+      <div style="min-width:0">
+        <h3><a href="jobs?id=${encodeURIComponent(j.id)}">${esc(j.title)}</a></h3>
+        <div class="meta"><span>${esc(j.company)}</span><span aria-hidden="true">·</span><span>${esc(j.location)}</span></div>
+      </div>
+      ${MW.scoreHTML(j.match)}
+      <button type="button" class="save-btn" data-act="save" aria-pressed="false" aria-label="Save ${esc(j.title)} at ${esc(j.company)}">${MW.ICON.bookmark}</button>
+    </div>`;
+  }
+  function moreHTML() {
+    const saved = MW.state.saved;
+    const picks = MW.jobs().filter((j) => !(j.id in saved) && !MW.appForJob(j.id)).slice(0, 3);
+    if (!picks.length) return '';
+    return `<section class="more" aria-labelledby="more-title">
+      <div class="more-head">
+        <div><h2 id="more-title">Worth saving</h2><p>Your top matches you have not saved or applied to yet.</p></div>
+        <a class="link-arrow" href="jobs">Find more jobs ${MW.ICON.arrow}</a>
+      </div>
+      ${picks.map(sugHTML).join('')}
+    </section>`;
+  }
+  function render(animate, addedId) {
+    const list = savedList();
+    const n = list.length, notApplied = list.filter((j) => !MW.appForJob(j.id)).length;
+    $('#savedSub').textContent = n ? `${n} saved ${n === 1 ? 'job' : 'jobs'}, ${notApplied} not applied yet.` : 'Jobs you bookmark show up here.';
+    if (!n) {
+      jobsEl.innerHTML = `<div class="empty" style="border-top:1px solid var(--row-line);padding-top:48px">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="#EFF4F0" stroke="#3E7B5A" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+        <strong>No saved jobs yet</strong>Tap the bookmark on any job to keep it here for later.<br><a class="btn btn-primary" href="jobs">Browse jobs</a></div>${moreHTML()}`;
+      detailEl.innerHTML = `<div class="empty" style="padding-top:64px"><strong>Nothing to preview</strong>Save a job to read it here.</div>`;
+      return;
+    }
+    if (!list.some((j) => j.id === st.sel)) st.sel = list[0].id;
+    jobsEl.innerHTML = `<div class="saved-list">${list.map(rowHTML).join('')}</div>${moreHTML()}`;
+    if (!MW.reduceMotion) {
+      if (animate) $$('.job', jobsEl).forEach((el, i) => { el.style.animationDelay = i * 60 + 'ms'; el.classList.add('enter'); });
+      else if (addedId) { const row = $(`.job[data-id="${addedId}"]`, jobsEl); if (row) row.classList.add('enter'); }
+    }
+    renderDetail(false);
+  }
+  function renderDetail(animate) {
+    const j = MW.job(st.sel);
+    if (!j) return;
+    detailEl.innerHTML = MW.jobDetailHTML(j);
+    detailEl.scrollTop = 0;
+    if (animate && !MW.reduceMotion) $('.jd', detailEl).classList.add('enter');
+  }
+  function select(id) {
+    if (st.sel === id) return;
+    st.sel = id;
+    $$('.job', jobsEl).forEach((r) => r.setAttribute('aria-current', String(r.dataset.id === id)));
+    renderDetail(true);
+    if (window.innerWidth <= 1180) detailEl.scrollIntoView({ behavior: MW.reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  }
+  jobsEl.addEventListener('click', (e) => {
+    if (e.target.closest('[data-act="save"],[data-act="apply"],a')) return;
+    const row = e.target.closest('.job'); if (row) select(row.dataset.id);
+  });
+
+  $('#segSort').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b || st.sort === b.dataset.v) return;
+    st.sort = b.dataset.v;
+    $$('#segSort button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    render(true);
+  });
+
+  const onSaved = (id, now, undone) => {
+    if (undone) { render(false); return; }
+    if (now) { render(false, id); return; }
+    const row = $(`.job[data-id="${id}"]`, jobsEl);
+    if (row && !MW.reduceMotion) { row.classList.remove('enter'); row.classList.add('leave'); setTimeout(() => render(false), 300); }
+    else render(false);
+  };
+  const onApplied = () => { render(false); };
+  MW.wireJobActions(jobsEl, { onSaved, onApplied });
+  MW.wireJobActions(detailEl, { onSaved, onApplied });
+
+  render(false);
+})();
+</script>
+<span id="mw-ready" hidden></span>
+</body>
+</html>
