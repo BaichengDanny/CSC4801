@@ -1,8 +1,8 @@
-# Common Ground
+# Matchwork
 
 A local recruiting platform where candidates discover roles by skill match,
 employers manage applicants, and interview slots are reserved safely under
-concurrent use. Built for CSC4801 with Flask, SQLite, and the Matchwork pages.
+concurrent use. Built for CSC4801 with Flask and SQLite.
 
 The browser UI is the static Matchwork site: sign-in and account creation on
 one page, a candidate dashboard, and an employer dashboard. Flask serves those
