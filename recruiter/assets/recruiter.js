@@ -8,9 +8,18 @@
   /* ---------- Demo session ----------
      login.html stores { role } on sign-in. Employer pages need role "recruiter" when served over
      http(s); file:// previews skip the check. Log Out clears the flag. */
-  const SESSION_KEY = 'mw-session';
   /* Single-file build (matchwork-recruiter.html): every page lives in window.__RW_PAGES. */
   const BUNDLE = !!window.__RW_PAGES;
+  function api(method, path, payload) {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, path, false);
+    xhr.withCredentials = true;
+    if (payload !== undefined) xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(payload === undefined ? null : JSON.stringify(payload));
+    let data = null;
+    try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { data = { message: 'Unexpected response' }; }
+    return { status: xhr.status, data };
+  }
   /* Where pages read their query and hash. In the bundle, if the browser refused to change the URL
      (file:// in some browsers, sandboxed previews) the router keeps the intended one in __rwLoc. */
   const loc = () => (BUNDLE && window.__rwLoc) || { search: location.search, hash: location.hash };
@@ -18,24 +27,27 @@
   const hash = () => loc().hash.slice(1);
   /* The page's current URL, to edit and hand to history.replaceState. */
   const url = () => { const l = loc(); return new URL(location.pathname + l.search + l.hash, location.href); };
-  function hasRecruiterSession() {
-    let ok = true;
-    try {
-      const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-      let role = null; try { role = raw && JSON.parse(raw).role; } catch (e) { /* malformed */ }
-      ok = role === 'recruiter';
-    } catch (e) { /* storage blocked: let them in */ }
-    return ok;
-  }
   const hosted = !BUNDLE && /^https?:$/.test(location.protocol);
+  let boot = null;
+  let authed = !hosted;
   if (hosted) {
-    if (!hasRecruiterSession()) location.replace('/login#recruiter');
+    const me = api('GET', '/api/auth/me');
+    authed = me.status === 200 && me.data && me.data.role === 'Employer';
+    if (!authed) location.replace('/sign-in#recruiter');
+    else {
+      const loaded = api('GET', '/api/employer/bootstrap');
+      if (loaded.status === 200) boot = loaded.data;
+      else authed = false;
+    }
     document.addEventListener('click', (e) => {
-      const a = e.target.closest && e.target.closest('a[href^="/login"]');
+      const a = e.target.closest && e.target.closest('a[href^="/sign-in"]');
       if (!a) return;
-      try { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); } catch (err) { /* nothing stored */ }
+      e.preventDefault();
+      api('POST', '/api/auth/logout');
+      location.href = a.getAttribute('href');
     }, true);
   }
+  function hasRecruiterSession() { return authed; }
 
   const { normalizeSkills, matchScore, hasSkill, compareApplicants } = window.MWMatch;
 
@@ -48,8 +60,8 @@
   /* All times are stored in UTC and shown in Pacific Time, like the candidate portal. */
   const TZ = 'America/Los_Angeles';
   const TZ_LABEL = 'Pacific Time (PT)';
-  /* The demo clock, shared with the candidate portal: Monday, Nov 16 2026, 9:00 AM PT. */
-  const NOW = new Date('2026-11-16T17:00:00Z');
+  /* The demo clock, shared with the candidate portal. The server clock replaces it when signed in. */
+  let NOW = new Date(boot && boot.now ? boot.now : '2026-11-16T17:00:00Z');
   const SLOT_MIN = 30;
   const fmt = (d, opts) => new Intl.DateTimeFormat('en-US', { timeZone: TZ, ...opts }).format(new Date(d));
   const fmtDate = (d) => fmt(d, { weekday: 'short', month: 'short', day: 'numeric' });
@@ -92,7 +104,7 @@
   /* ---------- Seed data ----------
      The signed-in employer is Tidewater Labs. One posting from another employer is kept in the
      store so ownership checks (403) have something to refuse; the UI never lists it. */
-  const ME = 'tidewater';
+  let ME = boot ? boot.me : 'tidewater';
   const COMPANY_SEED = {
     id: ME, name: 'Tidewater Labs',
     about: 'Makes search and discovery tools for public libraries and university archives. Our small team works closely with librarians, so the people who use what we build are never far away.',
@@ -178,17 +190,28 @@
     notifRead: false, clock: 0,
   }));
 
-  /* ---------- Store (localStorage, per browser; demo only) ---------- */
+  /* ---------- Store ---------- */
   const KEY = 'matchwork.recruiter.v1';
+  const live = !!boot;
   let state;
-  try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
-  if (!state || state.v !== 1) state = DEFAULT_STATE();
+  if (live) state = boot.state;
+  else if (!hosted) {
+    try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
+    if (!state || state.v !== 1) state = DEFAULT_STATE();
+  } else {
+    state = { v: 1, company: { id: '', name: '', about: '', industry: '', size: '', location: '', website: '', mono: '?', tint: '#1F5FA8', tileBg: '#EAF1FA' }, candidates: [], jobs: [], applications: [], slots: [], notifRead: false, clock: 0 };
+  }
   const listeners = new Set();
   function persist() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable: keep in memory */ }
+    if (!live) { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable: keep in memory */ } }
     listeners.forEach((fn) => { try { fn(state); } catch (err) { console.error(err); } });
   }
-  function resetDemo() { state = DEFAULT_STATE(); persist(); }
+  function resetDemo() {
+    if (live) { location.reload(); return; }
+    state = DEFAULT_STATE(); persist();
+  }
+  const failed = (res, fallback) => (res.status >= 400 || !res.data || res.data.ok === false)
+    ? fail(res.status || 400, (res.data && res.data.message) || fallback, res.data || {}) : null;
   /* The demo clock stands still, so each change gets the next minute after NOW to keep histories in order. */
   const stamp = () => new Date(NOW.getTime() + (++state.clock) * 6e4).toISOString();
 
@@ -254,6 +277,13 @@
   function createJob(d) {
     const errors = validateJob(d);
     if (Object.keys(errors).length) return fail(400, 'Fix the highlighted fields', { errors });
+    if (live) {
+      const res = api('POST', '/api/employer/jobs', pickJob(d));
+      const error = failed(res, 'Could not create the job');
+      if (error) return error;
+      state.jobs.push(res.data.job); persist();
+      return { ok: true, job: res.data.job };
+    }
     const seq = Math.max(0, ...state.jobs.map((j) => j.seq || 0)) + 1;
     const j = { id: 'j' + Date.now().toString(36), seq, owner: ME, posted: stamp(), ...pickJob(d) };
     state.jobs.push(j); persist();
@@ -264,6 +294,17 @@
     if (!j) return fail(404, 'That job no longer exists');
     if (j.owner !== ME) return fail(403, 'You can only edit your own jobs');
     const merged = { ...j, ...d };
+    if (live) {
+      const errors = validateJob(merged);
+      if (Object.keys(errors).length) return fail(400, 'Fix the highlighted fields', { errors });
+      const res = api('POST', '/api/employer/jobs/' + encodeURIComponent(id), pickJob(merged));
+      const error = failed(res, 'Could not update the job');
+      if (error) return error;
+      const index = state.jobs.findIndex((item) => item.id === id);
+      if (index >= 0) state.jobs[index] = res.data.job;
+      persist();
+      return { ok: true, job: res.data.job };
+    }
     const errors = validateJob(merged);
     if (Object.keys(errors).length) return fail(400, 'Fix the highlighted fields', { errors });
     Object.assign(j, pickJob(merged)); persist();
@@ -278,6 +319,14 @@
     const j = findJob(id);
     if (!j) return fail(404, 'That job no longer exists');
     if (j.owner !== ME) return fail(403, 'You can only delete your own jobs');
+    if (live) {
+      const res = api('POST', '/api/employer/jobs/' + encodeURIComponent(id) + '/delete');
+      const error = failed(res, 'Could not delete the job');
+      if (error) return error;
+      state.jobs = state.jobs.filter((item) => item.id !== id);
+      persist();
+      return { ok: true, job: j };
+    }
     const b = deleteBlockers(id);
     if (b.blocked) return fail(409, `“${j.title}” has ${b.apps} application${b.apps === 1 ? '' : 's'}, so it can't be deleted. Close it instead.`);
     state.jobs = state.jobs.filter((x) => x.id !== id); persist();
@@ -292,6 +341,17 @@
     if (findJob(a.jobId).owner !== ME) return fail(403, 'Only the employer who owns this job can change its status');
     if (!STATUSES.includes(status)) return fail(400, 'Status must be Pending, Interviewing, Rejected or Accepted');
     if (a.status === status) return { ok: true, app: view(a), unchanged: true };
+    if (live) {
+      const res = api('POST', '/api/employer/applications/' + encodeURIComponent(appId) + '/status', { status });
+      const error = failed(res, 'Could not update the status');
+      if (error) return error;
+      const prev = a.status;
+      a.status = res.data.application.status;
+      a.events = res.data.application.events;
+      a.slotId = res.data.application.slotId;
+      persist();
+      return { ok: true, app: view(a), prev };
+    }
     const prev = a.status;
     a.status = status;
     a.events.push([status === 'Interviewing' ? 'Moved to Interviewing' : status === 'Pending' ? 'Moved back to Pending' : status, stamp()]);
@@ -308,6 +368,13 @@
     if (s <= NOW) return fail(400, 'Slots must start in the future');
     const clash = ownSlots().find((x) => new Date(x.start) < e && new Date(x.end) > s);
     if (clash) return fail(409, `That overlaps your ${fmtTime(clash.start)} slot`);
+    if (live) {
+      const res = api('POST', '/api/employer/slots', { start: s.toISOString(), end: e.toISOString() });
+      const error = failed(res, 'Could not add that time');
+      if (error) return error;
+      state.slots.push(res.data.slot); persist();
+      return { ok: true, slot: res.data.slot };
+    }
     const sl = { id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), owner: ME, start: s.toISOString(), end: e.toISOString(), bookedBy: null };
     state.slots.push(sl); persist();
     return { ok: true, slot: sl };
@@ -316,6 +383,14 @@
     const sl = slot(id);
     if (!sl) return fail(404, 'That slot no longer exists');
     if (sl.owner !== ME) return fail(403, 'You can only delete your own slots');
+    if (live && !sl.bookedBy) {
+      const res = api('POST', '/api/employer/slots/' + encodeURIComponent(id) + '/delete');
+      const error = failed(res, 'Could not delete that time');
+      if (error) return error;
+      state.slots = state.slots.filter((item) => item.id !== id);
+      persist();
+      return { ok: true, slot: sl };
+    }
     if (sl.bookedBy) {
       const a = application(sl.bookedBy);
       return fail(409, `${a ? a.name + ' booked' : 'A candidate booked'} this time, so it can't be deleted`);
@@ -335,6 +410,14 @@
     if (!about) errors.about = 'Enter a short description of your company.';
     else if (about.length > 800) errors.about = 'Keep the description under 800 characters.';
     if (Object.keys(errors).length) return fail(400, 'Fix the highlighted fields', { errors });
+    if (live) {
+      const res = api('POST', '/api/employer/company', { ...d, name, about });
+      const error = failed(res, 'Could not save the company');
+      if (error) return error;
+      state.company = res.data.company;
+      persist();
+      return { ok: true, company: state.company };
+    }
     const next = { ...state.company, ...d, name, about };
     ['industry', 'location', 'website'].forEach((k) => { next[k] = String(next[k] || '').trim(); });
     next.mono = (name.match(/[A-Za-z0-9]/) || ['?'])[0].toUpperCase();
@@ -494,7 +577,7 @@
         </a>`).join('')}
       </nav>
       <div class="divider"></div>
-      <a href="/login#recruiter" class="nav-item logout">
+      <a href="/sign-in#recruiter" class="nav-item logout">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4"/><path d="M18 12H9"/></svg>
         <span class="label">Log Out</span>
       </a>
@@ -528,7 +611,7 @@
             <a href="company" class="menu-item" role="menuitem">Company Profile</a>
             <button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>
             <div class="menu-sep" role="separator"></div>
-            <a href="/login#recruiter" class="menu-item danger" role="menuitem">Log Out</a>
+            <a href="/sign-in#recruiter" class="menu-item danger" role="menuitem">Log Out</a>
           </div>
         </div>
       </div>`;
@@ -684,7 +767,7 @@
       if (!a || (a.target && a.target !== '_self')) return;
       const href = a.getAttribute('href');
       if (!href || href.startsWith('#') || /^(mailto|https?):/.test(href)) return;
-      if (/^\/login/.test(href)) { e.preventDefault(); toast('The sign-in page is not part of this file'); return; }
+      if (/^\/(login|sign-in)/.test(href)) { e.preventDefault(); toast('The sign-in page is not part of this file'); return; }
       const r = resolve(href);
       if (!r) return;
       e.preventDefault();
@@ -797,7 +880,7 @@
     async function navigate({ key, target }, push) {
       const sequence = ++navigation;
       if (!hasRecruiterSession()) {
-        location.replace('/login#recruiter');
+        location.replace('/sign-in#recruiter');
         return;
       }
       const leave = new Event('beforeunload', { cancelable: true });

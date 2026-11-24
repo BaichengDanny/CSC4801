@@ -40,6 +40,7 @@
   a { color: var(--primary); }
   a:hover { color: var(--primary-hover); }
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  [hidden] { display: none !important; }
 
   /* ---------- Layout ---------- */
   .page { min-height: 100vh; display: flex; flex-wrap: wrap; }
@@ -355,6 +356,18 @@
         <div class="collapse" id="alert-collapse"><div><div class="alert" id="form-alert" role="alert"></div></div></div>
 
         <form id="signin-form" class="enter" novalidate>
+          <div class="field" id="name-field" hidden>
+            <label class="label" for="name" id="name-label">Your name</label>
+            <input class="input" id="name" name="name" type="text" placeholder="Alex Morgan" autocomplete="name" maxlength="100" aria-describedby="name-error">
+            <div class="collapse" id="name-collapse"><div><p class="field-error" id="name-error"></p></div></div>
+          </div>
+
+          <div class="field" id="company-field" hidden>
+            <label class="label" for="company" id="company-label">Company name</label>
+            <input class="input" id="company" name="company" type="text" placeholder="Northstar Studio" autocomplete="organization" maxlength="100" aria-describedby="company-error">
+            <div class="collapse" id="company-collapse"><div><p class="field-error" id="company-error"></p></div></div>
+          </div>
+
           <div class="field" id="email-field">
             <label class="label" for="email" id="email-label">Email</label>
             <input class="input" id="email" name="email" type="email" placeholder="name@example.com" autocomplete="email" aria-describedby="email-error" required>
@@ -376,7 +389,7 @@
             <div class="collapse" id="password-collapse"><div><p class="field-error" id="password-error"></p></div></div>
           </div>
 
-          <label class="checkbox">
+          <label class="checkbox" id="remember-row">
             <input type="checkbox" name="remember" id="remember">
             Keep me signed in for 30 days
           </label>
@@ -391,11 +404,11 @@
           <span class="sr-only" id="submit-status" aria-live="polite"></span>
         </form>
 
-        <p class="signup enter"><span id="signup-prompt">New here?</span> <a class="ulink" href="#" id="signup-link">Create a free profile</a></p>
+        <p class="signup enter"><span id="signup-prompt">New here?</span> <a class="ulink" href="#signup" id="signup-link">Create a free profile</a></p>
       </section>
     </div>
 
-    <p class="legal">By signing in, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</p>
+    <p class="legal" id="legal-note">By signing in, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</p>
   </main>
 </div>
 
@@ -420,6 +433,11 @@
       submit: "Sign in",
       signupPrompt: "New here?",
       signupLink: "Create a free profile",
+      signupTitle: "Create your profile",
+      signupSubtitle: "Add your name, then see roles matched to your skills.",
+      signupSubmit: "Create profile",
+      signupPromptBack: "Already have an account?",
+      signupLinkBack: "Sign in",
       redirect: "/candidate/dashboard"
     },
     recruiter: {
@@ -432,6 +450,11 @@
       submit: "Sign in to recruiter workspace",
       signupPrompt: "Hiring for your team?",
       signupLink: "Create a company account",
+      signupTitle: "Create your company account",
+      signupSubtitle: "Add your company, then post roles and review applicants.",
+      signupSubmit: "Create company account",
+      signupPromptBack: "Already have an account?",
+      signupLinkBack: "Sign in",
       redirect: "/recruiter/dashboard"
     }
   };
@@ -444,10 +467,13 @@
   var tabsList = document.querySelector(".tabs-list");
   var tabs = Array.prototype.slice.call(document.querySelectorAll(".tabs-trigger"));
   var form = $("signin-form");
+  var nameInput = $("name");
+  var companyInput = $("company");
   var email = $("email");
   var password = $("password");
   var submitBtn = $("submit-btn");
   var currentRole = null;
+  var creating = false;
   var swapToken = 0;
 
   // Text nodes that change with the role; they fade out, update, then fade back in.
@@ -455,8 +481,8 @@
 
   function applyRoleCopy(role) {
     var c = ROLES[role];
-    $("auth-title").textContent = c.title;
-    $("auth-subtitle").textContent = c.subtitle;
+    $("auth-title").textContent = creating ? c.signupTitle : c.title;
+    $("auth-subtitle").textContent = creating ? c.signupSubtitle : c.subtitle;
     $("email-label").textContent = c.emailLabel;
     email.placeholder = c.emailPlaceholder;
     $("alt-label").textContent = c.altProvider;
@@ -464,15 +490,23 @@
     // SVG elements ignore the .hidden property, so toggle display directly.
     $("alt-icon-candidate").style.display = role === "candidate" ? "" : "none";
     $("alt-icon-recruiter").style.display = role === "recruiter" ? "" : "none";
-    $("submit-label").textContent = c.submit;
-    $("signup-prompt").textContent = c.signupPrompt;
-    $("signup-link").textContent = c.signupLink;
+    $("submit-label").textContent = creating ? c.signupSubmit : c.submit;
+    $("signup-prompt").textContent = creating ? c.signupPromptBack : c.signupPrompt;
+    $("signup-link").textContent = creating ? c.signupLinkBack : c.signupLink;
+    $("name-field").hidden = !creating;
+    $("company-field").hidden = !(creating && role === "recruiter");
+    $("forgot-link").hidden = creating;
+    $("remember-row").hidden = creating;
+    $("legal-note").firstChild.textContent = creating ? "By creating an account, you agree to our " : "By signing in, you agree to our ";
+    password.autocomplete = creating ? "new-password" : "current-password";
+    password.placeholder = creating ? "At least 8 characters" : "Enter your password";
+    document.title = (creating ? c.signupTitle : "Sign in") + " · Matchwork";
   }
 
   function setRole(role, opts) {
     opts = opts || {};
     if (!ROLES[role]) role = "candidate";
-    if (role === currentRole) return;
+    if (role === currentRole) { applyRoleCopy(role); return; }
     var first = currentRole === null;
     currentRole = role;
 
@@ -562,8 +596,18 @@
     else input.removeAttribute("aria-invalid");
   }
   function clearErrors() {
-    setError(email, ""); setError(password, "");
+    setError(nameInput, ""); setError(companyInput, ""); setError(email, ""); setError(password, "");
     hideAlert();
+  }
+  function nameError() {
+    if (!creating) return "";
+    if (!nameInput.value.trim()) return "Enter your name.";
+    return "";
+  }
+  function companyError() {
+    if (!creating || currentRole !== "recruiter") return "";
+    if (!companyInput.value.trim()) return "Enter your company name.";
+    return "";
   }
   function emailError() {
     var v = email.value.trim();
@@ -582,7 +626,7 @@
     el.classList.add("shake");
   }
   // Re-check a field live once it has shown an error, and on blur once it has a value.
-  [[email, emailError], [password, passwordError]].forEach(function (pair) {
+  [[nameInput, nameError], [companyInput, companyError], [email, emailError], [password, passwordError]].forEach(function (pair) {
     var input = pair[0], check = pair[1];
     input.addEventListener("input", function () {
       if (input.getAttribute("aria-invalid") === "true") setError(input, check());
@@ -601,7 +645,13 @@
     submitBtn.dataset.state = state;
     submitBtn.disabled = state !== "idle";
     submitBtn.setAttribute("aria-busy", String(state === "loading"));
-    $("submit-status").textContent = state === "loading" ? "Signing in" : state === "success" ? "Signed in" : "";
+    var busy = creating ? "Creating account" : "Signing in";
+    var done = creating ? "Account created" : "Signed in";
+    $("submit-status").textContent = state === "loading" ? busy : state === "success" ? done : "";
+    var loading = submitBtn.querySelector(".btn-loading");
+    var finished = submitBtn.querySelector(".btn-done");
+    if (loading) loading.lastChild.textContent = creating ? "Creating account…" : "Signing in…";
+    if (finished) finished.lastChild.textContent = creating ? "Account created" : "Signed in";
   }
 
   function toast(title, body) {
@@ -615,21 +665,54 @@
     toast._t = setTimeout(function () { t.classList.remove("show"); }, 3500);
   }
 
-  // Replace this with a real request to your backend, e.g.
-  // fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+  var hosted = location.protocol !== "file:";
   function signIn(payload) {
-    return new Promise(function (resolve, reject) {
-      setTimeout(function () {
-        if (payload.password === "wrongpass1") reject(new Error("Incorrect email or password."));
-        else resolve({ redirect: ROLES[payload.role].redirect });
-      }, 1000);
+    if (!hosted) {
+      return new Promise(function (resolve, reject) {
+        setTimeout(function () {
+          if (payload.password === "wrongpass1") reject(new Error("Incorrect email or password."));
+          else resolve({ redirect: ROLES[payload.role].redirect });
+        }, 1000);
+      });
+    }
+    var role = payload.role === "recruiter" ? "Employer" : "Candidate";
+    return fetch("/api/auth/login", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: payload.email, password: payload.password, role: role })
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        if (!response.ok) throw new Error((data && data.message) || "Could not sign in.");
+        return { redirect: ROLES[payload.role].redirect };
+      });
+    });
+  }
+  function registerAccount(payload) {
+    if (!hosted) return Promise.reject(new Error("Open the running app to create an account."));
+    return fetch("/api/auth/register", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: payload.email,
+        password: payload.password,
+        role: payload.role === "recruiter" ? "Employer" : "Candidate",
+        name: payload.name,
+        company: payload.company
+      })
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        if (!response.ok) throw new Error((data && data.message) || "Could not create the account.");
+        return { redirect: ROLES[payload.role].redirect };
+      });
     });
   }
 
   // Submission is handled on click / Enter rather than relying on the native
   // submit event, which sandboxed previews without "allow-forms" block.
   submitBtn.addEventListener("click", function (e) { e.preventDefault(); handleSubmit(); });
-  [email, password].forEach(function (input) {
+  [nameInput, companyInput, email, password].forEach(function (input) {
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); handleSubmit(); }
     });
@@ -657,27 +740,30 @@
   function handleSubmit() {
     if (submitBtn.dataset.state !== "idle") return;
     hideAlert();
-    if (password.value === ADMIN_PASSWORD) {
+    if (!creating && !hosted && password.value === ADMIN_PASSWORD) {
       clearErrors();
       setButtonState("success");
       startSession(currentRole, $("remember").checked);
       window.location.href = dashboardUrl(currentRole);
       return;
     }
-    var eErr = emailError(), pErr = passwordError();
-    setError(email, eErr); setError(password, pErr);
-    if (eErr || pErr) {
-      var bad = eErr ? email : password;
+    var nErr = nameError(), cErr = companyError(), eErr = emailError(), pErr = passwordError();
+    setError(nameInput, nErr); setError(companyInput, cErr); setError(email, eErr); setError(password, pErr);
+    if (nErr || cErr || eErr || pErr) {
+      var bad = nErr ? nameInput : cErr ? companyInput : eErr ? email : password;
       shake(bad); bad.focus();
       return;
     }
-    var payload = { role: currentRole, email: email.value.trim(), password: password.value, remember: $("remember").checked };
+    var payload = {
+      role: currentRole, name: nameInput.value.trim(), company: companyInput.value.trim(),
+      email: email.value.trim(), password: password.value, remember: $("remember").checked
+    };
     setButtonState("loading");
-    signIn(payload).then(function (res) {
+    (creating ? registerAccount : signIn)(payload).then(function (res) {
       setButtonState("success");
-      toast("Signed in", "Redirecting to " + res.redirect + " …");
-      startSession(payload.role, payload.remember);
-      setTimeout(function () { window.location.href = dashboardUrl(payload.role); }, 900);
+      toast(creating ? "Account created" : "Signed in", "Redirecting to " + res.redirect + " …");
+      if (!hosted) startSession(payload.role, payload.remember);
+      setTimeout(function () { window.location.href = dashboardUrl(payload.role); }, hosted ? 200 : 900);
     }).catch(function (err) {
       setButtonState("idle");
       showAlert(err.message);
@@ -697,9 +783,23 @@
     toast("Reset password", "Hook this link up to your password-reset page.");
   });
 
-  // Start on the role in the URL (#candidate or #recruiter)
-  setRole(readHash() || "candidate");
-  window.addEventListener("hashchange", function () { setRole(readHash()); });
+  $("signup-link").addEventListener("click", function (e) {
+    e.preventDefault();
+    creating = !creating;
+    clearErrors();
+    if (currentRole) applyRoleCopy(currentRole);
+    (creating ? nameInput : email).focus();
+  });
+
+  // Start on the role in the URL (#candidate or #recruiter). #signup opens the create form.
+  var opening = readHash();
+  creating = opening === "signup" || opening.indexOf("signup") === 0;
+  setRole(opening.indexOf("recruiter") !== -1 ? "recruiter" : (opening || "candidate"));
+  window.addEventListener("hashchange", function () {
+    var hash = readHash();
+    if (hash === "signup" || hash.indexOf("signup") === 0) creating = true;
+    setRole(hash.indexOf("recruiter") !== -1 ? "recruiter" : hash);
+  });
 })();
 </script>
 </body>

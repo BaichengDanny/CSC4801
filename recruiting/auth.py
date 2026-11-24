@@ -2,9 +2,7 @@
 import hashlib
 import hmac
 import secrets
-from functools import wraps
-
-from flask import Blueprint, g, redirect, render_template, request, session, url_for
+from flask import Blueprint, g, redirect, request, session
 
 from . import accounts
 from .db import get_db, transaction
@@ -38,6 +36,11 @@ def load_user():
             g.user = accounts.user(row['user_id'])
         else:
             session.clear()
+    if request.method == 'POST' and request.path.startswith('/api/'):
+        # JSON routes rely on the SameSite session cookie instead of a form token.
+        if g.user is None and request.endpoint not in ('api.login', 'api.register'):
+            raise DomainError(401, 'Please sign in to continue.')
+        return
     if request.method == 'POST':
         if request.endpoint not in ('auth.login', 'auth.register') and g.user is None:
             raise DomainError(401, 'Please sign in to continue.')
@@ -46,13 +49,12 @@ def load_user():
             raise DomainError(400, 'Your form expired. Reload the page and try again.')
 
 
-def login_required(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if g.user is None:
-            raise DomainError(401, 'Please sign in to continue.')
-        return view(*args, **kwargs)
-    return wrapped
+def end_session():
+    token = session.get('auth_token')
+    if token:
+        with transaction() as db:
+            db.execute('DELETE FROM auth_sessions WHERE token_hash = ?', (_digest(token),))
+    session.clear()
 
 
 def start_session(actor):
@@ -69,37 +71,11 @@ def start_session(actor):
     csrf_token()
 
 
-@bp.route('/login', methods=['GET', 'POST'])
+@bp.get('/login')
 def login():
-    error = None
-    if request.method == 'POST':
-        try:
-            actor = accounts.authenticate(request.form.get('email', ''), request.form.get('password', ''))
-            start_session(actor)
-            return redirect(url_for('web.dashboard'))
-        except DomainError as exc:
-            error = exc
-    return render_template('auth.html', registering=False, error=error), error.status if error else 200
+    return redirect('/sign-in')
 
 
-@bp.route('/register', methods=['GET', 'POST'])
+@bp.get('/register')
 def register():
-    error = None
-    if request.method == 'POST':
-        try:
-            actor = accounts.register(request.form.get('email', ''), request.form.get('password', ''),
-                                      request.form.get('role', ''), request.form.get('display_name', ''))
-            start_session(actor)
-            return redirect(url_for('web.dashboard'))
-        except DomainError as exc:
-            error = exc
-    return render_template('auth.html', registering=True, error=error), error.status if error else 200
-
-
-@bp.post('/logout')
-@login_required
-def logout():
-    with transaction() as db:
-        db.execute('DELETE FROM auth_sessions WHERE token_hash = ?', (_digest(session['auth_token']),))
-    session.clear()
-    return redirect(url_for('auth.login'))
+    return redirect('/sign-in#signup')

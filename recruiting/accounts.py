@@ -77,20 +77,27 @@ def skills_for(candidate_id):
 def profile(actor, candidate_id):
     require_role(actor, 'Candidate')
     require_owner(actor, candidate_id)
-    row = get_db().execute('SELECT resume FROM candidate_profiles WHERE user_id = ?', (candidate_id,)).fetchone()
+    row = get_db().execute(
+        'SELECT resume, headline, location FROM candidate_profiles WHERE user_id = ?', (candidate_id,)).fetchone()
     if row is None:
         raise DomainError(404, 'Candidate profile not found.')
-    return {**user(candidate_id), 'resume': row['resume'], 'skills': skills_for(candidate_id)}
+    return {**user(candidate_id), 'resume': row['resume'], 'headline': row['headline'],
+            'location': row['location'], 'skills': skills_for(candidate_id)}
 
 
-def update_profile(actor, display_name, skills, resume):
+def update_profile(actor, display_name, skills, resume, headline=None, location=None):
     require_role(actor, 'Candidate')
     name = text_value(display_name, 'Display name', 100)
     normalized = normalize_skills(skills)
     resume = text_value(resume, 'Resume', 50000, required=False)
+    current = get_db().execute(
+        'SELECT headline, location FROM candidate_profiles WHERE user_id = ?', (actor['id'],)).fetchone()
+    headline = current['headline'] if headline is None else text_value(headline, 'Headline', 160, required=False).strip()
+    location = current['location'] if location is None else text_value(location, 'Location', 120, required=False).strip()
     with transaction() as db:
         db.execute('UPDATE users SET display_name = ? WHERE id = ?', (name, actor['id']))
-        db.execute('UPDATE candidate_profiles SET resume = ? WHERE user_id = ?', (resume, actor['id']))
+        db.execute('UPDATE candidate_profiles SET resume = ?, headline = ?, location = ? WHERE user_id = ?',
+                   (resume, headline, location, actor['id']))
         db.execute('DELETE FROM candidate_skills WHERE candidate_id = ?', (actor['id'],))
         db.executemany('INSERT INTO candidate_skills VALUES (?,?)', [(actor['id'], s) for s in normalized])
     return profile(actor, actor['id'])
@@ -101,11 +108,24 @@ def company(actor):
     return dict(get_db().execute('SELECT * FROM companies WHERE employer_id = ?', (actor['id'],)).fetchone())
 
 
-def update_company(actor, name, description):
+def update_company(actor, name, description, industry=None, size=None, location=None, website=None):
     require_role(actor, 'Employer')
     name = text_value(name, 'Company name', 100)
     description = text_value(description, 'Company description', 10000, required=False)
+    current = company(actor)
+
+    def optional(value, label, limit, fallback):
+        if value is None:
+            return fallback
+        return text_value(value, label, limit, required=False).strip()
+
+    industry = optional(industry, 'Industry', 80, current['industry'])
+    size = optional(size, 'Company size', 80, current['size'])
+    location = optional(location, 'Location', 120, current['location'])
+    website = optional(website, 'Website', 200, current['website'])
     with transaction() as db:
-        db.execute('UPDATE companies SET name = ?, description = ? WHERE employer_id = ?',
-                   (name, description, actor['id']))
+        db.execute(
+            'UPDATE companies SET name = ?, description = ?, industry = ?, size = ?, location = ?, website = ? '
+            'WHERE employer_id = ?',
+            (name, description, industry, size, location, website, actor['id']))
     return company(actor)

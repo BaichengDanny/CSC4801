@@ -2,9 +2,11 @@
 
 A local recruiting platform where candidates discover roles by skill match,
 employers manage applicants, and interview slots are reserved safely under
-concurrent use. Built for CSC4801 with Flask, Jinja templates, and SQLite.
+concurrent use. Built for CSC4801 with Flask, SQLite, and the Matchwork pages.
 
-The interface uses a navy header, blue actions, white cards, and simple navigation.
+The browser UI is the static Matchwork site: sign-in and account creation on
+one page, a candidate dashboard, and an employer dashboard. Flask serves those
+pages and a JSON API. The earlier Jinja screens have been removed.
 
 ## Quick start
 
@@ -35,21 +37,25 @@ Do not use these credentials or this dataset for a production service.
 | `north@example.test` | Employer | Northstar Studio; Backend Engineer and Data Analyst |
 | `field@example.test` | Employer | Fieldwork Labs; Systems Engineer and Graduate Programme |
 
+The seed also loads the 39 Matchwork catalog postings from `candidate/assets/jobs.json`. Each of those companies has its own demo employer. The email is the company name in lowercase, with spaces turned into hyphens, at `@example.test` — for example `google@example.test`. The password is the same demo password.
+
 ## Architecture
 
-- `recruiting/__init__.py`: application factory, security headers, error rendering.
-- `auth.py`, `web.py`: session lifecycle and server-rendered form routes.
+- `recruiting/__init__.py`: application factory, security headers, JSON errors.
+- `auth.py`, `api.py`, `pages.py`: sessions, the JSON API, and the Matchwork pages.
 - `accounts.py`, `jobs.py`, `scheduling.py`: authorization and business services.
-- `matching.py`: shared deterministic normalized skill-overlap score.
+- `matching.py` and `shared/match.js`: the same deterministic skill-overlap score.
 - `db.py`, `migrations/`: SQLite connections, transactions, versioned schema.
-- `templates/`, `static/`: Jinja pages and local assets; no JavaScript required.
-- `seed.py`: explicit synthetic reset/seed CLI.
+- `candidate/`, `recruiter/`, `shared/`, `login.html`: the pages a browser actually loads.
+- `seed.py`: explicit synthetic reset/seed CLI, including the Matchwork job catalog.
 - `tests/unit/`: required business and HTTP-boundary tests with isolated databases.
 - `tests/integration/`: two independent SQLite connections racing for one slot.
 
 Booking uses `BEGIN IMMEDIATE` and unique constraints on both slot and application.
 Resume text is private to its owner and never contributes to matching scores.
-All interview input and display uses UTC. Server sessions are revocable on logout.
+Times are stored as UTC. The Matchwork pages label slot times Pacific (UTC−8).
+Server sessions are revocable on logout. Creating an account is on the sign-in
+page; there is no password-recovery flow.
 
 ## Requirement–test mapping
 
@@ -60,24 +66,24 @@ team responsibilities, not claims of automated completion.
 
 | Requirement | Implementation | Named tests / verification evidence |
 |---|---|---|
-| FP-ARCH-1 | `recruiting/__init__.py`, `db.py`, `web.py`, templates, Dockerfile | `test_web.py::test_candidate_and_employer_browser_workflow`; clean Docker workflow in INSTALL.md |
-| FP-AUTH-1 | `accounts.py`, `auth.py` | `test_auth.py::test_registration_login_and_salted_hashes`, `test_invalid_registration`, `test_duplicate_and_invalid_login`; `test_web.py::test_registration_and_session_lifecycle` |
+| FP-ARCH-1 | `recruiting/__init__.py`, `db.py`, `pages.py`, `api.py`, Dockerfile | `test_web.py::test_candidate_and_employer_api_browser_workflow`; `test_api.py::test_sign_in_page_and_static_files_are_served`; clean Docker workflow in INSTALL.md |
+| FP-AUTH-1 | `accounts.py`, `auth.py`, `api.py`, `login.html` | `test_auth.py::test_registration_login_and_salted_hashes`, `test_invalid_registration`, `test_duplicate_and_invalid_login`; `test_web.py::test_registration_and_session_lifecycle`; `test_api.py::test_api_login_role_and_logout`, `test_api_register_starts_a_session` |
 | FP-AUTH-2 | `accounts.py` | `test_auth.py::test_registration_login_and_salted_hashes` |
-| FP-AUTH-3 | `accounts.py`, `jobs.py`, `scheduling.py`, `auth.py` | `test_workflows.py::test_wrong_roles_ownership_and_missing_objects`; `test_web.py::test_auth_errors_and_csrf`, `test_other_employer_direct_requests`; `test_regressions.py::test_oversized_path_id_is_not_found`, `test_forbidden_scheduling_requests_are_403_even_with_malformed_forms` |
-| FP-CAN-1 | `accounts.py`, `web.py`, `profile.html`, `resume.html` | `test_auth.py::test_profile_skills_and_private_resume`; `test_web.py::test_direct_resume_access_and_escaping` |
-| FP-CAN-2 | `jobs.py`, `dashboard.html` | `test_workflows.py::test_recommendations_fields_all_jobs_and_tie_breakers` |
-| FP-CAN-3 | `jobs.py`, applications templates | `test_workflows.py::test_applications_pending_duplicate_owner_and_statuses`; `test_web.py::test_malformed_forms_and_other_application_access` |
-| FP-EMP-1 | `accounts.py`, `profile.html` | `test_auth.py::test_company_profile` |
-| FP-EMP-2 | `jobs.py`, job templates | `test_workflows.py::test_job_crud_validation_and_dependent_deletion`, `test_wrong_roles_ownership_and_missing_objects`; `test_scheduling.py::test_slot_ownership_and_job_dependency` |
-| FP-EMP-3 | `jobs.py`, `applicants.html` | `test_workflows.py::test_applicants_fields_and_both_tie_breakers`, `test_applications_pending_duplicate_owner_and_statuses`; `test_scheduling.py::test_booking_visible_preserved_and_deletion_rejected` |
-| FP-MATCH-1 | `matching.py`, `jobs.py` | `test_matching.py::test_score_examples_normalization_and_floor`, `test_skill_normalization`; `test_workflows.py::test_recommendations_fields_all_jobs_and_tie_breakers`, `test_applicants_fields_and_both_tie_breakers` |
+| FP-AUTH-3 | `accounts.py`, `jobs.py`, `scheduling.py`, `auth.py` | `test_workflows.py::test_wrong_roles_ownership_and_missing_objects`; `test_web.py::test_auth_errors_and_role_boundaries`, `test_other_employer_cannot_manage_a_job`; `test_regressions.py::test_oversized_path_id_is_not_found`, `test_forbidden_scheduling_requests_are_403_before_bad_input` |
+| FP-CAN-1 | `accounts.py`, `api.py`, `candidate/profile.html` | `test_auth.py::test_profile_skills_and_private_resume`; `test_web.py::test_resume_stays_private_and_user_text_is_json` |
+| FP-CAN-2 | `jobs.py`, `candidate/dashboard.html` | `test_workflows.py::test_recommendations_fields_all_jobs_and_tie_breakers` |
+| FP-CAN-3 | `jobs.py`, `candidate/applications.html` | `test_workflows.py::test_applications_pending_duplicate_owner_and_statuses`; `test_web.py::test_malformed_booking_and_other_application_access` |
+| FP-EMP-1 | `accounts.py`, `recruiter/` company screens | `test_auth.py::test_company_profile` |
+| FP-EMP-2 | `jobs.py`, recruiter job screens | `test_workflows.py::test_job_crud_validation_and_dependent_deletion`, `test_wrong_roles_ownership_and_missing_objects`; `test_scheduling.py::test_slot_ownership_and_job_dependency` |
+| FP-EMP-3 | `jobs.py`, `recruiter/applicants.html` | `test_workflows.py::test_applicants_fields_and_both_tie_breakers`, `test_applications_pending_duplicate_owner_and_statuses`; `test_scheduling.py::test_booking_visible_preserved_and_deletion_rejected` |
+| FP-MATCH-1 | `matching.py`, `shared/match.js`, `jobs.py` | `test_matching.py::test_score_examples_normalization_and_floor`, `test_skill_normalization`; `test_workflows.py::test_recommendations_fields_all_jobs_and_tie_breakers`, `test_applicants_fields_and_both_tie_breakers` |
 | FP-MATCH-2 | Not implemented | N/A — optional AI enhancement |
-| FP-SCHED-1 | `scheduling.py`, `schedule.html` | `test_scheduling.py::test_create_slot_timezone_and_delete`, `test_invalid_slots`; `test_regressions.py::test_slot_requires_a_renderable_utc_time`; `test_booking_visible_preserved_and_deletion_rejected`, `test_slot_ownership_and_job_dependency` |
-| FP-SCHED-2 | `scheduling.py`, `application_detail.html` | `test_scheduling.py::test_booking_visible_preserved_and_deletion_rejected`, `test_ineligible_bookings_leave_no_partial_changes`, `test_same_employer_cross_job_and_one_booking_per_application` |
+| FP-SCHED-1 | `scheduling.py`, `recruiter/interviews.html` | `test_scheduling.py::test_create_slot_timezone_and_delete`, `test_invalid_slots`; `test_regressions.py::test_slot_requires_a_renderable_utc_time`; `test_booking_visible_preserved_and_deletion_rejected`, `test_slot_ownership_and_job_dependency` |
+| FP-SCHED-2 | `scheduling.py`, `candidate/interviews.html` | `test_scheduling.py::test_booking_visible_preserved_and_deletion_rejected`, `test_ineligible_bookings_leave_no_partial_changes`, `test_same_employer_cross_job_and_one_booking_per_application` |
 | FP-SCHED-3 | `db.py`, `scheduling.py`, migration constraints | `test_scheduling.py::test_booking_conflict_contract`; `tests/integration/test_concurrency.py::test_two_candidates_race_for_one_slot` |
 | FP-SEC-1 | Account/job/scheduling ownership checks | `test_auth.py::test_profile_skills_and_private_resume`; `test_workflows.py::test_wrong_roles_ownership_and_missing_objects`; `test_scheduling.py::test_ineligible_bookings_leave_no_partial_changes`; direct-request tests in `test_web.py` |
 | FP-SEC-2 | Parameterized service queries | `test_security.py::test_sql_metacharacters_remain_bound_values` records bound login parameters and verifies malicious job text persists as data |
-| FP-SEC-3 | Jinja templates, escaping, CSP | `test_web.py::test_direct_resume_access_and_escaping` sends script text through profile/resume/company/job rendering |
+| FP-SEC-3 | JSON responses, page escaping, CSP | `test_web.py::test_resume_stays_private_and_user_text_is_json` returns script text as JSON data and keeps it out of another user's bootstrap and the static page |
 | FP-SEC-4 | `tests/conftest.py`, `.env.example`, ignore files | Temporary database per test; no external-service test code; source/secret review before submission |
 | FP-PROC-1 | SPEC.md and this mapping | Maintain specification alongside behavior; team members must review and explain submitted code |
 | FP-DOC-1 | INSTALL.md, Dockerfile, CLI | Execute the documented clean-checkout build/start/migrate/seed/test flow |
@@ -105,9 +111,14 @@ submission. Every member must understand and be able to modify the implementatio
 
 This version targets local/course use. It has no optional AI, PDF upload, email
 verification, password recovery, notifications, booking cancellation, or hosted
-deployment. SQLite serializes writers and is intended for small workloads. Slots
-are UTC; there is no browser-local timezone conversion. Empty required skills
-intentionally score 100 under the course formula. Employers cannot read raw resumes.
+deployment. SQLite serializes writers and is intended for small workloads.
+Interview times are stored in UTC and labeled Pacific (UTC−8) in the pages.
+Empty required skills intentionally score 100 under the course formula.
+Employers cannot read raw resumes. Saved jobs live in the browser's
+session storage. A new employer slot is attached to that employer's oldest job.
+Closed jobs stay in the candidate list, and a new application to one is rejected.
+The month grid on the interview page is a display of days that already have
+slots; booking uses those existing slots.
 
 The repository's public visibility, imported GitHub labels, hosted CI results,
 permanent graded commit, and course submission require separate team actions.

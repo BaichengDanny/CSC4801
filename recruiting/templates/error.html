@@ -1,3 +1,0 @@
-{% extends 'base.html' %}
-{% block title %}{{ status }} · Something needs attention{% endblock %}
-{% block content %}<section class="card error-card"><span class="eyebrow">{{ status }}</span><h1>{{ 'Let’s get you signed in.' if status == 401 else 'A small pause.' }}</h1><p class="muted" role="alert">{{ message }}</p><a class="button" href="{{ url_for('auth.login') if status == 401 or not current_user else url_for('web.dashboard') }}">{{ 'Go to sign in' if status == 401 or not current_user else 'Back to dashboard' }} →</a></section>{% endblock %}

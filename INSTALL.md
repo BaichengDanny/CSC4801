@@ -20,7 +20,9 @@ python -m flask --app recruiting seed --yes
 python -m recruiting
 ```
 
-Open http://127.0.0.1:8080. The server is Waitress, not Flask's debug server.
+Open http://127.0.0.1:8080. That opens the Matchwork sign-in page. Old `/login`
+and `/register` addresses redirect there. The server is Waitress, not Flask's
+debug server.
 On Windows activate with `.venv\Scripts\activate` and use `py -3.12` for venv creation.
 
 ### Environment
@@ -51,10 +53,12 @@ signed-in browsers must sign in again.
 python -m flask --app recruiting seed --yes
 ```
 
-It creates three candidates, two employers, four jobs, all four application
-statuses, and two candidates eligible to race for the same future interview slot.
-Every demo password is `DemoPass123!`; emails are listed in README.md. Seeding
-invalidates old sessions. Without `--yes`, the command refuses to reset data.
+It creates the course fixtures — three candidates, two employers, four jobs, all
+four application statuses, and two candidates eligible to race for the same
+future interview slot — then one demo employer and jobs for each company in
+`candidate/assets/jobs.json`. Every demo password is `DemoPass123!`; emails are
+listed in README.md. Seeding invalidates old sessions. Without `--yes`, the
+command refuses to reset data.
 
 IDs, skills, statuses, and slot offsets are deterministic. Password salts and
 session-generation secrets are intentionally random. By default the reference
@@ -66,7 +70,7 @@ python -m flask --app recruiting seed --yes --at 2030-01-01T00:00:00+00:00
 
 Fixed reference times can produce past slots when replayed later. For interactive
 review use the default seed command so booking eligibility remains demonstrable.
-All browser interview inputs and displayed times are explicitly **UTC**.
+Stored times are UTC. The pages label them Pacific (UTC−8).
 
 ## Automated tests
 
@@ -128,20 +132,21 @@ instead of the named volume must be writable by UID 10001.
 
 ## Browser smoke test
 
-1. Sign in as `alex@example.test` / `DemoPass123!`. Verify ranked jobs and skill
-   scores. Open My profile, edit skills and private resume, save, and revisit.
-2. Open My applications, then the Backend Engineer application (Interviewing).
-   Choose a future slot and book it. Verify the reserved UTC time appears.
-3. Sign out. Sign in as `north@example.test` with the same demo password. Open
-   Backend Engineer → View applicants. Verify Alex's booking and ranked skills.
-4. Change Alex's status to Accepted. The booking must remain reserved. Open
-   Interview schedule and verify that slot is Booked, with no deletion action.
-5. Create a new job, edit it, and delete it while empty. Attempt to delete Backend
-   Engineer; expect a 409 conflict, with its data intact.
-6. Sign out and use `blair@example.test`; Alex's booked slot must not be offered.
-   Check the second company's account `field@example.test` cannot manage Northstar jobs.
-7. Check narrow/mobile layouts: navigation, job cards, profile form, and scrollable
-   tables remain usable. The browser does not require JavaScript.
+Matchwork, at http://127.0.0.1:8080/sign-in:
+
+1. Choose the candidate tab and sign in as `alex@example.test` / `DemoPass123!`.
+   The dashboard lists seeded jobs and match scores.
+2. Open Profile, change skills or the private resume, and save. Reload and confirm
+   the change is still there.
+3. Open Interviews for an Interviewing application. Day choices appear only for
+   days that already have an open slot. Book one and confirm the reserved time.
+4. Sign out. On the recruiter tab, sign in as `north@example.test` with the same
+   password. Open Applicants and confirm Alex's booking. The resume stays private.
+   Change the status; the booking remains. Add a 30-minute slot on Interview schedule.
+5. Sign out and sign in as `field@example.test`. Northstar jobs are not in that
+   account's job list.
+6. From the signed-out page, use Create a new profile, fill the candidate fields,
+   and confirm the new account lands on the candidate dashboard.
 
 ## Troubleshooting
 
@@ -153,8 +158,6 @@ instead of the named volume must be writable by UID 10001.
   create an empty application.
 - **Login seems to loop:** unset `COOKIE_SECURE=1` for local HTTP, and ensure all
   processes share a `SECRET_KEY` if running more than one app process.
-- **Expired form:** reload the page to get a new CSRF token after login, logout,
-  reset, or restart. Do not disable CSRF protection.
 - **Database is busy (503):** close tools holding SQLite write transactions and
   retry. The configured busy timeout is 10 seconds. Do not relabel unrelated
   storage errors as slot conflicts.

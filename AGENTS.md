@@ -1,18 +1,19 @@
 # Project guide for coding agents
 
-Last updated: 2026-11-14 (Asia/Shanghai).
+Last updated: 2026-11-24 (Asia/Shanghai).
 
 ## Purpose and current state
 
-Build the CSC4801 recruiting and candidate-matching platform. The user has
-chosen **Flask + Jinja templates + SQLite**. Keep the implementation small,
-readable, locally runnable, and understandable by every team member.
+Build the CSC4801 recruiting and candidate-matching platform. The user chose
+**Flask + SQLite**. The browser UI is the Matchwork pages; the earlier Jinja
+screens were removed on 2026-11-24. Keep the implementation small, readable,
+locally runnable, and understandable by every team member.
 
 The required local application is implemented under `recruiting/`, with real
 unit tests, a synchronized booking race test, synthetic seed data, and a working
-Docker environment. The user authorized implementation on 2026-11-14. Work is on
-`codex/recruiting-platform`; no changes have been committed, pushed, or published.
-See [verification evidence](docs/verification.md) for the latest checks.
+Docker environment. The user authorized implementation on 2026-11-14. Current
+work is on `platform-draft`. See [verification evidence](docs/verification.md)
+for the 2026-11-14 checks; that record predates the Matchwork UI.
 
 This file records working rules, decisions, and milestone status. Update it as
 work progresses. It does not replace the product specification or installation
@@ -48,7 +49,8 @@ Keep document responsibilities separate:
 
 | Decision | State | Reason |
 |---|---|---|
-| Flask backend, Jinja browser UI, persistent SQLite database | Confirmed by user, 2026-11-14 | Chosen project stack |
+| Flask backend, persistent SQLite database | Confirmed by user, 2026-11-14 | Chosen project stack |
+| Matchwork pages replace the Jinja screens | Confirmed by user, 2026-11-24 | Colleague frontend is the browser UI; JSON API reuses the services |
 | Root `AGENTS.md` as the maintained agent guide | Confirmed by user, 2026-11-14 | Standard instruction discovery |
 | Flask application factory, feature blueprints, thin routes, shared service functions | Implemented agent decision, 2026-11-14 | Separate HTTP handling from testable business rules |
 | pytest, versioned SQL migrations, Docker, GitHub Actions configuration | Implemented agent decision, 2026-11-14 | Reproducible development and verification |
@@ -64,12 +66,11 @@ Implemented design choices are documented in `SPEC.md`:
 - Standard-library `sqlite3`, versioned SQL migrations, normalized skill tables.
 - Slots belong to a job and derive their employer owner. Same-employer cross-job
   booking is allowed; job deletion respects dependent slots.
-- Explicit UTC input/display, integer UTC timestamps, injectable `NOW` clock.
+- Integer UTC timestamps and an injectable `NOW` clock. Matchwork labels times Pacific (UTC−8).
 - `BEGIN IMMEDIATE`, unique booking constraints, 10-second busy timeout; actual
   same-slot conflicts return 409, unrelated storage contention returns 503.
 - Fixed seed identities and slot offsets; optional `seed --at` reference time.
-- Clean navy/blue/card/tab UI informed by the user's Food Ordering System frontend.
-- Working product name Common Ground is an agent choice, not a user-selected name.
+- Browser product name Matchwork. The repository and Docker image name remain Common Ground.
 
 ## Required product invariants
 
@@ -105,12 +106,12 @@ These are reminders of high-risk requirements, not a substitute for the full spe
 
 ## Engineering and security rules
 
-- Keep authorization and business validation in reusable server-side logic;
-  templates may control presentation but cannot be the enforcement boundary.
+- Keep authorization and business validation in reusable server-side logic.
+  Page scripts may control presentation but cannot be the enforcement boundary.
 - Use bound query parameters or a correctly used ORM. Never interpolate request
   values into SQL. Enable SQLite foreign-key enforcement on every connection.
-- Use Jinja HTML escaping for user text. Do not apply `safe` or `Markup` to
-  untrusted content. Prefer plain text over adding rich-HTML rendering.
+- Return user text as JSON. Escape it in page scripts before inserting HTML.
+  Do not mark untrusted content safe. Prefer plain text over rich-HTML rendering.
 - Protect state-changing browser forms against CSRF. Use appropriate session
   cookie settings and document any local HTTP versus HTTPS differences.
 - Keep secrets, personal data, local databases, and generated artifacts out of
@@ -165,8 +166,8 @@ The exact local and Docker commands live in `INSTALL.md`:
 - Migrate: `python -m flask --app recruiting init-db`.
 - Reset/seed local demo data: `python -m flask --app recruiting seed --yes`.
 - Run: `python -m recruiting` (Waitress, default localhost:8080).
-- Required unit suite: `python -m pytest tests/unit -q` (49 passing).
-- Complete suite: `python -m pytest -q` (50 passing, including the real race).
+- Required unit suite: `python -m pytest tests/unit -q` (53 passing on 2026-11-24).
+- Complete suite: `python -m pytest -q` (54 passing, including the real race).
 - Docker: `docker build -t common-ground .`; see INSTALL.md for persistent-volume startup.
 
 Tests passed locally and inside the image. Keep reset operations restricted to
@@ -206,10 +207,10 @@ their verification rather than postponing them until the end.
 - Keep the guide concise. Put detailed design in `SPEC.md`, command instructions
   in `INSTALL.md`, and test mapping in `README.md`; use Git history for old progress.
 
-**Next action:** user review of the running interface and source changes. Before
-course submission, complete the team roster, authorize commit/push/publication,
-import GitHub audit labels, observe hosted CI, and submit the exact `main` commit.
-Do not mark those external actions done based on local tests alone.
+**Next action:** before course submission, complete the team roster, import
+GitHub audit labels, observe hosted CI, and submit the exact public `main`
+commit. Publishing `platform-draft` does not satisfy FP-SUB-1. Do not mark
+those external actions done based on local tests alone.
 
 ## Reference patterns
 

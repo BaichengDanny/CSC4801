@@ -478,7 +478,7 @@ html.mw-loading,html.mw-loading *{cursor:progress}
       </a>
     </nav>
     <div class="divider"></div>
-    <a href="/login#candidate" class="nav-item logout">
+    <a href="/sign-in#candidate" class="nav-item logout">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4"/><path d="M18 12H9"/></svg>
       <span class="label">Log Out</span>
     </a>
@@ -526,7 +526,7 @@ html.mw-loading,html.mw-loading *{cursor:progress}
           <a href="profile" class="menu-item" role="menuitem">My Profile</a>
           <button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>
           <div class="menu-sep" role="separator"></div>
-          <a href="/login#candidate" class="menu-item danger" role="menuitem">Log Out</a>
+          <a href="/sign-in#candidate" class="menu-item danger" role="menuitem">Log Out</a>
         </div>
       </div>
       </div>
@@ -800,9 +800,8 @@ html.mw-loading,html.mw-loading *{cursor:progress}
 
   function renderJobs(animate) {
     const q = state.query.trim().toLowerCase();
-    const MAX_JOBS = 3;
     const l = state.loc.trim().toLowerCase();
-    const list = JOBS.filter((j) => inCat(j, state.cat) && matchesQuery(j, q) && matchesLoc(j, l) && j.match >= state.minMatch && (!state.savedOnly || state.saved.has(j.id)) && (!state.notApplied || !state.applied.has(j.id))).sort(MW.byMatch).slice(0, MAX_JOBS);
+    const list = JOBS.filter((j) => inCat(j, state.cat) && matchesQuery(j, q) && matchesLoc(j, l) && j.match >= state.minMatch && (!state.savedOnly || state.saved.has(j.id)) && (!state.notApplied || !state.applied.has(j.id))).sort(MW.byMatch);
     if (!list.length) {
       jobsEl.innerHTML = `<div class="empty"><strong>No matching jobs</strong>${q || l ? `Nothing matches ${[q && `“${esc(state.query.trim())}”`, l && `in ${esc(state.loc.trim())}`].filter(Boolean).join(' ')}` : 'No recommended jobs in this category yet.'}<br><button type="button" data-act="reset">Clear filters</button></div>`;
       return;
@@ -847,9 +846,14 @@ html.mw-loading,html.mw-loading *{cursor:progress}
     btn.classList.add('loading');
     btn.innerHTML = '<span class="spinner" aria-hidden="true"></span><span class="sr">Submitting</span>';
     setTimeout(() => {
-      state.applied.add(job.id);
-      MW.apply(job.id);
+      const result = MW.apply(job.id);
       btn.classList.remove('loading');
+      if (!result.ok) {
+        btn.innerHTML = applyInner(false);
+        toast(result.message);
+        return;
+      }
+      state.applied.add(job.id);
       btn.classList.add('applied');
       btn.setAttribute('aria-disabled', 'true');
       btn.setAttribute('aria-label', `Applied to ${job.title} at ${job.company}`);

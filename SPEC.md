@@ -3,16 +3,18 @@
 ## Scope and architecture
 
 A local recruiting platform for Candidates and Employers, implementing the
-normative [course requirements](final_project_spec/REQUIREMENTS.md). The UI uses
-Flask/Jinja with local CSS and no frontend build or external assets. Python 3.12,
+normative [course requirements](final_project_spec/REQUIREMENTS.md). The browser
+UI is the static Matchwork pages under `candidate/`, `recruiter/`, `shared/`,
+and `login.html`, served by Flask and backed by the JSON API. The earlier Jinja
+screens have been removed. Python 3.12,
 SQLite through the standard `sqlite3` module, Werkzeug password hashing, pytest,
 and Waitress are the implementation choices. Optional AI and PDF extraction are
 out of scope for this version.
 
 `recruiting.create_app(config=None)` owns configuration, request security, and
-blueprint registration. Routes translate forms into service calls; services own
-validation, roles, ownership, and transactions. Database connections are scoped
-to the Flask application context and enable foreign keys and a busy timeout.
+blueprint registration. JSON routes translate request bodies into service calls;
+services own validation, roles, ownership, and transactions. Database connections
+are scoped to the Flask application context and enable foreign keys and a busy timeout.
 
 ## Data model
 
@@ -20,8 +22,12 @@ to the Flask application context and enable foreign keys and a busy timeout.
   Candidate/Employer, display name.
 - `candidate_profiles`: user FK, private raw resume. `candidate_skills`: candidate
   FK plus normalized skill, composite primary key.
-- `companies`: employer FK, name, description. One company per employer.
-- `jobs`: employer FK, title, description. `job_skills`: job FK and normalized skill.
+- `companies`: employer FK, name, description. One company per employer. Matchwork
+  also stores industry, size, location, website, and an optional logo path.
+- `jobs`: employer FK, title, description, plus display fields used by Matchwork
+  (summary, location, type, categories, optional logo, Active/Closed label, created time). `job_skills`:
+  job FK and normalized skill. Closed jobs stay listed; new applications to them
+  are rejected.
 - `applications`: candidate FK, job FK, status constrained to Pending,
   Interviewing, Rejected, Accepted; unique(candidate_id, job_id).
 - `slots`: job FK, UTC integer start/end timestamps; exactly 1800 seconds.
@@ -55,39 +61,37 @@ employer/job-owner-only. Rejected writes leave the database unchanged.
 
 ## Routes and screens
 
-Forms use POST for mutations with CSRF tokens. Success uses a redirect back to a
-GET page; errors render escaped messages with their actual HTTP status.
+Mutations are JSON POSTs. Errors return `{ok: false, message}` with the actual
+HTTP status. GET `/login` and GET `/register` only redirect into the Matchwork
+sign-in page.
 
 | Method/path | Behavior |
 |---|---|
-| GET `/` | Redirect to login or role dashboard |
-| GET, POST `/register` | Create Candidate or Employer |
-| GET, POST `/login`; POST `/logout` | Session lifecycle |
-| GET `/dashboard` | Candidate ranked jobs or employer owned jobs and summary |
-| GET, POST `/profile` | Edit own candidate profile/skills or company profile |
-| GET, POST `/candidates/<id>/resume` | Owner-only raw-text resume |
-| GET `/jobs/<id>` | Job description; employer read restricted to own job |
-| GET, POST `/jobs/new`; GET, POST `/jobs/<id>/edit` | Owned job creation/editing |
-| POST `/jobs/<id>/delete` | Delete only if no applications or slots |
-| POST `/jobs/<id>/apply` | Candidate application, once, Pending |
-| GET `/applications`; GET `/applications/<id>` | Candidate own applications/detail |
-| GET `/jobs/<id>/applicants` | Employer's ranked applicants |
-| POST `/applications/<id>/status` | Owning employer changes status |
-| GET, POST `/schedule`; POST `/jobs/<id>/slots` | Employer availability and creation |
-| POST `/slots/<id>/delete` | Delete unbooked owned slot |
-| POST `/applications/<id>/book` | Candidate books submitted slot ID atomically |
+| GET `/` | Redirect to sign-in, or to the signed-in role's dashboard |
+| GET `/login` | Redirect to `/sign-in` |
+| GET `/register` | Redirect to `/sign-in#signup` |
 | GET `/health` | Lightweight health endpoint |
+| GET `/sign-in` | Matchwork sign-in and account creation |
+| GET `/candidate/...`, GET `/recruiter/...`, GET `/shared/...` | Matchwork HTML, CSS, and scripts |
+| POST `/api/auth/register`, POST `/api/auth/login`, POST `/api/auth/logout`, GET `/api/auth/me` | JSON registration and session |
+| GET `/api/candidate/bootstrap`, POST `/api/candidate/profile`, POST `/api/candidate/applications`, POST `/api/candidate/applications/<id>/book` | Candidate reads and writes |
+| GET `/api/employer/bootstrap`, POST `/api/employer/jobs`, POST `/api/employer/jobs/<id>`, POST `/api/employer/jobs/<id>/delete`, POST `/api/employer/applications/<id>/status`, POST `/api/employer/slots`, POST `/api/employer/slots/<id>/delete`, POST `/api/employer/company` | Employer reads and writes |
+
+JSON routes return `{ok, message}` with the same 401/403/404/409 contract.
+They authenticate with the SameSite session cookie and do not use the form
+CSRF token. Matchwork shows slot times in Pacific Time; values are stored as
+UTC. An employer's new slots are attached to that employer's oldest job so the
+existing slot-to-job rule still applies.
 
 ## Interface design
 
-Visual reference: Food-Ordering-System `client/css/style.css` and
-`client/index.html` at commit `340a5de9d36f2f48c64b97e30ed0e09dafc340ce`.
-Use a navy header, blue primary actions, white cards on a pale background,
-clear tab navigation, system fonts, status badges, and generous spacing. Adapt
-visual patterns only. Brand working name: **Common Ground**. The dashboard lists
-job cards, applicant management uses a readable table, and editing uses focused
-forms. Mobile layouts stack columns. Use visible labels, keyboard focus, readable
-contrast, and explicit empty/error/success states. No external fonts or scripts.
+The browser product is **Matchwork**. Pages use Plus Jakarta Sans from Google
+Fonts, a light card layout, and a sidebar on the dashboards. Sign-in and account
+creation share `login.html`; the candidate and employer roles are tabs on that
+page. Job cards, applicant rows, and interview slots are rendered by the page
+scripts from JSON. The page scripts escape text before inserting it into HTML.
+Saved jobs are kept in `sessionStorage` under `mw.saved`. Mobile layouts stack
+the columns. The repository and Docker image name remain Common Ground.
 
 ## Matching
 
@@ -100,10 +104,10 @@ are reflected on the next read; scores are not stale snapshots.
 
 ## Scheduling and concurrency
 
-The UI labels all times **UTC**. Browser `datetime-local` values are explicitly
-interpreted as UTC; service inputs must be timezone-aware ISO timestamps and are
-stored as epoch seconds. A configurable `NOW` callable supplies the current UTC
-time, allowing fixed-clock tests and reproducible seed commands.
+Service inputs must be timezone-aware ISO timestamps and are stored as epoch
+seconds. The Matchwork pages label those times Pacific (UTC−8). A configurable
+`NOW` callable supplies the current UTC time, allowing fixed-clock tests and
+reproducible seed commands.
 
 Slot creation validates future start and exactly 30 minutes before writing.
 Booking uses `BEGIN IMMEDIATE` to serialize competing writers. Inside the same
@@ -117,17 +121,21 @@ mutations see consistent state. A booking survives later status changes.
 
 ## Security and limits
 
-Parameterized SQL only; dynamic identifiers are internal constants. Jinja
-escapes all user text; raw text retains line breaks through CSS. CSRF is checked
-on all POSTs, including login/logout. Limit request bodies to 1 MiB, passwords to
-256 characters, resumes/descriptions to documented service limits. Security
-headers include a same-origin content policy and frame denial. HTTPS deployments
-set `COOKIE_SECURE=1`; local HTTP uses the default false setting.
+Parameterized SQL only; dynamic identifiers are internal constants. API
+responses are JSON, so user text is data rather than an HTML document. The
+Matchwork pages escape user text before inserting it. JSON routes authenticate
+with the SameSite session cookie. Any other POST still requires the session
+CSRF token. Limit request bodies to 1 MiB, passwords to 256 characters,
+resumes/descriptions to documented service limits. Security headers include a
+same-origin content policy that allows the Google font stylesheets used by the
+pages, plus frame denial. HTTPS deployments set `COOKIE_SECURE=1`; local HTTP
+uses the default false setting.
 
 No real secrets, personal data, cloud services, or paid credentials are needed.
 Tests create isolated temporary SQLite databases. The seed command is explicitly
 destructive and requires `--yes`; it preserves deterministic identities and
-relative ordering. By default slots start on the next UTC day; `--at` accepts a
+relative ordering, then loads the Matchwork catalog in `candidate/assets/jobs.json`
+as one demo employer per company. By default slots start on the next UTC day; `--at` accepts a
 fixed ISO reference clock for exact fixture reproduction. Reset is for local demo
 use only. Existing signed sessions are invalidated on reset through a database
 session-generation value, avoiding reuse of seeded user IDs.

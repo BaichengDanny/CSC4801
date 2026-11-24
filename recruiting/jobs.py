@@ -1,4 +1,6 @@
 """Job and application workflows with explicit ownership checks."""
+from flask import current_app
+
 from .accounts import require_owner, require_role, skills_for, text_value
 from .db import get_db, transaction
 from .errors import DomainError
@@ -40,8 +42,9 @@ def create_job(actor, title, description, skills):
     require_role(actor, 'Employer')
     title, description, skills = _job_values(title, description, skills)
     with transaction() as db:
-        job_id = db.execute('INSERT INTO jobs(employer_id,title,description) VALUES (?,?,?)',
-                            (actor['id'], title, description)).lastrowid
+        job_id = db.execute(
+            'INSERT INTO jobs(employer_id,title,description,created_at) VALUES (?,?,?,?)',
+            (actor['id'], title, description, int(current_app.config['NOW']().timestamp()))).lastrowid
         db.executemany('INSERT INTO job_skills VALUES (?,?)', [(job_id, s) for s in skills])
     return job(actor, job_id)
 
@@ -126,11 +129,14 @@ def applications(actor):
 def apply(actor, job_id):
     require_role(actor, 'Candidate')
     with transaction() as db:
-        job(actor, job_id)
+        posting = job(actor, job_id)
+        if posting['posting_status'] == 'Closed':
+            raise DomainError(409, 'This job is closed to new applications.')
         if db.execute('SELECT 1 FROM applications WHERE candidate_id = ? AND job_id = ?', (actor['id'], job_id)).fetchone():
             raise DomainError(409, 'You have already applied to this job.')
-        application_id = db.execute('INSERT INTO applications(candidate_id,job_id) VALUES (?,?)',
-                                    (actor['id'], job_id)).lastrowid
+        application_id = db.execute(
+            'INSERT INTO applications(candidate_id,job_id,created_at) VALUES (?,?,?)',
+            (actor['id'], job_id, int(current_app.config['NOW']().timestamp()))).lastrowid
     return application(actor, application_id)
 
 

@@ -4,23 +4,34 @@
 (function () {
   'use strict';
 
-  /* ---------- Demo session ----------
-     login.html stores a flag on sign-in (localStorage with "Keep me signed in", else sessionStorage).
-     Candidate pages need it on the deployed site; Log Out clears it. The single-file build and
-     file:// previews have no login page, so they skip the check. */
-  const SESSION_KEY = 'mw-session';
-  if (!window.__MW_PAGES && /^https?:$/.test(location.protocol)) {
-    let signedIn = true;
-    try {
-      const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-      let role = null; try { role = raw && JSON.parse(raw).role; } catch (e) { /* malformed flag */ }
-      signedIn = role === 'candidate';
-    } catch (e) { /* storage blocked: let them in */ }
-    if (!signedIn) location.replace('/login#candidate'); /* keep running so inline page scripts don't throw while the redirect lands */
+  /* Served by Flask, the page loads its data from the JSON API. file:// and the
+     single-file build keep the local demo store. */
+  const HOSTED = !window.__MW_PAGES && /^https?:$/.test(location.protocol);
+  function api(method, path, payload) {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, path, false);
+    xhr.withCredentials = true;
+    if (payload !== undefined) xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(payload === undefined ? null : JSON.stringify(payload));
+    let data = null;
+    try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { data = { message: 'Unexpected response' }; }
+    return { status: xhr.status, data };
+  }
+  let boot = null;
+  if (HOSTED) {
+    const me = api('GET', '/api/auth/me');
+    if (!(me.status === 200 && me.data && me.data.role === 'Candidate')) location.replace('/sign-in#candidate');
+    else {
+      const loaded = api('GET', '/api/candidate/bootstrap');
+      if (loaded.status === 200) boot = loaded.data;
+      else location.replace('/sign-in#candidate');
+    }
     document.addEventListener('click', (e) => {
-      const a = e.target.closest && e.target.closest('a[href^="/login"]');
+      const a = e.target.closest && e.target.closest('a[href^="/sign-in"]');
       if (!a) return;
-      try { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); } catch (err) { /* nothing stored */ }
+      e.preventDefault();
+      api('POST', '/api/auth/logout');
+      location.href = a.getAttribute('href');
     }, true);
   }
 
@@ -33,8 +44,8 @@
   /* All times are stored in UTC and shown in Pacific Time. */
   const TZ = 'America/Los_Angeles';
   const TZ_LABEL = 'Pacific Time (PT)';
-  /* The demo clock: Monday, Nov 16 2026, 9:00 AM PT. */
-  const NOW = new Date('2026-11-16T17:00:00Z');
+  /* The demo clock: Monday, Nov 16 2026, 9:00 AM PT. The server clock replaces it when signed in. */
+  let NOW = new Date(boot && boot.now ? boot.now : '2026-11-16T17:00:00Z');
   const fmt = (d, opts) => new Intl.DateTimeFormat('en-US', { timeZone: TZ, ...opts }).format(new Date(d));
   const fmtDate = (d) => fmt(d, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const fmtShort = (d) => fmt(d, { month: 'short', day: 'numeric' });
@@ -80,7 +91,7 @@
     }
     return { companies: {}, jobs: [] };
   }
-  const DATA = loadData();
+  const DATA = boot ? { companies: boot.companies, jobs: boot.jobs } : (HOSTED ? { companies: {}, jobs: [] } : loadData());
   const COMPANIES = DATA.companies || {};
   /* Logos live on the company (tools/fetch-logos.mjs fills companies[name].logo/w/h), so every
      posting from a company shares one file. A logo set on the job itself still wins. */
@@ -154,20 +165,40 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     notifRead: false,
   });
 
-  /* ---------- Store (localStorage, per browser; demo only) ---------- */
+  /* ---------- Store ---------- */
   const KEY = 'matchwork.candidate.v1';
+  const live = !!boot;
   let state;
-  try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
-  if (!state || state.v !== 2) state = DEFAULT_STATE();
+  if (live) {
+    state = boot.state;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('mw.saved') || '{}');
+      if (saved && typeof saved === 'object') state.saved = saved;
+    } catch (e) { /* keep the empty server list */ }
+  } else if (!HOSTED) {
+    try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
+    if (!state || state.v !== 2) state = DEFAULT_STATE();
+  } else {
+    state = { v: 2, profile: { name: '', skills: [], resume: '', headline: '', location: '', email: '', extras: false }, saved: {}, applications: [], slots: [], notifRead: false };
+  }
   const listeners = new Set();
   const REV_KEY = KEY + '.rev';
   const readRev = () => { try { return localStorage.getItem(REV_KEY) || ''; } catch (e) { return ''; } };
   let loadedRev = readRev();
   function persist() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); loadedRev = String(Date.now()); localStorage.setItem(REV_KEY, loadedRev); } catch (e) { /* storage unavailable: keep in memory */ }
+    if (!live) {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); loadedRev = String(Date.now()); localStorage.setItem(REV_KEY, loadedRev); } catch (e) { /* storage unavailable: keep in memory */ }
+    }
     listeners.forEach((fn) => fn(state));
   }
-  function resetDemo() { state = DEFAULT_STATE(); persist(); }
+  function resetDemo() {
+    if (live) { try { sessionStorage.removeItem('mw.saved'); } catch (e) { /* ignore */ } location.reload(); return; }
+    state = DEFAULT_STATE(); persist();
+  }
+  function apiResult(res, fallback) {
+    if (res.status >= 400 || !res.data || res.data.ok === false) return { ok: false, code: res.status || 400, message: (res.data && res.data.message) || fallback };
+    return null;
+  }
 
   function jobs() {
     const skills = state.profile.skills;
@@ -180,6 +211,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
 
   function toggleSave(jobId) {
     if (isSaved(jobId)) delete state.saved[jobId]; else state.saved[jobId] = new Date(NOW.getTime() + 60e3).toISOString();
+    if (live) { try { sessionStorage.setItem('mw.saved', JSON.stringify(state.saved)); } catch (e) { /* ignore */ } }
     persist();
     return isSaved(jobId);
   }
@@ -187,6 +219,14 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
   function apply(jobId) {
     if (!job(jobId)) return { ok: false, code: 404, message: 'This job is no longer available' };
     if (appForJob(jobId)) return { ok: false, code: 409, message: 'You already applied to this job' };
+    if (live) {
+      const res = api('POST', '/api/candidate/applications', { jobId });
+      const failed = apiResult(res, 'Could not apply');
+      if (failed) return failed;
+      state.applications.push(res.data.application);
+      persist();
+      return { ok: true, app: res.data.application };
+    }
     const at = new Date(NOW.getTime() + 5 * 60e3).toISOString();
     const app = { id: 'a' + Date.now().toString(36), jobId, status: 'Pending', appliedAt: at, slotId: null, events: [['Applied', at]] };
     state.applications.push(app);
@@ -199,6 +239,20 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     return state.slots.filter((x) => x.company === j.company && !x.bookedBy && new Date(x.start) > NOW).sort((a, b) => new Date(a.start) - new Date(b.start));
   }
   function book(appId, slotId) {
+    if (live) {
+      const res = api('POST', '/api/candidate/applications/' + encodeURIComponent(appId) + '/book', { slotId });
+      const failed = apiResult(res, 'Could not book that time');
+      if (failed) {
+        if (failed.message === 'Slot already booked') { const taken = slot(slotId); if (taken) taken.bookedBy = 'other'; persist(); }
+        return failed;
+      }
+      const app = state.applications.find((a) => a.id === appId);
+      const sl = slot(slotId);
+      if (app) Object.assign(app, res.data.application);
+      if (sl) sl.bookedBy = appId;
+      persist();
+      return { ok: true, app, slot: sl };
+    }
     const app = state.applications.find((a) => a.id === appId);
     const sl = slot(slotId);
     if (!app) return { ok: false, code: 403, message: 'You can only book interviews for your own applications' };
@@ -218,7 +272,14 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     persist();
     return { ok: true, app, slot: sl };
   }
-  function updateProfile(patch) { Object.assign(state.profile, patch); persist(); }
+  function updateProfile(patch) {
+    if (!live) { Object.assign(state.profile, patch); persist(); return; }
+    const res = api('POST', '/api/candidate/profile', patch);
+    const failed = apiResult(res, 'Could not save your profile');
+    if (failed) throw new Error(failed.message);
+    state.profile = res.data.profile;
+    persist();
+  }
   function profileCompletion() {
     const p = state.profile;
     const items = [
@@ -452,7 +513,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
         </a>`).join('')}
       </nav>
       <div class="divider"></div>
-      <a href="/login#candidate" class="nav-item logout">
+      <a href="/sign-in#candidate" class="nav-item logout">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4"/><path d="M18 12H9"/></svg>
         <span class="label">Log Out</span>
       </a>
@@ -492,7 +553,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
             <a href="profile" class="menu-item" role="menuitem">My Profile</a>
             <button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>
             <div class="menu-sep" role="separator"></div>
-            <a href="/login#candidate" class="menu-item danger" role="menuitem">Log Out</a>
+            <a href="/sign-in#candidate" class="menu-item danger" role="menuitem">Log Out</a>
           </div>
         </div>
       </div>`;
@@ -799,7 +860,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
       if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
       const href = a.getAttribute('href');
       if (!href || href.startsWith('#')) return;
-      if (BUNDLE && /^\/login/.test(href)) { e.preventDefault(); toast('The login page is not part of this file'); return; }
+      if (BUNDLE && /^\/(login|sign-in)/.test(href)) { e.preventDefault(); toast('The login page is not part of this file'); return; }
       const r = resolve(href);
       if (!r) return;
       e.preventDefault();

@@ -31,6 +31,12 @@
 
   const lc = (s) => String(s == null ? '' : s).toLowerCase();
   const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  /* Integer ids compare numerically so "10" sorts after "2", matching the database. */
+  function cmpId(a, b) {
+    const as = String(a), bs = String(b);
+    if (/^\d+$/.test(as) && /^\d+$/.test(bs)) return as.length - bs.length || cmp(as, bs);
+    return cmp(as, bs);
+  }
 
   /* Candidate dashboard: score desc, then case-insensitive job title, then stable job id. */
   function compareJobs(a, b) {
@@ -39,7 +45,7 @@
 
   /* Employer applicants: score desc, then case-insensitive display name, then stable candidate id. */
   function compareApplicants(a, b) {
-    return (b.match - a.match) || cmp(lc(a.name), lc(b.name)) || cmp(String(a.candidateId), String(b.candidateId));
+    return (b.match - a.match) || cmp(lc(a.name), lc(b.name)) || cmpId(a.candidateId, b.candidateId);
   }
 
   root.MWMatch = Object.freeze({ normalizeSkills, matchScore, hasSkill, compareJobs, compareApplicants });

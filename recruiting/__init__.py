@@ -32,36 +32,38 @@ def create_app(config=None):
         app.config.update(config)
     from . import db
     db.init_app(app)
-    from flask import g, render_template
+    from flask import g
     from werkzeug.exceptions import HTTPException
-    from . import auth, seed, web
+    from . import api, auth, pages, seed
     from .errors import DomainError
-    from .scheduling import format_time, now_timestamp
     app.register_blueprint(auth.bp)
-    app.register_blueprint(web.bp)
+    app.register_blueprint(api.bp)
+    app.register_blueprint(pages.bp)
     app.before_request(auth.load_user)
     seed.init_app(app)
-    app.jinja_env.filters['datetime'] = format_time
-    app.jinja_env.globals['csrf_token'] = auth.csrf_token
-
-    @app.context_processor
-    def template_context():
-        return {'current_user': g.get('user'), 'csrf_token': auth.csrf_token,
-                'now_timestamp': now_timestamp}
 
     @app.errorhandler(DomainError)
     def domain_error(error):
-        return render_template('error.html', status=error.status, message=error.message), error.status
+        payload = {'ok': False, 'message': error.message}
+        if error.errors:
+            payload['errors'] = error.errors
+        return payload, error.status
 
     @app.errorhandler(HTTPException)
     def http_error(error):
-        return render_template('error.html', status=error.code, message=error.description), error.code
+        return {'ok': False, 'message': error.description}, error.code
 
     @app.after_request
     def security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
-        response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self'; script-src 'none'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; img-src 'self' data:; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "script-src 'self' 'unsafe-inline'; connect-src 'self'; "
+            "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+        )
         response.headers['Referrer-Policy'] = 'same-origin'
         if g.get('user') or response.mimetype == 'text/html':
             response.headers['Cache-Control'] = 'no-store'

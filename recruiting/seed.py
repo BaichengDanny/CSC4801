@@ -1,11 +1,16 @@
 """Synthetic, repeatable demo data; no real identities or credentials."""
+import json
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import click
 
 from . import accounts, jobs, scheduling
 from .db import migrate, transaction
+
+CATALOG = Path(__file__).resolve().parents[1] / 'candidate' / 'assets' / 'jobs.json'
 
 
 def seed_demo(at):
@@ -53,6 +58,55 @@ def seed_demo(at):
         scheduling.create_slot(field, systems['id'], day.isoformat(), (day + timedelta(minutes=30)).isoformat())
     finally:
         current_app.config['NOW'] = original_clock
+    _seed_catalog(password)
+
+
+def _catalog_email(name):
+    slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+    return f'{slug}@example.test'
+
+
+def _display_skills(values):
+    seen = set()
+    kept = []
+    for value in values:
+        text = str(value).strip()
+        key = text.lower()
+        if text and key not in seen:
+            seen.add(key)
+            kept.append(text)
+    return kept
+
+
+def _seed_catalog(password):
+    """Load the Matchwork job catalog. Each company is its own demo employer."""
+    catalog = json.loads(CATALOG.read_text())
+    employers = {}
+    for name, company in catalog['companies'].items():
+        actor = accounts.register(_catalog_email(name), password, 'Employer', name)
+        accounts.update_company(
+            actor, name, company.get('about') or name,
+            industry=company.get('industry') or '', size=company.get('size') or '',
+            location=company.get('location') or '', website=company.get('website') or '')
+        with transaction() as db:
+            db.execute(
+                'UPDATE companies SET logo = ?, logo_w = ?, logo_h = ? WHERE employer_id = ?',
+                (company.get('logo') or '', int(company.get('w') or 0), int(company.get('h') or 0), actor['id']))
+        employers[name] = actor
+    for posting in catalog['jobs']:
+        created = jobs.create_job(employers[posting['company']], posting['title'], posting['body'], posting['skills'])
+        posted = datetime.fromisoformat(posting['posted']).replace(hour=12, tzinfo=timezone.utc)
+        with transaction() as db:
+            db.execute(
+                'UPDATE jobs SET summary = ?, location = ?, job_type = ?, created_at = ?, '
+                'logo = ?, logo_w = ?, logo_h = ?, categories = ? WHERE id = ?',
+                (posting['desc'].strip(), (posting.get('location') or '').strip(), posting.get('type') or 'Full-time',
+                 int(posted.timestamp()), posting.get('logo') or '', int(posting.get('w') or 0),
+                 int(posting.get('h') or 0), json.dumps(posting.get('cats') or []), created['id']))
+            db.execute('DELETE FROM job_skills WHERE job_id = ?', (created['id'],))
+            db.executemany(
+                'INSERT INTO job_skills VALUES (?,?)',
+                [(created['id'], skill) for skill in _display_skills(posting['skills'])])
 
 
 def init_app(app):
