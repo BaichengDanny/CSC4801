@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchwork – Candidate Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/match.js"></script>
+<script src="assets/matchwork.js"></script>
+<style>
+:root{
+  --bg:#FAFAFA; --surface:#FFFFFF; --sidebar:#FDFDFD;
+  --ink:#17191C; --ink-2:#3C4043; --muted:#5F6368; --muted-2:#6B7075;
+  --line:#F0F1F2; --line-2:#E2E4E6; --line-3:#ECEDEF;
+  --green-900:#1F4D34; --green-800:#24553A; --green-700:#2F6B4A; --green-600:#3E7B5A; --green-500:#4E9A68;
+  --green-100:#E8F0EA; --green-75:#EFF4F0; --green-50:#F7F8F8; --chip-active:#DDE9E1;
+  --radius-card:18px; --radius-md:12px; --radius-sm:10px;
+  --ease:cubic-bezier(.2,.8,.2,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --shadow-sm:0 1px 2px rgba(23,25,28,.04),0 2px 8px rgba(23,25,28,.04);
+  --shadow-md:0 2px 6px rgba(23,25,28,.05),0 10px 24px rgba(23,25,28,.07);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:'Plus Jakarta Sans',Inter,system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+a{color:inherit}
+svg{display:block}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:2px solid var(--green-600);outline-offset:2px}
+
+/* ---------- Layout ---------- */
+.app{position:relative;display:flex;height:100vh;height:100dvh;overflow:hidden}
+.deco-br{position:absolute;right:0;bottom:0;pointer-events:none}
+.deco-tr{position:absolute;right:0;top:52px;pointer-events:none}
+
+/* ---------- Sidebar ---------- */
+.sidebar{position:relative;flex:0 0 228px;overflow-y:auto;scrollbar-width:none;background:var(--sidebar);border-right:2px solid #F3F3F3;display:flex;flex-direction:column;overflow:hidden;z-index:1}
+.brand{display:flex;align-items:center;gap:12px;margin:25px 0 0 34px;height:24px;text-decoration:none;color:var(--ink);width:max-content}
+.brand span{font-size:18px;font-weight:700;letter-spacing:-.2px}
+.brand svg{transition:transform .4s var(--ease-spring)}
+.brand:hover svg{transform:rotate(-8deg) scale(1.08)}
+.portal-label{margin:44px 0 0 34px;font-size:14px;line-height:18px;color:#62676C}
+.nav{position:relative;display:flex;flex-direction:column;gap:2px;margin:14px 18px 0 17px}
+.chip-indicator{transition:none!important}
+.ready .nav-indicator{transition:transform .15s cubic-bezier(.22,1,.36,1)}
+.ready .chip-indicator{transition:transform .32s cubic-bezier(.3,.7,.2,1),width .32s cubic-bezier(.3,.7,.2,1)!important}
+.nav-indicator{position:absolute;left:0;right:0;top:0;height:46px;border-radius:12px;background:var(--green-75);pointer-events:none}
+.nav-item{position:relative;display:flex;align-items:center;gap:14px;height:46px;padding:0 14px 0 17px;border-radius:12px;color:var(--ink);text-decoration:none;font-size:15px;font-weight:500;transition:background-color .2s,color .2s}
+.nav-item:hover{background:rgba(47,107,74,.05)}
+.nav-item[aria-current="page"]{font-weight:600;color:var(--green-900)}
+.nav-item[aria-current="page"]:hover{background:transparent}
+.nav-item svg{flex:none}
+.nav-item .label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:#EFF0F1;color:var(--ink-2);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:scale(0);opacity:0}
+.ready .badge{transition:transform .3s var(--ease-spring),opacity .2s}
+.badge.show{transform:scale(1);opacity:1}
+.badge.bump{animation:bump .4s var(--ease-spring)}
+@keyframes bump{40%{transform:scale(1.3)}}
+.divider{height:1px;background:#E8E9EA;margin:30px 30px 0 34px}
+.logout{margin:24px 18px 0 17px}
+.logout:hover{color:#B3261E;background:#FDF1F0}
+.sidebar-spacer{flex:1 1 auto;min-height:60px}
+.deco-bl{position:absolute;left:0;bottom:0;pointer-events:none}
+
+/* ---------- Main ---------- */
+.main{flex:1 1 auto;min-width:0;min-height:0;padding:12px 16px 16px 27px;display:flex;flex-direction:column;position:relative;z-index:1}
+.topbar{display:flex;align-items:center;gap:20px}
+.topbar-right{flex:0 0 clamp(310px,27vw,374px);display:flex;align-items:center;justify-content:flex-end;gap:12px}
+.search{flex:1 1 auto;min-width:0;display:flex;align-items:center;height:46px;padding:0 4px;background:var(--surface);border:1px solid #D9DEDB;border-radius:14px;transition:border-color .18s ease}
+.search:hover{border-color:#C3CCC6}
+.search-field{position:relative;flex:1 1 0;min-width:0;display:flex;align-items:center;gap:12px;height:36px;padding:0 6px 0 12px;border-radius:10px;cursor:text;transition:background-color .2s ease}
+.search-field:hover{background:#FAFBFA}
+.search-field:focus-within{background:#F3F6F4}
+.search-field.loc{flex:0 1 240px}
+.search-field svg{flex:none;stroke:#202124;transition:stroke .18s ease}
+.search-field:focus-within svg{stroke:#17191C}
+.search input{flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;font:inherit;font-size:14px;color:var(--ink);caret-color:var(--green-700)}
+.search input::placeholder{color:#6B7075}
+.search input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin:0 6px 0 4px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%23E6EAE7'/%3E%3Cpath d='M9 9l6 6M15 9l-6 6' stroke='%235F6368' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center/18px no-repeat;cursor:pointer;opacity:.9}
+.search input::-webkit-search-cancel-button:hover{opacity:1;filter:brightness(.95)}
+.search-sep{flex:none;width:1px;height:24px;margin:0 4px;background:#E3E6E4;transition:opacity .18s ease}
+.search:has(.search-field:focus-within) .search-sep,.search:has(.search-field:hover) .search-sep{opacity:0}
+.search-btn{flex:none;height:36px;padding:0 18px;margin-left:6px;border:0;border-radius:10px;background:var(--green-700);color:#fff;font:inherit;font-size:14px;font-weight:700;letter-spacing:.1px;cursor:pointer;transition:background-color .18s ease}
+.search-btn:hover{background:var(--green-900)}
+.search-btn:active{background:#173B28}
+.search-btn:focus-visible{outline:2px solid var(--green-600);outline-offset:2px}
+.topbar-spacer{flex:1}
+.icon-btn{position:relative;width:40px;height:40px;border:0;background:transparent;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color .2s}
+.icon-btn:hover{background:#F0F1F1}
+.icon-btn:hover .bell{animation:ring .6s var(--ease)}
+@keyframes ring{20%{transform:rotate(14deg)}40%{transform:rotate(-12deg)}60%{transform:rotate(8deg)}80%{transform:rotate(-4deg)}}
+.bell{transform-origin:50% 4px}
+.dot{position:absolute;top:6px;right:8px;width:9px;height:9px;border-radius:50%;background:#7DB98F;border:2px solid var(--bg);transition:transform .25s var(--ease)}
+.dot.hide{transform:scale(0)}
+.bell-wrap{position:relative;margin-right:14px}
+.account{position:relative}
+.account-btn{display:flex;align-items:center;gap:13px;border:0;background:transparent;cursor:pointer;padding:0;border-radius:24px}
+.avatar{width:44px;height:44px;border-radius:50%;background:#E3E2E7;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;transition:box-shadow .2s,background-color .2s}
+.account-btn:hover .avatar{box-shadow:0 0 0 3px #fff,0 0 0 5px var(--chip-active)}
+.account-btn .chev{transition:transform .25s var(--ease)}
+.account-btn[aria-expanded="true"] .chev{transform:rotate(180deg)}
+
+/* Popovers */
+.popover{position:absolute;top:calc(100% + 10px);right:0;min-width:220px;background:var(--surface);border:1px solid var(--line-3);border-radius:14px;box-shadow:var(--shadow-md);padding:6px;z-index:20;opacity:0;transform:translateY(-6px) scale(.98);transform-origin:top right;pointer-events:none;transition:opacity .18s,transform .22s var(--ease)}
+.popover.open{opacity:1;transform:none;pointer-events:auto}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;background:transparent;border-radius:9px;font-size:14px;font-weight:500;text-align:left;cursor:pointer;text-decoration:none;color:var(--ink);transition:background-color .15s}
+.menu-item:hover{background:#F3F6F4}
+.menu-item.danger{color:#B3261E}
+.menu-item.danger:hover{background:#FDF1F0}
+.menu-sep{height:1px;background:var(--line-3);margin:6px 4px}
+.notif{width:300px}
+.notif-head{display:flex;justify-content:space-between;align-items:center;padding:8px 10px 6px;font-size:14px;font-weight:700}
+.notif-head button{border:0;background:none;color:var(--green-700);font-size:13px;font-weight:600;cursor:pointer;padding:4px 6px;border-radius:6px}
+.notif-head button:hover{background:var(--green-75)}
+.notif-item{display:flex;gap:10px;padding:10px;border-radius:10px;font-size:13px;line-height:18px;color:var(--ink-2);text-decoration:none}
+a.notif-item:hover{background:#F3F6F4}
+.notif-item strong{color:var(--ink)}
+.notif-item time{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.notif-icon{flex:none;width:32px;height:32px;border-radius:50%;background:#EFEAFC;display:flex;align-items:center;justify-content:center}
+
+/* ---------- Body grid ---------- */
+.body{flex:1 1 auto;min-height:0;display:flex;gap:20px;align-items:stretch;margin-top:12px}
+.col-left{flex:1 1 auto;min-width:0;min-height:0;display:flex;flex-direction:column}
+.col-right{flex:0 0 clamp(310px,27vw,374px);min-width:0;min-height:0;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-card)}
+
+/* Welcome */
+.welcome{position:relative;flex:none;overflow:hidden;padding:0 14px 14px;display:flex;flex-direction:column}
+.welcome-top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;min-height:120px}
+.welcome-text{align-self:flex-start;min-width:0;padding:18px 0 0 10px}
+.eyebrow{font-size:15px;line-height:20px;font-weight:500;color:var(--muted)}
+.welcome h1{margin:2px 0 0;font-size:28px;line-height:36px;font-weight:700;letter-spacing:-.5px}
+.welcome p{margin:4px 0 0;font-size:15px;line-height:20px;color:#555A60;max-width:440px}
+.welcome-illo{flex:none;width:200px;height:133px;margin:0 10px -15px 0;position:relative;z-index:0}
+.stats{position:relative;z-index:1;display:flex;flex-wrap:wrap;min-height:64px;background:var(--green-50);border:1px solid #EEF0F0;border-radius:14px}
+.stat{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:11px;padding:0 16px;margin:11px 0;border-radius:10px;text-decoration:none;color:inherit;transition:transform .25s var(--ease)}
+.stat + .stat{border-left:1px solid #E5E8E6;border-radius:0}
+.stat .ico{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;transition:transform .35s var(--ease-spring)}
+.stat:hover .ico{transform:scale(1.1) rotate(-6deg)}
+.stat-num{display:block;font-size:20px;line-height:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat-label{display:block;font-size:13px;line-height:18px;color:#4F555B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .2s}
+.stat:hover .stat-label{color:var(--green-700)}
+
+/* Recommended */
+.rec{margin-top:16px;padding:14px 22px 10px 23px;flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+.rec-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px}
+.rec-head h2{margin:0;font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.3px}
+.rec-head p{margin:3px 0 0;font-size:15px;line-height:20px;color:#555A60}
+.link-arrow{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 9px;margin-right:0;border-radius:8px;font-size:14px;font-weight:600;color:var(--green-600);text-decoration:none;transition:color .2s,background-color .2s}
+.link-arrow svg{transition:transform .25s var(--ease)}
+.link-arrow:hover{color:var(--green-900);background:var(--green-75)}
+.link-arrow:hover svg{transform:translateX(3px)}
+
+.filters{flex:none;display:flex;align-items:center;gap:10px;margin-top:12px}
+.chips{position:relative;display:flex;flex-wrap:nowrap;gap:8px;flex:1;min-width:0}
+.chip-indicator{position:absolute;left:0;top:0;height:32px;border-radius:16px;background:var(--chip-active);box-shadow:inset 0 0 0 1px #CFDFD4;pointer-events:none}
+.chip{position:relative;flex:none;height:32px;padding:0 14px;border-radius:16px;border:1px solid var(--line-2);background:transparent;color:#2A2F33;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;transition:border-color .18s ease,color .18s ease,background-color .18s ease}
+.chip:hover{border-color:#D8DEDA;background:#F6F7F7;color:var(--ink)}
+.chip:active{background:#F0F2F1}
+.chip:focus-visible{outline:2px solid var(--green-600);outline-offset:2px}
+.chip[aria-pressed="true"]{border-color:transparent;background:transparent;color:var(--green-900);-webkit-text-stroke:.3px currentColor;cursor:default}
+.filter-wrap{position:relative;flex:none}
+.filter-btn{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 9px 0 12px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px rgba(23,25,28,.04);transition:border-color .18s ease,background-color .18s ease}
+.filter-btn svg{stroke:#2A2F33}
+.filter-btn:hover{border-color:#C9D2CC;background:#FAFBFA}
+.filter-btn:active{background:#F3F4F4}
+.filter-btn[aria-expanded="true"]{border-color:#C9D3CC;background:#F6F7F7}
+.filter-btn:focus-visible{outline:2px solid var(--green-600);outline-offset:2px}
+.filter-count{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#EEF0EF;color:#3C4043;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;transition:background-color .18s ease,color .18s ease}
+.filter-count.active{background:var(--green-100);color:var(--green-900)}
+.filter-pop{width:264px;padding:14px;top:calc(100% + 8px)}
+.fp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.fp-head strong{font-size:14px}
+.fp-reset{border:0;background:none;padding:4px 6px;margin:-4px -6px;border-radius:6px;font-size:13px;font-weight:600;color:var(--green-700);cursor:pointer}
+.fp-reset:hover{background:var(--green-75)}
+.fp-reset:disabled{color:#A9AFAB;cursor:default;background:none}
+.fp-label{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:3px;border-radius:10px;background:#F2F4F3;margin-bottom:14px}
+.seg button{height:28px;border:0;border-radius:8px;background:transparent;font-size:13px;font-weight:500;color:#3C4043;cursor:pointer;transition:background-color .15s,color .15s,box-shadow .15s}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--green-900);font-weight:600;box-shadow:0 1px 2px rgba(23,25,28,.08)}
+.fp-check{display:flex;align-items:center;gap:10px;padding:7px 2px;font-size:14px;cursor:pointer}
+.fp-check input{width:16px;height:16px;margin:0;accent-color:var(--green-700);cursor:pointer}
+
+.jobs{flex:1 1 auto;min-height:0;overflow:hidden;margin:12px -12px 0;padding:0 12px;display:flex;flex-direction:column}
+.job{position:relative;display:grid;grid-template-columns:56px minmax(0,1fr) auto;column-gap:16px;min-height:100px;padding:10px 8px 10px 3px;margin:0 -8px 0 0;border-top:1px solid #EFF0F1;transition:background-color .2s}
+.job::before{content:"";position:absolute;inset:4px -10px 4px -12px;border-radius:14px;background:#FAFBFA;opacity:0;transition:opacity .2s;z-index:-1}
+.job:hover::before{opacity:1}
+.job{z-index:0;flex:1 1 auto;align-content:center}
+.job.enter{animation:rowIn .45s var(--ease) both}
+@keyframes rowIn{from{opacity:0;transform:translateY(8px)}}
+.logo-tile{width:56px;height:56px;border-radius:12px;border:1px solid #E6E8EA;background:#fff;display:flex;align-items:center;justify-content:center;transition:transform .3s var(--ease),box-shadow .3s}
+.mono{font-size:22px;font-weight:800;letter-spacing:-.5px}
+.job:hover .logo-tile{transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+.job h3{margin:1px 0 0;font-size:16px;line-height:20px;font-weight:700}
+.job h3 a{text-decoration:none;background:linear-gradient(currentColor,currentColor) 0 100%/0 1.5px no-repeat;transition:background-size .3s var(--ease)}
+.job h3 a:hover{background-size:100% 1.5px}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:2px;font-size:13px;line-height:18px;color:var(--muted-2)}
+.meta .type{color:var(--ink-2)}
+.desc{margin:3px 0 0;font-size:13px;line-height:18px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;line-height:21px;font-weight:500;color:var(--muted-2);background:#F4F4F6;border-radius:6px;padding:0 8px}
+.tag.match{color:var(--green-900);background:#F1F4F2;font-weight:600;padding-left:6px}
+.job-side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;padding-top:1px}
+.score{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 13px;border-radius:13px;font-size:13px;font-weight:600;white-space:nowrap}
+.score.hi{background:#F0F5F2;color:#2E7D43;padding-left:11px}
+.score.mid{background:#F3F6F4;color:#2E7D43}
+.score.lo{background:#FFF7DF;color:#8C6A12}
+.actions{display:flex;align-items:center;gap:12px;margin-top:14px}
+.save-btn{width:38px;height:36px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .2s,background-color .2s,transform .15s}
+.save-btn:hover{border-color:#B8CBBE;background:var(--green-50)}
+.save-btn:active{transform:scale(.92)}
+.save-btn svg path{fill:transparent;stroke:#202124;transition:fill .2s,stroke .2s}
+.save-btn:hover svg path{stroke:var(--green-700)}
+.save-btn[aria-pressed="true"]{border-color:#CCDCD1;background:var(--green-75)}
+.save-btn[aria-pressed="true"] svg path{fill:var(--green-600);stroke:var(--green-600)}
+.save-btn.pop svg{animation:pop .45s var(--ease-spring)}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+.apply-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100px;height:36px;padding:0 10px 0 14px;border:0;border-radius:10px;background:var(--green-700);color:#fff;font-size:14px;line-height:1;font-weight:600;letter-spacing:.2px;white-space:nowrap;cursor:pointer;overflow:hidden;transition:background-color .2s,transform .2s var(--ease),box-shadow .2s}
+.apply-btn .arrow{transition:transform .25s var(--ease)}
+.apply-btn:hover{background:var(--green-900);transform:translateY(-1px);box-shadow:0 6px 14px rgba(31,77,52,.22)}
+.apply-btn:hover .arrow{transform:translateX(3px)}
+.apply-btn:active{transform:translateY(0) scale(.97);box-shadow:none}
+.apply-btn .spinner{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.apply-btn.loading{pointer-events:none}
+.apply-btn.applied{background:var(--green-100);color:var(--green-900);cursor:default;padding:0 10px}
+.apply-btn.applied:hover{transform:none;box-shadow:none;background:var(--green-100)}
+.apply-btn.applied .check{animation:pop .45s var(--ease-spring)}
+.empty{padding:32px 0 28px;border-top:1px solid #EFF0F1;text-align:center;color:var(--muted);font-size:14px;animation:rowIn .4s var(--ease) both}
+.empty strong{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+.empty button{margin-top:12px;height:34px;padding:0 14px;border-radius:10px;border:1px solid var(--line-2);background:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:border-color .2s,background-color .2s}
+.empty button:hover{border-color:#B8CBBE;background:var(--green-50)}
+
+/* Right rail */
+.rail-card{padding:18px;display:flex;flex-direction:column;gap:14px}
+.rail-card h2{margin:0;font-size:18px;line-height:24px;font-weight:700}
+.rail-head{display:flex;align-items:center;justify-content:space-between;height:24px}
+.rail-head .link-arrow{height:28px;margin-right:-9px}
+.profile-card{flex:none}
+.profile-link{display:flex;align-items:center;justify-content:space-between;text-decoration:none;color:var(--ink);height:24px;border-radius:8px}
+.profile-link .chev{transition:transform .25s var(--ease)}
+.profile-link:hover .chev{transform:translateX(3px)}
+.profile-link:hover h2{color:var(--green-900)}
+.profile-body{display:flex;align-items:center;gap:26px;padding-left:6px}
+.ring{position:relative;width:96px;height:96px;flex:none}
+.ring svg{width:100%;height:100%}
+.ring-progress{transition:stroke-dasharray 1.1s var(--ease)}
+.ring-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-label b{font-size:21px;line-height:24px;font-weight:800;color:var(--green-900);letter-spacing:-.3px;font-variant-numeric:tabular-nums}
+.ring-label span{font-size:11px;line-height:14px;font-weight:500;color:var(--muted)}
+.checklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:20px}
+.checklist li{display:flex;align-items:center;gap:10px}
+.checklist .todo a{color:var(--muted);text-decoration:none;border-radius:6px;transition:color .2s}
+.checklist .todo a:hover{color:var(--green-700);text-decoration:underline;text-underline-offset:3px}
+.interview-card{flex:0 0 auto}
+.iv-box{background:var(--green-50);border:1px solid #EEF0F0;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;transition:background-color .2s,border-color .2s}
+.iv-box:hover{border-color:#DCE7DF}
+.iv-title{display:flex;align-items:center;gap:12px;min-width:0}
+.iv-logo{width:40px;height:40px;flex:none;border-radius:10px;background:#fff;border:1px solid #ECEFEC;display:flex;align-items:center;justify-content:center}
+.iv-title .role{font-size:16px;line-height:20px;font-weight:700}
+.iv-title .co{font-size:14px;line-height:20px;color:var(--muted)}
+.iv-when{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;font-size:13px;line-height:18px;color:#2A2F33}
+.iv-when > span{display:flex;align-items:center;gap:6px}
+.qa-card{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none;padding:16px 18px 18px;gap:10px}
+.qa-card h2{margin:0 0 2px 1px}
+.qa-grid{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;gap:10px}
+.qa{position:relative;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;gap:10px;min-height:72px;padding:14px;border:1px solid var(--line-3);border-radius:12px;color:var(--ink);text-decoration:none;font-size:14.5px;font-weight:600;background:#fff;transition:border-color .2s,background-color .2s}
+.qa .qa-ico{width:34px;height:34px;border-radius:50%;background:#F3F5F4;display:flex;align-items:center;justify-content:center;flex:none}
+.qa .qa-ico svg{stroke:#202124}
+.qa .label{line-height:20px;max-width:100%;min-width:0}
+.qa .hint{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;font-size:12.5px;line-height:17px;font-weight:500;color:var(--muted)}
+.qa .chev{position:absolute;top:14px;right:12px;color:#9AA19C;transition:color .2s}
+.qa:hover{border-color:#DFE5E1;background:#FAFBFB}
+.qa:hover .chev{color:var(--green-700)}
+
+/* Toast */
+.toast-wrap{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;pointer-events:none}
+.toast{display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;background:#1E2A24;color:#fff;border-radius:12px;font-size:14px;font-weight:500;box-shadow:0 10px 30px rgba(0,0,0,.18);opacity:0;transform:translateY(12px) scale(.98);transition:opacity .2s,transform .3s var(--ease)}
+.toast.show{opacity:1;transform:none;pointer-events:auto}
+.toast button{border:0;background:rgba(255,255,255,.12);color:#CDE8D5;font-size:13px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;transition:background-color .2s}
+.toast button:hover{background:rgba(255,255,255,.2)}
+
+
+/* ---------- Corner system: continuous-curvature (squircle) radii ----------
+   One scale for every interactive surface. Browsers that support CSS
+   `corner-shape` (Chromium 139+) draw true squircles; the radius is scaled up
+   so the visible curve matches the plain-radius fallback everywhere else. */
+:root{
+  --r-sm:12px;   /* compact buttons, inputs, tiles, menu rows */
+  --r-md:14px;   /* large buttons, action tiles, inner panels */
+  --r-lg:16px;   /* pills, search bar, toasts */
+  --r-xl:18px;   /* popovers & cards (concentric with 6px inner padding) */
+  --sq:1;        /* squircle radius multiplier, raised below when supported */
+}
+.nav-indicator,.nav-item,.icon-btn,.menu-item,.notif-item,
+.search-field,.search-btn,.filter-btn,.save-btn,.apply-btn,.empty button,
+.link-arrow,.fp-reset,.notif-head button,.seg button,.iv-logo,.logo-tile{border-radius:calc(var(--r-sm) * var(--sq))}
+.qa,.iv-box,.stats,.seg,.toast button{border-radius:calc(var(--r-md) * var(--sq))}
+.search,.chip,.chip-indicator,.job::before,.toast{border-radius:calc(var(--r-lg) * var(--sq))}
+.popover,.card{border-radius:calc(var(--r-xl) * var(--sq))}
+.seg{padding:3px}
+.seg button{border-radius:calc((var(--r-md) - 3px) * var(--sq))}
+@supports (corner-shape: squircle){
+  :root{--sq:1.6}
+  .nav-indicator,.nav-item,.icon-btn,.menu-item,.notif-item,
+  .search,.search-field,.search-btn,.filter-btn,.save-btn,.apply-btn,.empty button,
+  .link-arrow,.fp-reset,.notif-head button,.seg,.seg button,.iv-logo,.logo-tile,
+  .qa,.iv-box,.stats,.toast,.toast button,.chip,.chip-indicator,.job::before,
+  .popover,.card{corner-shape:squircle}
+}
+
+
+/* ---------- Tab switching ----------
+   Pages are separate documents. Cross-document view transitions keep the sidebar and
+   top bar still and only cross-fade the content; browsers without support just navigate. */
+html{background:var(--bg)}
+.app{zoom:var(--mw-zoom,1);height:calc(100vh / var(--mw-zoom,1));height:calc(100dvh / var(--mw-zoom,1))}
+.topbar{position:relative;z-index:5}
+@media (prefers-reduced-motion:no-preference){
+  @view-transition{navigation:auto}
+  .sidebar{view-transition-name:mw-sidebar}
+  .topbar{view-transition-name:mw-topbar}
+  .main{view-transition-name:mw-main}
+  ::view-transition-old(root),::view-transition-new(root){animation:none}
+  ::view-transition-group(mw-sidebar),::view-transition-group(mw-topbar),::view-transition-group(mw-main){animation:none}
+  ::view-transition-old(mw-sidebar),::view-transition-old(mw-topbar){display:none}
+  ::view-transition-new(mw-sidebar),::view-transition-new(mw-topbar){animation:none}
+  /* Crossfade with no dip: the new page fades in faster than the old one fades out, and the
+     pair blends with plus-lighter, so the background never shows through mid-switch. */
+  ::view-transition-old(mw-main){animation:mw-out .2s cubic-bezier(.4,0,.6,1) both}
+  ::view-transition-new(mw-main){animation:mw-in .2s cubic-bezier(.2,.8,.2,1) both}
+}
+@keyframes mw-out{to{opacity:0}}
+@keyframes mw-in{from{opacity:0;transform:translateY(4px)}}
+html.mw-loading,html.mw-loading *{cursor:progress}
+
+/* ---------- Responsive ---------- */
+@media (max-height:780px){
+  .main{padding-top:10px;padding-bottom:12px}
+  .body{margin-top:10px}
+  .welcome-top{min-height:100px}
+  .welcome-text{padding-top:14px}
+  .welcome h1{font-size:26px;line-height:32px}
+  .welcome p{font-size:14px}
+  .welcome-illo{width:168px;height:112px;margin-bottom:-13px}
+  .stats{min-height:56px}
+  .stat{margin:8px 0}
+  .stat .ico{width:34px;height:34px}
+  .stat .ico svg{width:22px;height:22px}
+  .rec{margin-top:12px;padding-top:12px}
+  .rec-head h2{font-size:20px;line-height:26px}
+  .rec-head p{font-size:14px}
+  .filters{margin-top:10px}
+  .jobs{margin-top:8px}
+  .job{min-height:92px;padding-top:8px;padding-bottom:8px}
+  .logo-tile{width:50px;height:50px}
+  .job{grid-template-columns:50px minmax(0,1fr) auto}
+  .actions{margin-top:10px}
+  .col-right{gap:12px}
+  .rail-card{padding:14px 16px;gap:10px}
+  .ring{width:84px;height:84px}
+  .checklist{gap:4px;font-size:13.5px}
+  .iv-box{padding:12px;gap:8px}
+  .qa-card{padding:14px 16px;gap:8px}
+  .qa{min-height:62px;padding:11px 12px}
+  .qa .chev{top:11px}
+  .qa .qa-ico{width:30px;height:30px}
+  .qa .hint{display:none}
+}
+@media (max-width:1400px){
+  .sidebar{flex-basis:204px}
+  .brand,.portal-label{margin-left:28px}
+  .nav,.logout{margin-left:12px;margin-right:12px}
+  .nav-item{padding-left:14px;gap:12px}
+  .divider{margin-left:28px;margin-right:24px}
+  .deco-bl{width:204px}
+  .main{padding-left:22px}
+}
+@media (max-height:720px){
+  .welcome-top{min-height:88px}
+  .welcome-text{padding-top:10px}
+  .welcome-illo{width:146px;height:97px;margin-bottom:-11px}
+  .stats{min-height:52px}
+  .stat{margin:7px 0}
+  .job{min-height:86px;padding-top:6px;padding-bottom:6px}
+  .tags{margin-top:5px}
+  .actions{margin-top:8px}
+}
+@media (max-width:1180px), (max-height:620px){
+  .app{height:auto;min-height:100vh}
+  .jobs,.qa-card{overflow:visible}
+  .rec{flex:none}
+}
+@media (max-width:1180px){
+  .topbar-right{flex:0 0 auto}
+  .body{flex-wrap:wrap}
+  .col-right{flex:1 1 100%;flex-direction:row;flex-wrap:wrap}
+  .col-right > *{flex:1 1 300px}
+}
+@media (max-width:860px){
+  .app{flex-direction:column}
+  .sidebar{flex:none;border-right:0;border-bottom:1px solid #EFEFEF;flex-direction:row;align-items:center;gap:8px;padding:10px 12px;overflow-x:auto}
+  .brand{margin:0 8px 0 4px}
+  .portal-label,.divider,.sidebar-spacer,.deco-bl,.nav-indicator{display:none}
+  .nav{flex-direction:row;margin:0}
+  .nav-item{height:40px;padding:0 12px;white-space:nowrap}
+  .nav-item[aria-current="page"]{background:var(--green-75)}
+  .logout{margin:0}
+  .main{padding:12px}
+  .topbar{padding-right:0}
+  .bell-wrap{margin-right:4px}
+  .welcome-illo{width:150px;height:100px;margin-bottom:-12px}
+  .job{grid-template-columns:48px minmax(0,1fr)}
+  .logo-tile{width:48px;height:48px}
+  .job-side{grid-column:1 / -1;flex-direction:row;align-items:center;margin-top:10px}
+  .actions{margin-top:0}
+  .deco-br,.deco-tr{display:none}
+}
+@media (max-width:700px){
+  .search-field.loc,.search-sep{display:none}
+  .search{min-width:0}
+}
+@media (max-width:520px){
+  .welcome-illo{display:none}
+  .stat{flex-basis:45%}
+  .stat:nth-child(3){border-left:0}
+  .filters{align-items:flex-start}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <svg class="deco-br" width="230" height="120" viewBox="0 0 230 120" aria-hidden="true"><path d="M230 0 C200 20 150 40 120 70 C95 95 60 110 0 120 L230 120Z" fill="#F2F3F3"/><path d="M230 30 C205 55 180 80 140 100 C120 110 100 116 80 120 L230 120Z" fill="#ECEEEE"/></svg>
+  <svg class="deco-tr" width="70" height="90" viewBox="0 0 70 90" aria-hidden="true"><path d="M70 0 C40 6 22 30 30 55 C36 74 54 86 70 90Z" fill="#F2F3F3"/></svg>
+
+  <!-- ============ Sidebar ============ -->
+  <aside class="sidebar">
+    <a href="dashboard" class="brand" aria-label="Matchwork home">
+      <svg width="24" height="22" viewBox="0 0 24 22" aria-hidden="true"><circle cx="6.5" cy="5" r="4.5" fill="#1E2A24"/><circle cx="16.5" cy="6" r="4" fill="#7FAE8E"/><rect x="0" y="10" width="12" height="12" rx="4" fill="#1E2A24"/><rect x="11" y="11" width="13" height="11" rx="4" fill="#7FAE8E"/></svg>
+      <span>Matchwork</span>
+    </a>
+    <div class="portal-label">Candidate Portal</div>
+    <nav class="nav" aria-label="Candidate portal">
+      <span class="nav-indicator" aria-hidden="true"></span>
+      <a href="dashboard" class="nav-item" aria-current="page">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg>
+        <span class="label">Dashboard</span>
+      </a>
+      <a href="jobs" class="nav-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <span class="label">Find Jobs</span>
+      </a>
+      <a href="applications" class="nav-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+        <span class="label">My Applications</span>
+      </a>
+      <a href="saved" class="nav-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+        <span class="label">Saved Jobs</span>
+        <span class="badge" id="savedBadge" aria-hidden="true">0</span>
+        <span class="sr" id="savedSr"></span>
+      </a>
+      <a href="interviews" class="nav-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>
+        <span class="label">Interviews</span>
+        <span class="badge" id="bookBadge" aria-hidden="true">0</span>
+      </a>
+      <a href="profile" class="nav-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        <span class="label">My Profile</span>
+      </a>
+    </nav>
+    <div class="divider"></div>
+    <a href="/login#candidate" class="nav-item logout">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4"/><path d="M18 12H9"/></svg>
+      <span class="label">Log Out</span>
+    </a>
+    <div class="sidebar-spacer"></div>
+    <svg class="deco-bl" width="228" height="140" viewBox="0 0 228 140" aria-hidden="true"><path d="M0 10 C40 0 70 30 105 60 C140 90 180 110 228 140 L0 140Z" fill="#F2F3F3"/><path d="M0 70 C40 60 80 85 110 110 C125 122 140 132 150 140 L0 140Z" fill="#ECEEEE"/><rect x="123" y="33" width="14" height="14" transform="rotate(45 130 40)" fill="#EDEFEE"/></svg>
+  </aside>
+
+  <!-- ============ Main ============ -->
+  <main class="main">
+    <div class="topbar">
+      <form class="search" id="searchForm" role="search" autocomplete="off">
+        <label class="search-field">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></svg>
+          <span class="sr">Job title, keywords, or company</span>
+          <input id="search" type="search" placeholder="Job title, keywords, or company">
+        </label>
+        <span class="search-sep" aria-hidden="true"></span>
+        <label class="search-field loc">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5s-7-6.3-7-12a7 7 0 0 1 14 0c0 5.7-7 12-7 12z"/><circle cx="12" cy="9.5" r="2.6"/></svg>
+          <span class="sr">Location</span>
+          <input id="searchLoc" type="search" placeholder="City, state, or remote">
+        </label>
+        <button type="submit" class="search-btn">Search</button>
+      </form>
+      <div class="topbar-right">
+      <div class="bell-wrap">
+        <button type="button" class="icon-btn" id="bellBtn" aria-label="Notifications, 1 new" aria-haspopup="true" aria-expanded="false" aria-controls="notifPop">
+          <svg class="bell" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#202124" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+          <span class="dot" id="bellDot"></span>
+        </button>
+        <div class="popover notif" id="notifPop" role="dialog" aria-label="Notifications">
+          <div class="notif-head">Notifications <button type="button" id="markRead">Mark all read</button></div>
+          <div class="notif-item">
+            <span class="notif-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6A4FC9" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg></span>
+            <div><strong>Interview scheduled</strong> — Backend Engineer at Meta<time>Tue, Jan 28 · 10:00 AM PST</time></div>
+          </div>
+        </div>
+      </div>
+      <div class="account">
+        <button type="button" class="account-btn" id="accountBtn" aria-label="Account menu for John Doe" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu">
+          <span class="avatar" id="avatar">JD</span>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#202124" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="popover" id="accountMenu" role="menu" aria-label="Account">
+          <a href="profile" class="menu-item" role="menuitem">My Profile</a>
+          <button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>
+          <div class="menu-sep" role="separator"></div>
+          <a href="/login#candidate" class="menu-item danger" role="menuitem">Log Out</a>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div class="body">
+      <!-- Left column -->
+      <div class="col-left">
+        <section class="card welcome" aria-labelledby="welcome-title">
+          <div class="welcome-top">
+            <div class="welcome-text">
+              <div class="eyebrow" id="greeting">Good afternoon,</div>
+              <h1 id="welcome-title">John Doe</h1>
+              <p>Find your next opportunity and track your applications.</p>
+            </div>
+            <img class="welcome-illo" src="assets/welcome.png" width="200" height="133" decoding="async" alt="">
+          </div>
+          <div class="stats">
+            <a href="applications" class="stat">
+              <span class="ico" style="background:#E9F2EB"><svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="#16163A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="10" y="4" width="15" height="20" rx="2.5" fill="#A9CDB4" transform="rotate(10 17 14)"/><path d="M7 8.5A2.5 2.5 0 0 1 9.5 6H18l5 5v14.5A2.5 2.5 0 0 1 20.5 28h-11A2.5 2.5 0 0 1 7 25.5z" fill="#FFFFFF"/><path d="M18 6v5h5"/><path d="M11 16h8M11 20.5h5"/></svg></span>
+              <span><span class="stat-num" id="statApps" data-count="4">0</span><span class="stat-label">Applications</span></span>
+            </a>
+            <a href="applications?status=Interviewing" class="stat">
+              <span class="ico" style="background:#EFEAFC"><svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="#16163A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="7" width="22" height="20" rx="3.5" fill="#FFFFFF"/><path d="M5 10.5A3.5 3.5 0 0 1 8.5 7h15A3.5 3.5 0 0 1 27 10.5V13H5z" fill="#A893F0"/><path d="M11 4.5v5M21 4.5v5"/><circle cx="11" cy="18" r="1.2" fill="#16163A" stroke="none"/><circle cx="16" cy="18" r="1.2" fill="#16163A" stroke="none"/><circle cx="11" cy="22.5" r="1.2" fill="#16163A" stroke="none"/><rect x="18.5" y="19.5" width="5" height="4.5" rx="1.2" fill="#F5B84A" stroke-width="1.4"/></svg></span>
+              <span><span class="stat-num" data-count="1">0</span><span class="stat-label">Interviewing</span></span>
+            </a>
+            <a href="applications?status=Accepted" class="stat">
+              <span class="ico" style="background:#E6F2EA"><svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="#16163A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="15" cy="17" r="10" fill="#7EC08F"/><path d="m10.5 17 3 3 6-6.5" stroke="#FFFFFF" stroke-width="2.6"/><path d="M26 3.5v4.5M23.75 5.75h4.5" stroke="#F5B84A" stroke-width="2"/></svg></span>
+              <span><span class="stat-num" data-count="1">0</span><span class="stat-label">Accepted</span></span>
+            </a>
+            <a href="applications?status=Rejected" class="stat">
+              <span class="ico" style="background:#FCE7EC"><svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="#16163A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="16" cy="16" r="10.5" fill="#F28B8B"/><path d="M12 12l8 8M20 12l-8 8" stroke="#FFFFFF" stroke-width="2.6"/></svg></span>
+              <span><span class="stat-num" data-count="1">0</span><span class="stat-label">Rejected</span></span>
+            </a>
+          </div>
+        </section>
+
+        <section class="card rec" aria-labelledby="rec-title">
+          <div class="rec-head">
+            <div>
+              <h2 id="rec-title">Recommended Jobs for You</h2>
+              <p>Sorted by match score based on your skills.</p>
+            </div>
+            <a href="jobs" class="link-arrow">View All Jobs
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+          </div>
+          <div class="filters">
+            <div class="chips" id="chips" role="group" aria-label="Filter by category">
+              <span class="chip-indicator" aria-hidden="true"></span>
+            </div>
+            <div class="filter-wrap">
+              <button type="button" class="filter-btn" id="filterBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="filterPop">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><path d="M15 5v4M9 15v4"/></svg>
+                Filters
+                <span class="filter-count" id="filterCount">0</span>
+                <span class="sr" id="filterSr"> active</span>
+              </button>
+              <div class="popover filter-pop" id="filterPop" role="dialog" aria-label="Job filters">
+                <div class="fp-head"><strong>Filters</strong><button type="button" class="fp-reset" id="fpReset" disabled>Reset</button></div>
+                <p class="fp-label">Minimum match</p>
+                <div class="seg" id="segMatch" role="group" aria-label="Minimum match">
+                  <button type="button" data-v="0" aria-pressed="true">Any</button>
+                  <button type="button" data-v="50" aria-pressed="false">50%+</button>
+                  <button type="button" data-v="75" aria-pressed="false">75%+</button>
+                  <button type="button" data-v="90" aria-pressed="false">90%+</button>
+                </div>
+                <p class="fp-label">Show only</p>
+                <label class="fp-check"><input type="checkbox" id="fpSaved"> Saved jobs</label>
+                <label class="fp-check"><input type="checkbox" id="fpNotApplied"> Not applied yet</label>
+              </div>
+            </div>
+          </div>
+          <div class="jobs" id="jobs" aria-live="polite"></div>
+        </section>
+      </div>
+
+      <!-- Right rail -->
+      <div class="col-right">
+        <section class="card rail-card profile-card" aria-labelledby="pc-title">
+          <a href="profile" class="profile-link">
+            <h2 id="pc-title">Profile Completion</h2>
+            <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+          </a>
+          <div class="profile-body">
+            <div class="ring">
+              <svg width="104" height="104" viewBox="0 0 104 104" role="img" aria-label="Profile 75% complete">
+                <defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8CC39E"/><stop offset="1" stop-color="#2F6B4A"/></linearGradient></defs>
+                <circle cx="52" cy="52" r="46" fill="none" stroke="#EEF0EF" stroke-width="10"/>
+                <circle cx="52" cy="52" r="35" fill="#F7F8F8"/>
+                <circle class="ring-progress" id="ringProgress" cx="52" cy="52" r="46" fill="none" stroke="url(#ringGrad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 289" transform="rotate(-90 52 52)"/>
+              </svg>
+              <span class="ring-label"><b id="ringNum">0%</b><span>Complete</span></span>
+            </div>
+            <ul class="checklist" id="checklist">
+              <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#4E9A68"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Basic Information<span class="sr"> (complete)</span></li>
+              <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#4E9A68"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Technical Skills<span class="sr"> (complete)</span></li>
+              <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#4E9A68"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Resume<span class="sr"> (complete)</span></li>
+              <li class="todo"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.2" fill="#fff" stroke="#9AA3A0" stroke-width="1.6" stroke-dasharray="3 2.4"/></svg><a href="profile#basics">Additional Details<span class="sr"> (not complete)</span></a></li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="card rail-card interview-card" aria-labelledby="iv-title">
+          <div class="rail-head">
+            <h2 id="iv-title">Upcoming Interview</h2>
+            <a href="interviews" class="link-arrow">View All
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+          </div>
+          <div class="iv-box" id="ivBox">
+            <div class="iv-title">
+              <span class="iv-logo"><img src="data:image/png;base64,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" alt="Meta logo" width="25" height="17"></span>
+              <div><span class="role">Backend Engineer</span> <span class="co">· Meta</span></div>
+            </div>
+            <div class="iv-when">
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>Tue, Jan 28, 2025</span>
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>10:00–10:30 AM PST</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card rail-card qa-card" aria-labelledby="qa-title">
+          <h2 id="qa-title">Quick Actions</h2>
+          <div class="qa-grid">
+          <a href="profile#basics" class="qa">
+            <span class="qa-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/></svg></span>
+            <span class="label">Edit Profile<small class="hint">Add missing details</small></span>
+            <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+          </a>
+          <a href="profile#resume" class="qa">
+            <span class="qa-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 15v5h16v-5"/></svg></span>
+            <span class="label">Update Resume<small class="hint">Paste the latest text</small></span>
+            <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+          </a>
+          <a href="saved" class="qa">
+            <span class="qa-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg></span>
+            <span class="label">Saved Jobs<small class="hint">Your bookmarks</small></span>
+            <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+          </a>
+          <a href="jobs" class="qa">
+            <span class="qa-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 9-5.2"/><path d="M18 11v5l1.5 2h-15"/><path d="M10 20a2 2 0 0 0 4 0"/><path d="M19 3v5M16.5 5.5h5"/></svg></span>
+            <span class="label">Create Job Alert<small class="hint">Alerts for new roles</small></span>
+            <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+          </a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast-wrap" aria-live="polite"><div class="toast" id="toast" role="status"><span id="toastMsg"></span><button type="button" id="toastAction" hidden>Undo</button></div></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ---------- Data ---------- */
+  /* Shared with every candidate page: assets/matchwork.js */
+  const MY_SKILLS = MW.state.profile.skills;
+  const CATEGORIES = ['All Jobs', 'Software', 'AI / ML', 'Data', 'Backend', 'Frontend'];
+  const JOBS = MW.jobs();
+
+  const state = { cat: 'All Jobs', query: '', loc: '', minMatch: 0, savedOnly: false, notApplied: false, saved: new Set(Object.keys(MW.state.saved)), applied: new Set(MW.state.applications.map((a) => a.jobId)) };
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ---------- Greeting by time of day ---------- */
+  const hr = new Date().getHours();
+  $('#greeting').textContent = hr < 12 ? 'Good morning,' : hr < 18 ? 'Good afternoon,' : 'Good evening,';
+
+  /* ---------- Sliding indicator helper ---------- */
+  function moveIndicator(indicator, target, { horizontal = false } = {}) {
+    if (!indicator || !target) return;
+    if (horizontal) {
+      indicator.style.width = target.offsetWidth + 'px';
+      indicator.style.height = target.offsetHeight + 'px';
+      indicator.style.transform = `translate(${target.offsetLeft}px, ${target.offsetTop}px)`;
+    } else {
+      indicator.style.height = target.offsetHeight + 'px';
+      indicator.style.transform = `translateY(${target.offsetTop}px)`;
+    }
+  }
+
+  /* ---------- Sidebar nav ---------- */
+  const nav = $('.nav');
+  const navIndicator = $('.nav-indicator');
+  const navItems = $$('.nav-item', nav);
+  const syncNav = () => moveIndicator(navIndicator, $('[aria-current="page"]', nav));
+
+  /* ---------- Filter chips (tabs) ---------- */
+  const chipsEl = $('#chips');
+  const chipIndicator = $('.chip-indicator', chipsEl);
+  const matchesQuery = (j, q) => !q || [j.title, j.company, ...j.tags].join(' ').toLowerCase().includes(q);
+  const matchesLoc = (j, l) => !l || j.location.toLowerCase().includes(l) || (/remote/.test(l) && /remote/i.test(j.type + ' ' + j.location));
+  const inCat = (j, c) => c === 'All Jobs' || j.cats.includes(c);
+
+  CATEGORIES.forEach((c) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.dataset.cat = c;
+    b.setAttribute('aria-pressed', String(c === state.cat));
+    b.innerHTML = `<span>${esc(c)}</span>`;
+    b.addEventListener('click', () => {
+      if (state.cat === c) return;
+      state.cat = c;
+      $$('.chip', chipsEl).forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.cat === c)));
+      moveIndicator(chipIndicator, b, { horizontal: true });
+      renderJobs(true);
+    });
+    chipsEl.appendChild(b);
+  });
+  // Arrow-key navigation between chips
+  chipsEl.addEventListener('keydown', (e) => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    const chips = $$('.chip', chipsEl);
+    const i = chips.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    chips[(i + (e.key === 'ArrowRight' ? 1 : chips.length - 1)) % chips.length].focus();
+  });
+  const syncChips = () => moveIndicator(chipIndicator, $('.chip[aria-pressed="true"]', chipsEl), { horizontal: true });
+
+  /* ---------- Job list ---------- */
+  const jobsEl = $('#jobs');
+  const ICON_PIN = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>';
+  const ICON_BAG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5h6v2M3 12h18"/></svg>';
+  const ICON_CHECK_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2F6B4A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  const ICON_FLAME = '<svg width="13" height="13" viewBox="0 0 24 24" fill="#3C9A57" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-4 1-6 1-9z"/></svg>';
+  const ICON_BOOKMARK = '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>';
+  const ICON_ARROW = '<svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  const ICON_CHECK = '<svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
+  function scoreHTML(m) {
+    if (m >= 90) return `<span class="score hi">${ICON_FLAME}${m}% Match</span>`;
+    if (m >= 60) return `<span class="score mid">${m}% Match</span>`;
+    return `<span class="score lo">${m}% Match</span>`;
+  }
+  function applyInner(applied) {
+    return applied ? `${ICON_CHECK}<span>Applied</span>` : `<span>Apply</span>${ICON_ARROW}`;
+  }
+
+  function jobHTML(j) {
+    const saved = state.saved.has(j.id);
+    const applied = state.applied.has(j.id);
+    const tags = j.tags.map((t) => MW.hasSkill(MY_SKILLS, t)
+      ? `<span class="tag match">${ICON_CHECK_SM}${esc(t)}<span class="sr"> (matches your skills)</span></span>`
+      : `<span class="tag">${esc(t)}<span class="sr"> (not in your skills)</span></span>`).join('');
+    return `
+      <article class="job" data-id="${j.id}">
+        ${MW.logoHTML(j)}
+        <div>
+          <h3><a href="jobs?id=${esc(j.id)}">${esc(j.title)}</a></h3>
+          <div class="meta">${ICON_PIN}<span>${esc(j.company)}</span><span aria-hidden="true">·</span><span>${esc(j.location)}</span><span aria-hidden="true">·</span>${ICON_BAG}<span class="type">${esc(j.type)}</span></div>
+          <p class="desc">${esc(j.desc)}</p>
+          <div class="tags">${tags}</div>
+        </div>
+        <div class="job-side">
+          ${scoreHTML(j.match)}
+          <div class="actions">
+            <button type="button" class="save-btn" data-act="save" aria-pressed="${saved}" aria-label="${saved ? 'Remove saved' : 'Save'} ${esc(j.title)} at ${esc(j.company)}">${ICON_BOOKMARK}</button>
+            <button type="button" class="apply-btn${applied ? ' applied' : ''}" data-act="apply" ${applied ? 'aria-disabled="true"' : ''} aria-label="${applied ? 'Applied to' : 'Apply to'} ${esc(j.title)} at ${esc(j.company)}">${applyInner(applied)}</button>
+          </div>
+        </div>
+      </article>`;
+  }
+
+  function renderJobs(animate) {
+    const q = state.query.trim().toLowerCase();
+    const MAX_JOBS = 3;
+    const l = state.loc.trim().toLowerCase();
+    const list = JOBS.filter((j) => inCat(j, state.cat) && matchesQuery(j, q) && matchesLoc(j, l) && j.match >= state.minMatch && (!state.savedOnly || state.saved.has(j.id)) && (!state.notApplied || !state.applied.has(j.id))).sort(MW.byMatch).slice(0, MAX_JOBS);
+    if (!list.length) {
+      jobsEl.innerHTML = `<div class="empty"><strong>No matching jobs</strong>${q || l ? `Nothing matches ${[q && `“${esc(state.query.trim())}”`, l && `in ${esc(state.loc.trim())}`].filter(Boolean).join(' ')}` : 'No recommended jobs in this category yet.'}<br><button type="button" data-act="reset">Clear filters</button></div>`;
+      return;
+    }
+    jobsEl.innerHTML = list.map(jobHTML).join('');
+    if (animate && !reduceMotion) {
+      $$('.job', jobsEl).forEach((el, i) => { el.style.animationDelay = (i * 60) + 'ms'; el.classList.add('enter'); });
+    }
+  }
+
+  jobsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) { if (e.target.closest('a[href="#"]')) e.preventDefault(); return; }
+    const act = btn.dataset.act;
+    if (act === 'reset') { resetFilters(); return; }
+    const id = btn.closest('.job').dataset.id;
+    const job = JOBS.find((j) => j.id === id);
+    if (act === 'save') toggleSave(job, btn);
+    if (act === 'apply') apply(job, btn);
+  });
+
+  function toggleSave(job, btn) {
+    const nowSaved = !state.saved.has(job.id);
+    nowSaved ? state.saved.add(job.id) : state.saved.delete(job.id);
+    MW.toggleSave(job.id);
+    btn.setAttribute('aria-pressed', String(nowSaved));
+    btn.setAttribute('aria-label', `${nowSaved ? 'Remove saved' : 'Save'} ${job.title} at ${job.company}`);
+    btn.classList.remove('pop'); void btn.offsetWidth; if (nowSaved) btn.classList.add('pop');
+    updateSavedBadge(true);
+    if (state.savedOnly && !nowSaved) renderJobs(true);
+    toast(nowSaved ? `Saved ${job.title} at ${job.company}` : 'Removed from Saved Jobs', nowSaved ? () => {
+      state.saved.delete(job.id);
+      MW.toggleSave(job.id);
+      const b = $(`.job[data-id="${job.id}"] .save-btn`);
+      if (b) { b.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-label', `Save ${job.title} at ${job.company}`); }
+      updateSavedBadge(true);
+    } : null);
+  }
+
+  function apply(job, btn) {
+    if (state.applied.has(job.id) || btn.classList.contains('loading')) return;
+    btn.classList.add('loading');
+    btn.innerHTML = '<span class="spinner" aria-hidden="true"></span><span class="sr">Submitting</span>';
+    setTimeout(() => {
+      state.applied.add(job.id);
+      MW.apply(job.id);
+      btn.classList.remove('loading');
+      btn.classList.add('applied');
+      btn.setAttribute('aria-disabled', 'true');
+      btn.setAttribute('aria-label', `Applied to ${job.title} at ${job.company}`);
+      btn.innerHTML = applyInner(true);
+      const apps = $('#statApps');
+      countTo(apps, MW.state.applications.length, 400);
+      toast(`Application sent to ${job.company}`);
+    }, reduceMotion ? 0 : 700);
+  }
+
+  function updateSavedBadge(bump) {
+    const badge = $('#savedBadge');
+    const n = state.saved.size;
+    badge.textContent = n;
+    badge.classList.toggle('show', n > 0);
+    $('#savedSr').textContent = n ? `, ${n} saved` : '';
+    if (bump && n > 0) { badge.classList.remove('bump'); void badge.offsetWidth; badge.classList.add('bump'); }
+  }
+
+  /* ---------- Search ---------- */
+  let searchTimer;
+  const runSearch = () => { state.query = $('#search').value; state.loc = $('#searchLoc').value; renderJobs(true); };
+  ['#search', '#searchLoc'].forEach((sel) => $(sel).addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(runSearch, 160);
+  }));
+  $('#searchForm').addEventListener('submit', (e) => { e.preventDefault(); clearTimeout(searchTimer); runSearch(); });
+  function resetFilters() {
+    resetPanel(false);
+    state.query = ''; $('#search').value = '';
+    state.loc = ''; $('#searchLoc').value = '';
+    state.cat = 'All Jobs';
+    $$('.chip', chipsEl).forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.cat === 'All Jobs')));
+    syncChips();
+    renderJobs(true);
+  }
+
+  /* ---------- Toast ---------- */
+  const toastEl = $('#toast'), toastMsg = $('#toastMsg'), toastAction = $('#toastAction');
+  let toastTimer, toastUndo = null;
+  function toast(msg, undo) {
+    clearTimeout(toastTimer);
+    toastMsg.textContent = msg;
+    toastUndo = undo || null;
+    toastAction.hidden = !undo;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2800);
+  }
+  toastAction.addEventListener('click', () => {
+    if (toastUndo) toastUndo();
+    toastUndo = null;
+    toastEl.classList.remove('show');
+  });
+
+  /* ---------- Popovers (notifications, account) ---------- */
+  function setupPopover(btn, pop, onOpen) {
+    const close = () => { pop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = !pop.classList.contains('open');
+      $$('.popover.open').forEach((p) => p.classList.remove('open'));
+      $$('[aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+      if (open) { pop.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); onOpen && onOpen(); }
+    });
+    /* Clicks inside the popover keep it open but still bubble, so its links reach the tab router. */
+    document.addEventListener('click', (e) => { if (!pop.contains(e.target)) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop.classList.contains('open')) { close(); btn.focus(); } });
+  }
+  setupPopover($('#bellBtn'), $('#notifPop'));
+  setupPopover($('#filterBtn'), $('#filterPop'));
+
+  /* ---------- Filters panel ---------- */
+  const segMatch = $('#segMatch');
+  function updateFilterCount() {
+    const n = (state.minMatch > 0) + state.savedOnly + state.notApplied;
+    const el = $('#filterCount');
+    el.textContent = n;
+    el.classList.toggle('active', n > 0);
+    $('#filterSr').textContent = ` ${n} active`;
+    $('#fpReset').disabled = n === 0;
+  }
+  segMatch.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.minMatch = Number(b.dataset.v);
+    $$('button', segMatch).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    updateFilterCount(); renderJobs(true);
+  });
+  $('#fpSaved').addEventListener('change', (e) => { state.savedOnly = e.target.checked; updateFilterCount(); renderJobs(true); });
+  $('#fpNotApplied').addEventListener('change', (e) => { state.notApplied = e.target.checked; updateFilterCount(); renderJobs(true); });
+  function resetPanel(render = true) {
+    state.minMatch = 0; state.savedOnly = false; state.notApplied = false;
+    $$('button', segMatch).forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === '0')));
+    $('#fpSaved').checked = false; $('#fpNotApplied').checked = false;
+    updateFilterCount();
+    if (render) renderJobs(true);
+  }
+  $('#fpReset').addEventListener('click', () => resetPanel());
+  updateFilterCount();
+  setupPopover($('#accountBtn'), $('#accountMenu'), () => $('#accountMenu .menu-item').focus());
+  $('#markRead').addEventListener('click', () => {
+    $('#bellDot').classList.add('hide');
+    $('#bellBtn').setAttribute('aria-label', 'Notifications, none new');
+    $('#markRead').disabled = true;
+    $('#markRead').textContent = 'All caught up';
+  });
+
+  /* ---------- Count-up + ring ---------- */
+  function countTo(el, to, dur = 700) {
+    if (reduceMotion) { el.textContent = to; return; }
+    const from = Number(el.textContent) || 0, t0 = performance.now();
+    const step = (t) => {
+      const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(from + (to - from) * e);
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  function animateRing(pct) {
+    const C = 2 * Math.PI * 46;
+    const ring = $('#ringProgress'), num = $('#ringNum');
+    requestAnimationFrame(() => { ring.style.strokeDasharray = `${(C * pct / 100).toFixed(1)} ${C.toFixed(1)}`; });
+    if (reduceMotion) { num.textContent = pct + '%'; return; }
+    const t0 = performance.now();
+    const step = (t) => {
+      const p = Math.min(1, (t - t0) / 1100), e = 1 - Math.pow(1 - p, 3);
+      num.textContent = Math.round(pct * e) + '%';
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  /* ---------- Prevent dead links from jumping ---------- */
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href="#"]');
+    if (a && !a.classList.contains('nav-item')) e.preventDefault();
+  });
+
+  /* ---------- Shared data: profile, checklist, next interview, notifications ---------- */
+  function renderShared() {
+    const p = MW.state.profile;
+    $('#welcome-title').textContent = p.name;
+    $('#avatar').textContent = MW.initials(p.name);
+    $('#accountBtn').setAttribute('aria-label', `Account menu for ${p.name}`);
+    const done = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#4E9A68"/><path d="m7 12 3.5 3.5L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const todo = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.2" fill="#fff" stroke="#9AA3A0" stroke-width="1.6" stroke-dasharray="3 2.4"/></svg>';
+    const comp = MW.profileCompletion();
+    $('#checklist').innerHTML = comp.items.map((i) => i.done
+      ? `<li>${done}${esc(i.label)}<span class="sr"> (complete)</span></li>`
+      : `<li class="todo">${todo}<a href="${esc(i.href)}">${esc(i.label)}<span class="sr"> (not complete)</span></a></li>`).join('');
+    $('#ringProgress').closest('svg').setAttribute('aria-label', `Profile ${comp.pct}% complete`);
+
+    const upcoming = MW.state.applications.filter((a) => a.slotId && new Date(MW.slot(a.slotId).start) >= MW.NOW)
+      .sort((a, b) => new Date(MW.slot(a.slotId).start) - new Date(MW.slot(b.slotId).start));
+    const box = $('#ivBox');
+    if (upcoming.length) {
+      const a = upcoming[0], j = MW.job(a.jobId), s = MW.slot(a.slotId);
+      const logo = j.logo ? `<img src="${esc(j.logo)}" alt="${esc(j.company)} logo" width="${Math.round(j.w * .8)}" height="${Math.round(j.h * .8)}">`
+        : `<span class="mono" style="font-size:17px;color:${j.tint}" role="img" aria-label="${esc(j.company)} logo">${esc(j.mono)}</span>`;
+      box.innerHTML = `<div class="iv-title"><span class="iv-logo"${j.logo ? '' : ` style="background:${j.tileBg}"`}>${logo}</span>
+          <div><span class="role">${esc(j.title)}</span> <span class="co">· ${esc(j.company)}</span></div></div>
+        <div class="iv-when"><span>${MW.ICON.cal}${esc(MW.fmtDate(s.start))}</span><span>${MW.ICON.clock.replace('width="13" height="13"', 'width="15" height="15"')}${esc(MW.fmtRange(s.start, s.end))}</span></div>`;
+    } else {
+      const nb = MW.needsBooking();
+      box.innerHTML = nb.length
+        ? `<div class="iv-title"><div><span class="role">Pick your interview time</span><br><span class="co">${esc(MW.job(nb[0].jobId).company)} invited you to interview.</span></div></div><a class="link-arrow" style="align-self:flex-start;margin-left:-9px" href="interviews#book-${esc(nb[0].id)}">Book a time ${MW.ICON.arrow}</a>`
+        : '<div class="iv-title"><div><span class="role">No interviews booked</span><br><span class="co">Times you book show up here.</span></div></div>';
+    }
+    MW.renderNotifs();
+  }
+  renderShared();
+  MW.onChange(renderShared);
+  $('#resetDemo').addEventListener('click', () => { MW.resetDemo(); location.reload(); });
+
+  /* ---------- Init ---------- */
+  renderJobs(false);
+  updateSavedBadge(false);
+  { const n = MW.needsBooking().length, b = $('#bookBadge'); b.textContent = n; b.classList.toggle('show', n > 0); }
+  // Scale the whole UI up on large screens so it fills the viewport like the 1456×819 design.
+  const app = $('.app');
+  const BASE_W = 1456, BASE_H = 819;
+  void app; void BASE_W; void BASE_H;
+  const init = () => { syncNav(); syncChips(); };
+  MW.slideNav(); syncChips();
+  MW.prefetchNav();
+  requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add('ready')));
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(init);
+  window.addEventListener('resize', () => requestAnimationFrame(init));
+  const appsAll = MW.state.applications;
+  $$('.stat-num[data-count]').forEach((el, i) => { el.dataset.count = i === 0 ? appsAll.length : appsAll.filter((a) => a.status === ['Interviewing', 'Accepted', 'Rejected'][i - 1]).length; });
+  if (MW.firstVisit('dashboard')) {
+    $$('.stat-num[data-count]').forEach((el) => countTo(el, Number(el.dataset.count), 800));
+    setTimeout(() => animateRing(MW.profileCompletion().pct), 150);
+  } else {
+    $$('.stat-num[data-count]').forEach((el) => { el.textContent = el.dataset.count; });
+    const pct = MW.profileCompletion().pct, ring = $('#ringProgress'), C = 2 * Math.PI * 46;
+    ring.style.transition = 'none';
+    ring.style.strokeDasharray = `${(C * pct / 100).toFixed(1)} ${C.toFixed(1)}`;
+    $('#ringNum').textContent = pct + '%';
+    requestAnimationFrame(() => { ring.style.transition = ''; });
+  }
+})();
+</script>
+<span id="mw-ready" hidden></span>
+</body>
+</html>

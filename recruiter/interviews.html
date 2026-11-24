@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchwork – Interviews</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../candidate/assets/shell.css">
+<link rel="stylesheet" href="assets/recruiter.css">
+<link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/match.js"></script>
+<script src="assets/recruiter.js"></script>
+<style>
+.col-left.scroll{padding-right:2px}
+.col-left > .card{flex:none}
+.sec{padding:16px 22px 18px 23px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 16px}
+.sec-head h1{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.3px}
+.sec-head h2{font-size:18px;line-height:24px;font-weight:700}
+.sec-head p{margin-top:3px;font-size:14px;line-height:20px;color:#555A60;max-width:560px}
+.tz{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+
+/* Days (same tiles as the candidate's booking flow) */
+.days{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px;margin-top:16px}
+.day{flex:none;width:72px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:9px 6px 8px;border:1px solid var(--line-2);background:#fff;cursor:pointer;border-radius:calc(var(--r-sm) * var(--sq));transition:border-color .18s,background-color .18s,color .18s}
+.day:hover{border-color:#D8DEDA;background:#F6F7F7}
+.day .dw{font-size:12px;font-weight:600;color:var(--muted)}
+.day .dn{font-size:20px;line-height:24px;font-weight:800;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.day .dc{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.day.weekend .dn{color:var(--ink-2)}
+.day[aria-pressed="true"]{background:var(--green-75);border-color:#CFDFD4;color:var(--green-900)}
+.day[aria-pressed="true"] .dw,.day[aria-pressed="true"] .dc{color:var(--green-800)}
+.day .dc b{color:var(--lavender-ink);font-weight:700}
+
+/* Time grid: every 30-minute start in the working day */
+.grid-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;margin:18px 0 10px}
+.grid-head strong{font-size:15px;font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:4px;border:1px dashed #C9D0CB}
+.legend i.o{background:var(--chip-active);border:1px solid #CFDFD4}
+.legend i.b{background:var(--lavender-wash);border:1px solid #E1D9F7}
+.times{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.t{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;height:50px;padding:0 8px;border:1px dashed #D6DCD8;background:#fff;color:var(--muted);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer;border-radius:calc(var(--r-sm) * var(--sq));transition:border-color .18s,background-color .18s,color .18s,transform .15s}
+.t small{font-size:11.5px;font-weight:500;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.t:hover{border-color:#9FBFA9;border-style:solid;background:var(--green-50);color:var(--green-900)}
+.t:active{transform:scale(.97)}
+.t .add{display:flex;align-items:center;gap:5px}
+.t .add svg{opacity:.6}
+.t.open{border:1px solid #CFDFD4;background:var(--chip-active);color:var(--green-900)}
+.t.open small{color:var(--green-800)}
+.t.open:hover{border-color:#E8B4B0;background:var(--danger-wash);color:#8C1D18}
+.t.open:hover small{color:#8C1D18}
+.t.booked{border:1px solid #E1D9F7;background:var(--lavender-wash);color:var(--lavender-ink);text-decoration:none}
+.t.booked small{color:#6A55C2}
+a.t.booked:hover{background:#E8E1FA;border-color:#CFC2F2;color:#4A31B0}
+.t .s-rm{display:none}
+.t.open:hover .s-open,.t.open:focus-visible .s-open{display:none}
+.t.open:hover .s-rm,.t.open:focus-visible .s-rm{display:inline}
+.past-note{font-size:12.5px;color:var(--muted);margin-left:6px}
+.times-none{grid-column:1 / -1;padding:14px 0;font-size:14px;color:var(--muted)}
+.t.past{border-style:solid;border-color:#EEF0EF;background:#F7F8F8;color:#A9AFAB;cursor:not-allowed}
+.t.past:hover{background:#F7F8F8;border-color:#EEF0EF;color:#A9AFAB}
+.t.pop{animation:pop .45s var(--ease-spring)}
+.t.nope{animation:shake .4s var(--ease)}
+
+/* Manual entry: the same rules, any time of day */
+.manual{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 12px;margin-top:16px;padding:14px}
+.manual .field{flex:1 1 130px}
+.manual .field.date{flex:1.3 1 160px}
+.manual .input{height:38px}
+.manual .btn{height:38px}
+.manual .err{flex:1 1 100%}
+.manual-title{flex:1 1 100%;font-size:13.5px;font-weight:700;color:var(--ink)}
+.manual-title span{font-weight:500;color:var(--muted)}
+
+/* Booked interviews (same rows as the candidate's Interviews page) */
+.ivs{margin-top:10px}
+.ivr{display:grid;grid-template-columns:58px minmax(0,1fr) auto;column-gap:16px;align-items:center;padding:12px 0;border-top:1px solid var(--row-line)}
+.leaf{width:58px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--green-50);border:1px solid #EEF0F0;border-radius:calc(var(--r-md) * var(--sq))}
+.leaf .m{font-size:12px;font-weight:600;color:var(--muted)}
+.leaf .d{font-size:22px;line-height:26px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.ivr.today .leaf{background:var(--lavender-wash);border-color:#E6E0F7}
+.ivr.past .leaf{background:#F6F6F7;border-color:#EEEFF0}
+.ivr.past .leaf .d,.ivr.past h3{color:var(--ink-2)}
+.ivr h3{font-size:15.5px;line-height:20px;font-weight:700}
+.ivr .meta{margin-top:2px}
+.ivr .when{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:6px;font-size:13px;color:#2A2F33;font-variant-numeric:tabular-nums}
+.ivr .when span{display:flex;align-items:center;gap:6px}
+.ivr .side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.ivr .link-arrow{margin-right:-9px}
+.soon{font-size:12.5px;font-weight:600;color:var(--lavender-ink);background:var(--lavender-wash);padding:0 9px;line-height:24px;border-radius:12px}
+.past-toggle{margin:8px 0 0 -9px}
+.empty-inline{padding:18px 0 6px;border-top:1px solid var(--row-line);margin-top:10px;font-size:14px;color:var(--muted)}
+
+/* Rail */
+.sum{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.sum div{padding:12px 14px;border-radius:calc(var(--r-md) * var(--sq));background:var(--green-50);border:1px solid #EEF0F0}
+.sum b{display:block;font-size:22px;line-height:26px;font-weight:800;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.sum span{font-size:12.5px;color:var(--muted)}
+.wait{display:flex;flex-direction:column}
+.wait a{display:grid;grid-template-columns:36px minmax(0,1fr) 18px;column-gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--row-line);text-decoration:none;color:inherit}
+.wait a:first-child{border-top:0;padding-top:0}
+.wait .person-av{width:36px;height:36px;font-size:13px}
+.wait b{display:block;font-size:14px;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wait small{display:block;font-size:12.5px;line-height:17px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wait svg{color:#9AA19C;transition:color .2s,transform .25s var(--ease)}
+.wait a:hover b{color:var(--green-900)}
+.wait a:hover svg{color:var(--green-700);transform:translateX(3px)}
+.wait-empty{font-size:13.5px;line-height:19px;color:var(--muted)}
+.rules{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px;font-size:13.5px;line-height:19px;color:var(--ink-2)}
+.rules li{display:grid;grid-template-columns:18px 1fr;gap:8px}
+.rules svg{margin-top:1px}
+.col-right.scroll{padding-right:2px}
+.col-right > .card{flex:none}
+
+@media (max-height:720px){ .sec{padding:14px 20px} .t{height:46px} }
+@media (max-width:1180px){ .col-right{flex-direction:row;flex-wrap:wrap} .col-right > *{flex:1 1 300px} }
+@media (max-width:560px){
+  .ivr{grid-template-columns:52px minmax(0,1fr)}
+  .ivr .side{grid-column:2;flex-direction:row;align-items:center;margin-top:8px}
+  .leaf{width:52px}
+  .sec{padding:14px 16px}
+  .times{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .t{padding:0 4px;font-size:13.5px}
+  .t .add svg{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <svg class="deco-br" width="230" height="120" viewBox="0 0 230 120" aria-hidden="true"><path d="M230 0 C200 20 150 40 120 70 C95 95 60 110 0 120 L230 120Z" fill="#F2F3F3"/><path d="M230 30 C205 55 180 80 140 100 C120 110 100 116 80 120 L230 120Z" fill="#ECEEEE"/></svg>
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+    <script>RW.renderChrome('interviews');</script>
+    <div class="body">
+      <div class="col-left scroll">
+        <section class="card sec" id="availability" aria-labelledby="av-title">
+          <div class="sec-head">
+            <div>
+              <h1 id="av-title">Interview availability</h1>
+              <p>Add 30-minute slots that your Interviewing applicants can book. Click an empty time to add it, or an open one to remove it.</p>
+            </div>
+            <span class="tz"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-5.5-3.5-9s1-6.5 3.5-9z"/></svg>All times in Pacific Time (PT)</span>
+          </div>
+          <div class="days" id="days" role="group" aria-label="Choose a day"></div>
+          <div class="grid-head">
+            <div><strong id="dayTitle"></strong> <span class="past-note" id="pastNote"></span></div>
+            <div class="legend" aria-hidden="true"><span><i></i>Add</span><span><i class="o"></i>Open</span><span><i class="b"></i>Booked</span></div>
+          </div>
+          <div class="times" id="times" role="group" aria-labelledby="dayTitle"></div>
+          <form class="panel manual" id="manual" novalidate>
+            <div class="manual-title">Add a specific time <span>· must be exactly 30 minutes</span></div>
+            <div class="field date"><label for="mDate">Date</label><input class="input" type="date" id="mDate" required></div>
+            <div class="field"><label for="mStart">Start</label><input class="input" type="time" id="mStart" step="300" required></div>
+            <div class="field"><label for="mEnd">End</label><input class="input" type="time" id="mEnd" step="300" required></div>
+            <button type="submit" class="btn btn-secondary">Add slot</button>
+            <span class="err" id="mErr" role="alert"></span>
+          </form>
+        </section>
+
+        <section class="card sec" aria-labelledby="bk-title">
+          <div class="sec-head">
+            <div>
+              <h2 id="bk-title">Booked interviews</h2>
+              <p>Times candidates picked. A booking stays with the application even if you later change its status.</p>
+            </div>
+          </div>
+          <div class="ivs" id="ivs"></div>
+        </section>
+      </div>
+
+      <div class="col-right scroll">
+        <section class="card rail-card" aria-labelledby="sum-title">
+          <h2 id="sum-title">Next two weeks</h2>
+          <div class="sum" id="sum"></div>
+          <div>
+            <div class="ad-sub" style="margin-bottom:8px">Waiting to book</div>
+            <div class="wait" id="wait"></div>
+          </div>
+        </section>
+        <section class="card rail-card" aria-labelledby="rules-title">
+          <h2 id="rules-title">How booking works</h2>
+          <ul class="rules">
+            <li><span>Each slot is 30 minutes and starts in the future.</span></li>
+            <li><span>Only applicants you move to Interviewing can book, once per application.</span></li>
+            <li><span>A booked slot can't be deleted, and it never shows as open again.</span></li>
+            <li><span>If two candidates pick the same time, the first one gets it; the other sees “Slot already booked”.</span></li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const { $, $$, esc, ICON } = RW;
+  const CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#E8F0EA"/><path d="m8 12.5 2.8 2.8L16 10" fill="none" stroke="#2F6B4A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  $$('.rules li').forEach((li) => li.insertAdjacentHTML('afterbegin', CHECK));
+
+  /* Working day: 8:00 AM to 5:30 PM starts, every 30 minutes. */
+  const FIRST = 8 * 60, LAST = 17 * 60 + 30, DAYS = 14;
+  const addDays = (ymd, n) => { const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n, 12)).toISOString().slice(0, 10); };
+  const today = RW.ymdOf(RW.NOW);
+  const dayList = Array.from({ length: DAYS }, (_, i) => addDays(today, i));
+  const qs = RW.params();
+  const st = { day: dayList.includes(qs.get('day')) ? qs.get('day') : today, showPast: false };
+
+  RW.mountShell('interviews');
+
+  const slotsOn = (ymd) => RW.ownSlots().filter((s) => RW.ymdOf(s.start) === ymd);
+  const minutesPT = (iso) => { const [h, m] = RW.fmt(iso, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).split(':').map(Number); return h * 60 + m; };
+  const label = (min) => { const h = Math.floor(min / 60), m = min % 60; return `${(h % 12) || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+
+  function renderDays() {
+    $('#days').innerHTML = dayList.map((ymd) => {
+      const noon = RW.ptToUtc(ymd, 12, 0);
+      const s = slotsOn(ymd).filter((x) => new Date(x.start) > RW.NOW);
+      const open = s.filter((x) => !x.bookedBy).length, booked = s.length - open;
+      const wd = RW.fmt(noon, { weekday: 'short' });
+      const dc = open ? `${open} open` : booked ? `<b>${booked} booked</b>` : '—';
+      return `<button type="button" class="day${/Sat|Sun/.test(wd) ? ' weekend' : ''}" data-day="${ymd}" aria-pressed="${ymd === st.day}" aria-label="${esc(RW.fmtLong(noon))}, ${open} open, ${booked} booked">
+        <span class="dw">${ymd === today ? 'Today' : esc(wd)}</span><span class="dn">${esc(RW.fmt(noon, { day: 'numeric' }))}</span><span class="dc">${dc}</span></button>`;
+    }).join('');
+  }
+
+  function renderTimes(popMin) {
+    const noon = RW.ptToUtc(st.day, 12, 0);
+    $('#dayTitle').textContent = st.day === today ? `Today, ${RW.fmt(noon, { month: 'long', day: 'numeric' })}` : RW.fmtLong(noon);
+    const byMin = new Map(slotsOn(st.day).map((s) => [minutesPT(s.start), s]));
+    const cells = [];
+    let hiddenPast = 0;
+    /* Slots outside the working day (added by exact time) still show, in order. */
+    const mins = new Set();
+    for (let m = FIRST; m <= LAST; m += 30) mins.add(m);
+    byMin.forEach((_, m) => mins.add(m));
+    [...mins].sort((a, b) => a - b).forEach((m) => {
+      const s = byMin.get(m);
+      const startIso = s ? s.start : RW.ptToUtc(st.day, Math.floor(m / 60), m % 60);
+      const past = new Date(startIso) <= RW.NOW;
+      if (s && s.bookedBy) {
+        const a = RW.application(s.bookedBy);
+        cells.push(a
+          ? `<a class="t booked" href="applicants?job=${encodeURIComponent(a.jobId)}#${esc(a.id)}" data-min="${m}" title="Booked by ${esc(a.name)} · ${esc(a.job.title)}" aria-label="${label(m)}, booked by ${esc(a.name)}. Open applicant">${label(m)}<small>${esc(a.name)}</small></a>`
+          : `<span class="t booked" data-min="${m}">${label(m)}<small>Booked</small></span>`);
+      } else if (s && !past) {
+        cells.push(`<button type="button" class="t open" data-slot="${esc(s.id)}" data-min="${m}" aria-label="${label(m)}, open. Remove slot">${label(m)}<small><span class="s-open">Open</span><span class="s-rm">Remove</span></small></button>`);
+      } else if (past && !s) {
+        /* Times that already passed today aren't offered at all. */
+        hiddenPast++;
+      } else if (past) {
+        cells.push(`<button type="button" class="t past" data-min="${m}" disabled aria-label="${label(m)}, in the past">${label(m)}<small>${s ? 'Expired' : 'Past'}</small></button>`);
+      } else {
+        cells.push(`<button type="button" class="t" data-min="${m}" aria-label="Add a slot at ${label(m)}"><span class="add">${ICON.plus}${label(m)}</span></button>`);
+      }
+    });
+    $('#times').innerHTML = cells.join('') + (hiddenPast && cells.length === 0 ? '<p class="times-none">No more times today. Pick another day.</p>' : '');
+    $('#pastNote').textContent = hiddenPast ? `Times before ${RW.fmtTime(RW.NOW)} have passed.` : '';
+    if (popMin != null && !RW.reduceMotion) { const c = $(`.t[data-min="${popMin}"]`); if (c) c.classList.add('pop'); }
+  }
+
+  function renderBooked() {
+    const booked = RW.ownSlots().filter((s) => s.bookedBy).map((s) => ({ s, a: RW.application(s.bookedBy) })).filter((x) => x.a);
+    const up = booked.filter((x) => new Date(x.s.start) > RW.NOW), past = booked.filter((x) => new Date(x.s.start) <= RW.NOW).reverse();
+    const row = ({ s, a }, isPast) => {
+      const isToday = RW.ymdOf(s.start) === today;
+      return `<div class="ivr${isPast ? ' past' : isToday ? ' today' : ''}">
+        <div class="leaf" aria-hidden="true"><span class="m">${esc(RW.fmt(s.start, { month: 'short' }))}</span><span class="d">${esc(RW.fmt(s.start, { day: 'numeric' }))}</span></div>
+        <div style="min-width:0">
+          <h3>${esc(a.name)}</h3>
+          <div class="meta"><span class="type">${esc(a.job.title)}</span></div>
+          <div class="when"><span>${ICON.cal}${esc(RW.fmtDate(s.start))}</span><span>${ICON.clock}${esc(RW.fmtRange(s.start, s.end))} PT</span></div>
+        </div>
+        <div class="side">${isToday && !isPast ? '<span class="soon">Today</span>' : RW.statusHTML(a.status)}<a class="link-arrow" href="applicants?job=${encodeURIComponent(a.jobId)}#${esc(a.id)}">View applicant ${ICON.arrow}</a></div>
+      </div>`;
+    };
+    $('#ivs').innerHTML = (up.length ? up.map((x) => row(x, false)).join('') : '<p class="empty-inline">No upcoming interviews. Once an Interviewing applicant books one of your open slots it shows up here.</p>')
+      + (past.length ? `<button type="button" class="link-arrow past-toggle" id="pastToggle" aria-expanded="${st.showPast}">${st.showPast ? 'Hide' : 'Show'} ${past.length} past interview${past.length === 1 ? '' : 's'}</button>${st.showPast ? past.map((x) => row(x, true)).join('') : ''}` : '');
+    const t = $('#pastToggle');
+    if (t) t.addEventListener('click', () => { st.showPast = !st.showPast; renderBooked(); $('#pastToggle').focus(); });
+  }
+
+  function renderRail() {
+    const end = new Date(RW.ptToUtc(addDays(today, DAYS), 0, 0));
+    const inRange = RW.ownSlots().filter((s) => new Date(s.start) > RW.NOW && new Date(s.start) < end);
+    const open = inRange.filter((s) => !s.bookedBy).length;
+    $('#sum').innerHTML = `<div><b>${open}</b><span>open slot${open === 1 ? '' : 's'}</span></div><div><b>${inRange.length - open}</b><span>booked</span></div>`;
+    const waiting = RW.awaitingBooking().sort((a, b) => a.name.localeCompare(b.name));
+    $('#wait').innerHTML = waiting.length
+      ? waiting.map((a) => `<a href="applicants?job=${encodeURIComponent(a.jobId)}#${esc(a.id)}">${RW.avatarHTML(a.cand)}<span style="min-width:0"><b>${esc(a.name)}</b><small>${esc(a.job.title)}</small></span>${ICON.chev}</a>`).join('')
+        + (open ? '' : '<p class="wait-empty" style="margin-top:8px">They can\'t book until you add open slots.</p>')
+      : '<p class="wait-empty">Everyone in Interviewing has booked a time.</p>';
+  }
+
+  function renderAll(popMin) { renderDays(); renderTimes(popMin); renderBooked(); renderRail(); }
+
+  $('#days').addEventListener('click', (e) => {
+    const b = e.target.closest('.day');
+    if (!b || b.dataset.day === st.day) return;
+    st.day = b.dataset.day;
+    $$('.day').forEach((d) => d.setAttribute('aria-pressed', String(d === b)));
+    renderTimes();
+    if (!RW.reduceMotion) $$('.t').forEach((c, i) => { c.style.animation = `rowIn .3s var(--ease) ${Math.min(i, 12) * 12}ms both`; });
+    const u = RW.url(); u.searchParams.set('day', st.day); history.replaceState(null, '', u);
+    $('#mDate').value = st.day; syncManual();
+  });
+
+  function refuse(cell, msg) {
+    RW.toast(msg, { error: true });
+    if (cell && !RW.reduceMotion) { cell.classList.remove('nope'); void cell.offsetWidth; cell.classList.add('nope'); }
+  }
+  $('#times').addEventListener('click', (e) => {
+    const c = e.target.closest('.t');
+    if (!c || c.disabled) return;
+    const m = Number(c.dataset.min);
+    if (c.classList.contains('booked')) return; /* booked times link to the applicant */
+    if (c.classList.contains('open')) {
+      const r = RW.deleteSlot(c.dataset.slot);
+      if (!r.ok) { refuse(c, r.message); return; }
+      renderAll();
+      $(`.t[data-min="${m}"]`).focus();
+      RW.toast(`Removed ${label(m)} on ${RW.fmtDate(r.slot.start)}`, { undo: () => { const u = RW.createSlot(r.slot.start, r.slot.end); if (u.ok) renderAll(m); else RW.toast(u.message, { error: true }); } });
+      return;
+    }
+    const start = RW.ptToUtc(st.day, Math.floor(m / 60), m % 60);
+    const r = RW.createSlot(start, new Date(new Date(start).getTime() + RW.SLOT_MIN * 6e4).toISOString());
+    if (!r.ok) { refuse(c, r.message); return; }
+    renderAll(m);
+    $(`.t[data-min="${m}"]`).focus();
+    RW.toast(`Added ${label(m)} on ${RW.fmtDate(start)}`);
+  });
+
+  /* Manual entry goes through the same createSlot rules (30 minutes, future, no overlap). */
+  const mDate = $('#mDate'), mStart = $('#mStart'), mEnd = $('#mEnd'), mErr = $('#mErr');
+  mDate.min = today; mDate.value = st.day;
+  function syncManual() { mErr.textContent = ''; [mDate, mStart, mEnd].forEach((i) => i.removeAttribute('aria-invalid')); }
+  mStart.addEventListener('change', () => {
+    if (!mStart.value) return;
+    const [h, m] = mStart.value.split(':').map(Number), t = h * 60 + m + RW.SLOT_MIN;
+    mEnd.value = `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+    syncManual();
+  });
+  [mDate, mEnd].forEach((i) => i.addEventListener('input', syncManual));
+  $('#manual').addEventListener('submit', (e) => {
+    e.preventDefault(); syncManual();
+    const missing = [mDate, mStart, mEnd].filter((i) => !i.value);
+    if (missing.length) { missing.forEach((i) => i.setAttribute('aria-invalid', 'true')); mErr.textContent = 'Choose a date, a start time and an end time.'; missing[0].focus(); return; }
+    const [sh, sm] = mStart.value.split(':').map(Number), [eh, em] = mEnd.value.split(':').map(Number);
+    const start = RW.ptToUtc(mDate.value, sh, sm), end = RW.ptToUtc(mDate.value, eh, em);
+    const r = RW.createSlot(start, end);
+    if (!r.ok) { mErr.textContent = r.message + '.'; (/end/i.test(r.message) || /30/.test(r.message) ? mEnd : mStart).setAttribute('aria-invalid', 'true'); return; }
+    const ymd = RW.ymdOf(start);
+    if (dayList.includes(ymd)) { st.day = ymd; const u = RW.url(); u.searchParams.set('day', ymd); history.replaceState(null, '', u); }
+    renderAll(sh * 60 + sm);
+    mStart.value = ''; mEnd.value = '';
+    RW.toast(`Added ${RW.fmtTime(start)} on ${RW.fmtDate(start)}`);
+  });
+
+  renderAll();
+  /* Bring the chosen day into view in the strip. */
+  const sel = $('.day[aria-pressed="true"]'); if (sel) sel.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+})();
+</script>
+<span id="mw-ready" hidden></span>
+</body>
+</html>
