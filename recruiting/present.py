@@ -55,13 +55,14 @@ def company_card(row):
     }
 
 
-def job_card(row, owner=None):
+def job_card(row):
     summary = row['summary'] or row['description'].split('\n', 1)[0]
-    card = {
+    return {
         'id': str(row['id']),
         'seq': row['id'],
         'title': row['title'],
         'company': row['company_name'],
+        'owner': str(row['employer_id']),
         'location': row['location'] or 'Not listed',
         'type': row['job_type'] or 'Full-time',
         'status': row['posting_status'] or 'Active',
@@ -73,9 +74,6 @@ def job_card(row, owner=None):
         **paint(row['company_name']),
         **_logo(row),
     }
-    if owner is not None:
-        card['owner'] = str(owner)
-    return card
 
 
 def application_events(record):

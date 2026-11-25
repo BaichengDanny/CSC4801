@@ -70,7 +70,9 @@ python -m flask --app recruiting seed --yes --at 2030-01-01T00:00:00+00:00
 
 Fixed reference times can produce past slots when replayed later. For interactive
 review use the default seed command so booking eligibility remains demonstrable.
-Stored times are UTC. The pages label them Pacific (UTC−8).
+Times are stored in UTC. The pages use Pacific Time (`America/Los_Angeles`),
+with PST or PDT shown for individual slots. Slot API timestamps require `Z` or an
+explicit offset.
 
 ## Automated tests
 
@@ -142,7 +144,9 @@ Matchwork, at http://127.0.0.1:8080/sign-in:
    days that already have an open slot. Book one and confirm the reserved time.
 4. Sign out. On the recruiter tab, sign in as `north@example.test` with the same
    password. Open Applicants and confirm Alex's booking. The resume stays private.
-   Change the status; the booking remains. Add a 30-minute slot on Interview schedule.
+   Change the status; the booking remains. On Interviews, use Add a specific time
+   to create a 30-minute slot more than two weeks out. Reload, find that date
+   in the calendar, and remove the slot. Check it no longer appears after reload.
 5. Sign out and sign in as `field@example.test`. Northstar jobs are not in that
    account's job list.
 6. From the signed-out page, use Create a new profile, fill the candidate fields,

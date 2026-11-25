@@ -68,7 +68,9 @@
   const fmtLong = (d) => fmt(d, { weekday: 'long', month: 'long', day: 'numeric' });
   const fmtShort = (d) => fmt(d, { month: 'short', day: 'numeric' });
   const fmtTime = (d) => fmt(d, { hour: 'numeric', minute: '2-digit' });
+  const fmtSlotTime = (d) => fmt(d, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   function fmtRange(s, e) {
+    if (ptOffset(new Date(s)) !== ptOffset(new Date(e))) return `${fmtSlotTime(s)} – ${fmtSlotTime(e)}`;
     const a = fmtTime(s), b = fmtTime(e);
     return `${a.slice(-2) === b.slice(-2) ? a.slice(0, -3) : a} – ${b}`;
   }
@@ -85,18 +87,22 @@
     if (days < 31) return `${Math.floor(days / 7)} weeks ago`;
     return `${Math.floor(days / 30)} months ago`;
   }
+  const offsetFormat = new Intl.DateTimeFormat('en-US', { timeZone: TZ, timeZoneName: 'shortOffset' });
   /* PT offset for a UTC instant, in minutes (PST -480, PDT -420). */
   function ptOffset(date) {
-    const p = new Intl.DateTimeFormat('en-US', { timeZone: TZ, timeZoneName: 'shortOffset' }).formatToParts(date).find((x) => x.type === 'timeZoneName').value;
+    const p = offsetFormat.formatToParts(date).find((x) => x.type === 'timeZoneName').value;
     const m = /GMT([+-])(\d+)(?::(\d+))?/.exec(p);
     return m ? (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] || 0)) : 0;
   }
-  /* A wall-clock time in PT ("2026-11-18", 9, 30) to a UTC ISO string. */
+  /* Return one exact instant, or null for a missing or repeated DST wall time. */
   function ptToUtc(ymd, h, min) {
     const [y, mo, d] = ymd.split('-').map(Number);
     const guess = Date.UTC(y, mo - 1, d, h, min);
-    const off = ptOffset(new Date(guess));
-    return new Date(guess - off * 6e4).toISOString();
+    if (!Number.isFinite(guess) || y < 100 || y > 9999) return null;
+    const offsets = new Set([-864e5, 864e5].map((delta) => ptOffset(new Date(guess + delta))));
+    const matches = [...offsets].map((offset) => new Date(guess - offset * 6e4))
+      .filter((date) => date.getTime() + ptOffset(date) * 6e4 === guess);
+    return matches.length === 1 ? matches[0].toISOString() : null;
   }
   /* "MM/DD/YYYY" (dayKey) to "YYYY-MM-DD". */
   const ymdOf = (d) => { const [m, dd, y] = dayKey(d).split('/'); return `${y}-${m}-${dd}`; };
@@ -361,6 +367,7 @@
 
   /* FP-SCHED-1: future, exactly 30 minutes, one owner, no overlap with the owner's other slots. */
   function createSlot(startIso, endIso) {
+    if (!startIso || !endIso) return fail(400, 'Choose a time that occurs once in Pacific Time');
     const s = new Date(startIso), e = new Date(endIso);
     if (isNaN(s) || isNaN(e)) return fail(400, 'Enter a valid start and end time');
     if (e <= s) return fail(400, 'The end time must be after the start time');
@@ -950,7 +957,7 @@
   }
 
   window.RW = {
-    $, $$, esc, reduceMotion, params, hash, url, NOW, TZ, TZ_LABEL, SLOT_MIN, fmt, fmtDate, fmtLong, fmtShort, fmtTime, fmtRange, dayKey, ymdOf, ptToUtc, ago,
+    $, $$, esc, reduceMotion, params, hash, url, NOW, TZ, TZ_LABEL, SLOT_MIN, fmt, fmtDate, fmtLong, fmtShort, fmtTime, fmtSlotTime, fmtRange, dayKey, ymdOf, ptToUtc, ago,
     matchScore, normalizeSkills, hasSkill, cleanSkills,
     get state() { return state; }, persist, resetDemo, onChange: (fn) => listeners.add(fn),
     company, candidate, jobs, job, applicants, allApplicants, application, awaitingBooking, ownSlots, openSlots, slot, view,

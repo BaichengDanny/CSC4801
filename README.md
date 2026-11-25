@@ -53,7 +53,7 @@ The seed also loads the 39 Matchwork catalog postings from `candidate/assets/job
 
 Booking uses `BEGIN IMMEDIATE` and unique constraints on both slot and application.
 Resume text is private to its owner and never contributes to matching scores.
-Times are stored as UTC. The Matchwork pages label slot times Pacific (UTC−8).
+Times are stored in UTC and displayed in Pacific Time (`America/Los_Angeles`).
 Server sessions are revocable on logout. Creating an account is on the sign-in
 page; there is no password-recovery flow.
 
@@ -74,12 +74,12 @@ team responsibilities, not claims of automated completion.
 | FP-CAN-2 | `jobs.py`, `candidate/dashboard.html` | `test_workflows.py::test_recommendations_fields_all_jobs_and_tie_breakers` |
 | FP-CAN-3 | `jobs.py`, `candidate/applications.html` | `test_workflows.py::test_applications_pending_duplicate_owner_and_statuses`; `test_web.py::test_malformed_booking_and_other_application_access` |
 | FP-EMP-1 | `accounts.py`, `recruiter/` company screens | `test_auth.py::test_company_profile` |
-| FP-EMP-2 | `jobs.py`, recruiter job screens | `test_workflows.py::test_job_crud_validation_and_dependent_deletion`, `test_wrong_roles_ownership_and_missing_objects`; `test_scheduling.py::test_slot_ownership_and_job_dependency` |
+| FP-EMP-2 | `jobs.py`, `api.py`, recruiter job screens | `test_workflows.py::test_job_crud_validation_and_dependent_deletion`, `test_wrong_roles_ownership_and_missing_objects`; `test_scheduling.py::test_slot_ownership_and_job_dependency`; `test_api.py::test_invalid_job_create_and_edit_leave_listing_unchanged` |
 | FP-EMP-3 | `jobs.py`, `recruiter/applicants.html` | `test_workflows.py::test_applicants_fields_and_both_tie_breakers`, `test_applications_pending_duplicate_owner_and_statuses`; `test_scheduling.py::test_booking_visible_preserved_and_deletion_rejected` |
 | FP-MATCH-1 | `matching.py`, `shared/match.js`, `jobs.py` | `test_matching.py::test_score_examples_normalization_and_floor`, `test_skill_normalization`; `test_workflows.py::test_recommendations_fields_all_jobs_and_tie_breakers`, `test_applicants_fields_and_both_tie_breakers` |
 | FP-MATCH-2 | Not implemented | N/A — optional AI enhancement |
-| FP-SCHED-1 | `scheduling.py`, `recruiter/interviews.html` | `test_scheduling.py::test_create_slot_timezone_and_delete`, `test_invalid_slots`; `test_regressions.py::test_slot_requires_a_renderable_utc_time`; `test_booking_visible_preserved_and_deletion_rejected`, `test_slot_ownership_and_job_dependency` |
-| FP-SCHED-2 | `scheduling.py`, `candidate/interviews.html` | `test_scheduling.py::test_booking_visible_preserved_and_deletion_rejected`, `test_ineligible_bookings_leave_no_partial_changes`, `test_same_employer_cross_job_and_one_booking_per_application` |
+| FP-SCHED-1 | `scheduling.py`, `api.py`, `recruiter/interviews.html` | `test_scheduling.py::test_create_slot_timezone_and_delete`, `test_invalid_slots`; `test_regressions.py::test_slot_requires_a_renderable_utc_time`; `test_booking_visible_preserved_and_deletion_rejected`, `test_slot_ownership_and_job_dependency`; `test_api.py::test_slot_api_requires_explicit_timezone_and_preserves_far_future_slot` |
+| FP-SCHED-2 | `scheduling.py`, `present.py`, `candidate/assets/matchwork.js` | `test_scheduling.py::test_booking_visible_preserved_and_deletion_rejected`, `test_ineligible_bookings_leave_no_partial_changes`, `test_same_employer_cross_job_and_one_booking_per_application`; `test_api.py::test_candidate_bootstrap_distinguishes_same_name_employers` |
 | FP-SCHED-3 | `db.py`, `scheduling.py`, migration constraints | `test_scheduling.py::test_booking_conflict_contract`; `tests/integration/test_concurrency.py::test_two_candidates_race_for_one_slot` |
 | FP-SEC-1 | Account/job/scheduling ownership checks | `test_auth.py::test_profile_skills_and_private_resume`; `test_workflows.py::test_wrong_roles_ownership_and_missing_objects`; `test_scheduling.py::test_ineligible_bookings_leave_no_partial_changes`; direct-request tests in `test_web.py` |
 | FP-SEC-2 | Parameterized service queries | `test_security.py::test_sql_metacharacters_remain_bound_values` records bound login parameters and verifies malicious job text persists as data |
@@ -112,7 +112,7 @@ submission. Every member must understand and be able to modify the implementatio
 This version targets local/course use. It has no optional AI, PDF upload, email
 verification, password recovery, notifications, booking cancellation, or hosted
 deployment. SQLite serializes writers and is intended for small workloads.
-Interview times are stored in UTC and labeled Pacific (UTC−8) in the pages.
+The employer calendar shows the next 14 days plus farther dates with future slots.
 Empty required skills intentionally score 100 under the course formula.
 Employers cannot read raw resumes. Saved jobs live in the browser's
 session storage. A new employer slot is attached to that employer's oldest job.

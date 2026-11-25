@@ -81,7 +81,13 @@ JSON routes return `{ok, message}` with the same 401/403/404/409 contract.
 They authenticate with the SameSite session cookie and do not use the form
 CSRF token. Matchwork shows slot times in Pacific Time; values are stored as
 UTC. An employer's new slots are attached to that employer's oldest job so the
-existing slot-to-job rule still applies.
+existing slot-to-job rule still applies. Candidate job and slot cards carry the
+same employer ID. Candidate company profiles are keyed by this ID, and the
+booking picker uses it to identify eligible slots across that employer’s jobs.
+
+Job create and edit validate and save the title, description, skills, summary,
+location, job type, and posting status in one database operation. Partial edits
+resolve omitted fields from the current record inside the write transaction.
 
 ## Interface design
 
@@ -104,12 +110,17 @@ are reflected on the next read; scores are not stale snapshots.
 
 ## Scheduling and concurrency
 
-Service inputs must be timezone-aware ISO timestamps and are stored as epoch
-seconds. The Matchwork pages label those times Pacific (UTC−8). A configurable
-`NOW` callable supplies the current UTC time, allowing fixed-clock tests and
-reproducible seed commands.
+The slot API accepts ISO timestamps with explicit offsets or `Z`, at whole-second
+precision. It stores UTC epoch seconds. Matchwork uses `America/Los_Angeles`
+(Pacific Time, PST in winter and PDT in summer). Manual entry rejects skipped
+and repeated wall times during clock changes. Times spanning midnight end on
+the following date when the start is in the 23:00 hour and the end is in the
+00:00 hour. The employer calendar shows the next 14 days plus any farther future
+date with a slot, including saved dates after reload. A configurable `NOW`
+callable supplies the current UTC time for testing and seeding.
 
-Slot creation validates future start and exactly 30 minutes before writing.
+Slot creation validates a future start and exactly 30 minutes. It checks for
+overlap with the same employer’s slots inside the write transaction.
 Booking uses `BEGIN IMMEDIATE` to serialize competing writers. Inside the same
 transaction it reloads application/status and slot ownership/availability, checks
 all eligibility predicates, and inserts one booking. Unique constraints on slot

@@ -31,8 +31,9 @@ def format_time(timestamp):
 
 def slot(slot_id):
     row = get_db().execute(
-        'SELECT s.*, j.employer_id, j.title, b.application_id FROM slots s '
-        'JOIN jobs j ON j.id = s.job_id LEFT JOIN bookings b ON b.slot_id = s.id WHERE s.id = ?', (slot_id,)).fetchone()
+        'SELECT s.*, j.employer_id, j.title, c.name AS company_name, b.application_id FROM slots s '
+        'JOIN jobs j ON j.id = s.job_id JOIN companies c ON c.employer_id = j.employer_id '
+        'LEFT JOIN bookings b ON b.slot_id = s.id WHERE s.id = ?', (slot_id,)).fetchone()
     if row is None:
         raise DomainError(404, 'Interview slot not found.')
     return dict(row)
@@ -41,15 +42,27 @@ def slot(slot_id):
 def create_slot(actor, job_id, start, end):
     require_role(actor, 'Employer')
     with transaction() as db:
-        jobs.job(actor, job_id)
+        if job_id is None:
+            anchor = db.execute('SELECT id FROM jobs WHERE employer_id = ? ORDER BY id LIMIT 1', (actor['id'],)).fetchone()
+            if anchor is None:
+                raise DomainError(400, 'Create a job before adding interview times.')
+            job_id = anchor['id']
+        else:
+            jobs.job(actor, job_id)
         start_time, end_time = parse_time(start), parse_time(end)
         if end_time - start_time != 1800:
             raise DomainError(400, 'Interview slots must last exactly 30 minutes.')
         if start_time <= now_timestamp():
             raise DomainError(400, 'Choose a future interview time.')
+        if db.execute(
+            'SELECT 1 FROM slots s JOIN jobs j ON j.id = s.job_id '
+            'WHERE j.employer_id = ? AND s.starts_at < ? AND s.ends_at > ? LIMIT 1',
+            (actor['id'], end_time, start_time),
+        ).fetchone():
+            raise DomainError(409, 'That overlaps another interview time.')
         slot_id = db.execute('INSERT INTO slots(job_id,starts_at,ends_at) VALUES (?,?,?)',
                              (job_id, start_time, end_time)).lastrowid
-    return slot(slot_id)
+        return slot(slot_id)
 
 
 def delete_slot(actor, slot_id):

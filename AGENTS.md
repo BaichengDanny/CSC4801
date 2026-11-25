@@ -1,6 +1,6 @@
 # Project guide for coding agents
 
-Last updated: 2026-11-24 (Asia/Shanghai).
+Last updated: 2026-11-25 (Asia/Shanghai).
 
 ## Purpose and current state
 
@@ -12,8 +12,9 @@ locally runnable, and understandable by every team member.
 The required local application is implemented under `recruiting/`, with real
 unit tests, a synchronized booking race test, synthetic seed data, and a working
 Docker environment. The user authorized implementation on 2026-11-14. Current
-work is on `platform-draft`. See [verification evidence](docs/verification.md)
-for the 2026-11-14 checks; that record predates the Matchwork UI.
+work is on `platform-draft`. See the [Matchwork specification audit](docs/matchwork-spec-audit-2026-11-25.md)
+for the baseline at `a48647f` and the local repair checks. The [2026-11-14 verification record](docs/verification.md)
+predates the Matchwork UI.
 
 This file records working rules, decisions, and milestone status. Update it as
 work progresses. It does not replace the product specification or installation
@@ -66,7 +67,7 @@ Implemented design choices are documented in `SPEC.md`:
 - Standard-library `sqlite3`, versioned SQL migrations, normalized skill tables.
 - Slots belong to a job and derive their employer owner. Same-employer cross-job
   booking is allowed; job deletion respects dependent slots.
-- Integer UTC timestamps and an injectable `NOW` clock. Matchwork labels times Pacific (UTC−8).
+- Integer UTC timestamps and an injectable `NOW` clock. Matchwork displays Pacific Time (`America/Los_Angeles`) and uses explicit UTC offsets in the slot API.
 - `BEGIN IMMEDIATE`, unique booking constraints, 10-second busy timeout; actual
   same-slot conflicts return 409, unrelated storage contention returns 503.
 - Fixed seed identities and slot offsets; optional `seed --at` reference time.
@@ -166,8 +167,8 @@ The exact local and Docker commands live in `INSTALL.md`:
 - Migrate: `python -m flask --app recruiting init-db`.
 - Reset/seed local demo data: `python -m flask --app recruiting seed --yes`.
 - Run: `python -m recruiting` (Waitress, default localhost:8080).
-- Required unit suite: `python -m pytest tests/unit -q` (53 passing on 2026-11-24).
-- Complete suite: `python -m pytest -q` (54 passing, including the real race).
+- Required unit suite: `python -m pytest tests/unit -q` (56 passing in the full run on 2026-11-25).
+- Complete suite: `python -m pytest -q` (57 passing locally and in Docker on 2026-11-25, including the booking race).
 - Docker: `docker build -t common-ground .`; see INSTALL.md for persistent-volume startup.
 
 Tests passed locally and inside the image. Keep reset operations restricted to
@@ -185,10 +186,10 @@ agent remain labeled as such. External submission actions are tracked separately
 | M1 | Define architecture, schema, routes, permissions, screens, and transaction design | done | SPEC.md and implementation plan; agent choices recorded |
 | M2 | Application factory, database/migrations, configuration, Docker foundation | done | Docker build, startup, repeat migration, and volume persistence verified |
 | M3 | Authentication, authorization, candidate/company profiles, private resumes | done | Auth/profile/direct-request/session regression tests pass |
-| M4 | Jobs, matching, applications, employer applicant management | done | Workflow tests, all score examples, both tie-breakers and deletion conflicts pass |
-| M5 | Availability and atomic interview booking | done | Eligibility/conflict tests and synchronized two-connection race pass |
-| M6 | Security checks and browser workflow polish | done | Independent review fixes tested; desktop and 390px mobile checks pass |
-| M7 | Deterministic seed, CI, documentation, audit and submission readiness | in progress | Local delivery verified; hosted CI, label import, public main commit and submission remain external team actions |
+| M4 | Jobs, matching, applications, employer applicant management | done | Workflow tests, matching, deletion conflicts, and invalid job writes pass |
+| M5 | Availability and atomic interview booking | done | Ownership, time validation, remote dates, and the synchronized race verified |
+| M6 | Security checks and browser workflow polish | in progress | Scheduling fixes verified in Chrome. The separate JavaScript rendering security test is deferred |
+| M7 | Deterministic seed, CI, documentation, audit and submission readiness | in progress | Clean Docker build and draft CI passed. GitHub is private, audit labels are absent, and the reviewed commit is absent from remote `main` |
 
 Security, tests, and documentation accompany each milestone; M6 and M7 consolidate
 their verification rather than postponing them until the end.
@@ -207,10 +208,8 @@ their verification rather than postponing them until the end.
 - Keep the guide concise. Put detailed design in `SPEC.md`, command instructions
   in `INSTALL.md`, and test mapping in `README.md`; use Git history for old progress.
 
-**Next action:** before course submission, complete the team roster, import
-GitHub audit labels, observe hosted CI, and submit the exact public `main`
-commit. Publishing `platform-draft` does not satisfy FP-SUB-1. Do not mark
-those external actions done based on local tests alone.
+**Next action:** resume the deferred security verification when requested. The
+Matchwork audit also tracks remaining application and course delivery findings.
 
 ## Reference patterns
 
