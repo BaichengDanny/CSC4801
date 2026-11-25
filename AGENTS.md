@@ -13,8 +13,7 @@ The required local application is implemented under `recruiting/`, with real
 unit tests, a synchronized booking race test, synthetic seed data, and a working
 Docker environment. The user authorized implementation on 2026-11-14. Current
 work uses the QA branch `qa/spec-verification-20261124` based on `platform-draft`.
-See the [integration verification](docs/delivery-2026-11-25.md) for the combined
-QA fixes and teammate commits through `c3e5b1c`. The
+The branch includes teammate commits through `c3e5b1c`. The
 [team audit](docs/matchwork-spec-audit-2026-11-25.md) records the earlier baseline;
 the [2026-11-14 record](docs/verification.md) predates Matchwork.
 
@@ -189,13 +188,16 @@ The exact local and Docker commands live in `INSTALL.md`:
 Tests passed locally and inside the image. Keep reset operations restricted to
 explicit demo/test databases; never seed a user database just to run tests.
 
-The [2026-11-24 acceptance review](docs/qa-2026-11-24.md) records the merged Matchwork baseline, six repaired defect categories, six new unit cases, seven passing Docker browser groups, real HTTP concurrency, and volume persistence. Changes are local and awaiting team review.
+Online matching is authoritative in the backend; portal snapshots, draft preview
+and guarded focus/poll refresh use its results. Original offline diagnostics
+remain available in the acceptance scripts. The hosted
+[PR verification](https://github.com/BaichengDanny/CSC4801/actions/runs/45630416506)
+passed for `0ac3d34`. Attribute later CI results to their exact commits.
 
-The [2026-11-25 deeper test round](docs/qa-2026-11-25.md) and [case matrix](docs/qa-round2-matrix.md) add 29 unit cases and three repaired defect categories: JSON record IDs, malformed JSON handling, and same-name employer identity. Final checks passed: 89 Python cases, 99 fixed-seed probes, nine browser groups, HTTP concurrency and volume persistence. Seventeen non-equivalent semantic mutants were killed; one equivalent is separate. Branch coverage is 181/208 (87.02%); uncovered paths and scope limits are recorded in the report. All changes remain local for team review.
-
-The [XSS/matching/CI supplement](docs/qa-supplement-2026-11-25.md) adds direct product escaping units, 1,241 same-input score comparisons, eight sort groups, and 11 backend entry/generator cases. That supplement verified: Windows/Docker 100 Python cases, 12 frontend units and 12 browser groups pass; Python branch coverage is 184/208 (88.46%). The existing CI now includes those checks and browser/HTTP flows; hosted Actions remains unrun until publication. [QA3-04](docs/issues/QA3-04-unicode-version.md) was subsequently repaired with backend-authoritative score/rank; see the [repair verification](docs/qa3-04-fix-2026-11-25.md). The default live API gate passes; the original offline-function diagnostic is retained separately. Per the user request, teacher resume-permission clarification and related documentation/test adjustments are deferred; preserve the existing policy and tests in this task.
-
-Historical QA3-04 verification before team integration: Windows/Docker 106 Python cases, 15 frontend units, 1,243 API score cases/eight sort groups, and 20 browser groups pass. Profile/job/status snapshots, server-side draft preview and focus/visible-page refresh preserve live score/order consistency; unsaved drafts are protected. Python coverage is 852/892 statements and 185/210 branch exits. Remote Actions and final main remain unrun; no publish or push was performed.
+Per the user request, private QA summaries and round reports remain local and
+are excluded from Git and Docker contexts. Teacher resume-permission
+clarification and related adjustments remain deferred; preserve the existing
+owner-only policy and tests.
 
 ## Milestone tracker
 

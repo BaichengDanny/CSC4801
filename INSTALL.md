@@ -138,10 +138,9 @@ The existing CI workflow now runs frontend units, authoritative API matching,
 Docker build/full pytest, seed/health, the browser business/DOM flow, normalization
 and employer-identity regressions, and HTTP concurrency. Failure artifacts are
 retained. Finite mutation checks and extra probes remain independent commands.
-Local integration results are in the [delivery verification](docs/delivery-2026-11-25.md).
 Use the exact QA pull-request commit and its Checks for hosted Actions status.
 
-The independent `unicode_version_probe.py` remains an unsuppressed CI gate. Its default now verifies authenticated API scores/ranks consumed by the product frontend, including both QA3-04 counterexamples. `--browser` verifies the deployed pages (set QA_BASE_URL); `--legacy-functions` preserves the former raw offline calculator diagnostic, which can still exit 1 by design. See the [repair verification](docs/qa3-04-fix-2026-11-25.md).
+The independent `unicode_version_probe.py` remains an unsuppressed CI gate. Its default now verifies authenticated API scores/ranks consumed by the product frontend, including both QA3-04 counterexamples. `--browser` verifies the deployed pages (set QA_BASE_URL); `--legacy-functions` preserves the former raw offline calculator diagnostic, which can still exit 1 by design.
 
 ## Optional deeper QA
 
@@ -164,9 +163,9 @@ python -m coverage run --branch --source=recruiting --data-file=output/qa-round2
 python -m coverage report --data-file=output/qa-round2/.coverage -m
 ```
 
-See the [round-2 report](docs/qa-2026-11-25.md) for browser commands, the
-explicit-container persistence command and the [case matrix](docs/qa-round2-matrix.md).
-The persistence script requires matching container/image/volume/port arguments;
+The optional `tests/acceptance/docker_persistence.py` script recreates an
+explicitly named local QA container and verifies its existing volume.
+It requires matching `--container`, `--image`, `--volume` and `--port` arguments;
 `--reset-after` explicitly opts into resetting only that QA instance.
 
 ## Docker build and startup

@@ -163,8 +163,6 @@ The original raw Python/JS comparison remains available as
 `unicode_version_probe.py --legacy-functions`. Its runtime casing differences
 are diagnostic facts about that unused online calculator; the live regression
 now verifies authenticated API -> actual frontend consumption and real pages.
-See [QA3-04](docs/issues/QA3-04-unicode-version.md) for the repaired chain and
-the retained counterexamples.
 
 ## Scheduling and concurrency
 
