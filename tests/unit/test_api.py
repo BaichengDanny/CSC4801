@@ -105,7 +105,12 @@ def test_candidate_and_employer_api_workflow(app, people):
     assert boot.status_code == 200
     body = boot.get_json()
     assert body['state']['profile']['resume'] == 'Private resume'
-    assert body['jobs'][0]['score'] if False else body['jobs'][0]['title']
+    # Empty requirements score 100; Python matches one of two required skills.
+    assert [item['id'] for item in body['jobs']] == [open_job['id'], job['id']]
+    from recruiting import accounts, jobs
+    rows = jobs.recommendations(accounts.user(people['candidate']['id']))
+    assert [(str(row['id']), row['score']) for row in rows] == [
+        (open_job['id'], 100), (job['id'], 50)]
     titles = [item['title'] for item in body['jobs']]
     assert "Engineer' OR 1=1 --" in titles
     assert '<script>alert(1)</script>' in titles

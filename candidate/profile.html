@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/shell.css">
 <link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/html.js"></script>
 <script src="../shared/match.js"></script>
 <script src="assets/matchwork.js"></script>
 <style>
@@ -226,7 +227,7 @@ textarea.input{height:auto;min-height:320px;padding:14px 16px;line-height:22px;r
 
   /* ---------- Skills (draft + live match preview) ---------- */
   let draft = P().skills.slice();
-  const norm = (s) => s.trim().toLowerCase();
+  const norm = MW.skillKey;
   const box = $('#skillBox'), input = $('#skillInput'), note = $('#skNote');
   const NOTE = 'Press Enter or comma to add. Capitals and duplicates do not matter.';
   function renderSkills(newOne) {
@@ -241,7 +242,7 @@ textarea.input{height:auto;min-height:320px;padding:14px 16px;line-height:22px;r
     renderSuggest(); renderImpact();
   }
   function addSkill(raw) {
-    const s = raw.replace(/\s+/g, ' ').trim();
+    const s = MW.live ? raw.trim() : raw.replace(/\s+/g, ' ').trim();
     if (!s) return;
     const dup = draft.find((d) => norm(d) === norm(s));
     if (dup) { note.textContent = `${dup} is already in your skills.`; note.classList.add('warn'); return; }
@@ -265,13 +266,13 @@ textarea.input{height:auto;min-height:320px;padding:14px 16px;line-height:22px;r
   }
   $('#suggest').addEventListener('click', (e) => { const b = e.target.closest('[data-add]'); if (b) addSkill(b.dataset.add); });
 
-  function sameSet(a, b) { const A = MW.normalizeSkills(a), B = MW.normalizeSkills(b); return A.size === B.size && [...A].every((x) => B.has(x)); }
+  const sameSet = MW.sameSkills;
   function renderImpact() {
     const el = $('#impact');
     const saved = P().skills;
     if (sameSet(draft, saved) && draft.length === saved.length) { el.hidden = true; return; }
-    const deltas = MW.jobs().map((j) => ({ j, from: MW.matchScore(saved, j.skills), to: MW.matchScore(draft, j.skills) })).filter((d) => d.from !== d.to)
-      .sort((a, b) => Math.abs(b.to - b.from) - Math.abs(a.to - a.from));
+    const deltas = MW.previewSkills(draft).map(j => ({ j, from: j.baselineScore, to: j.match }))
+      .filter(d => d.from !== d.to).sort((a, b) => Math.abs(b.to - b.from) - Math.abs(a.to - a.from));
     el.hidden = false;
     el.innerHTML = `<div class="impact-top"><strong>${deltas.length ? `${deltas.length} ${deltas.length === 1 ? 'match changes' : 'matches change'} if you save` : 'No match scores change'}</strong>
         <div class="btns"><button type="button" class="btn btn-quiet" id="skDiscard">Discard</button><button type="button" class="btn btn-primary" id="skSave">Save skills</button></div></div>
@@ -280,6 +281,7 @@ textarea.input{height:auto;min-height:320px;padding:14px 16px;line-height:22px;r
     $('#skDiscard').addEventListener('click', () => { draft = P().skills.slice(); note.textContent = NOTE; note.classList.remove('warn'); renderSkills(); });
     $('#skSave').addEventListener('click', () => {
       MW.updateProfile({ skills: draft.slice() });
+      draft = P().skills.slice();
       renderSkills(); renderRail();
       MW.toast('Skills saved. Match scores are updated.');
     });
@@ -346,6 +348,14 @@ textarea.input{height:auto;min-height:320px;padding:14px 16px;line-height:22px;r
     if (a.getAttribute('href') === '#basics' && !editingBasics) { e.preventDefault(); editingBasics = true; renderBasics(); $('#basics').scrollIntoView({ block: 'start' }); $('#fName').focus(); }
   });
 
+  let lastSavedSkills = P().skills.slice();
+  MW.onChange(() => {
+    if (sameSet(draft, lastSavedSkills)) { draft = P().skills.slice(); renderSkills(); }
+    lastSavedSkills = P().skills.slice();
+    if (!editingBasics) renderBasics();
+    if (!editingResume) renderResume();
+    renderRail();
+  });
   renderBasics(); renderSkills(); renderResume();
   renderRail();
   if (location.hash === '#skills') requestAnimationFrame(() => input.focus({ preventScroll: true }));

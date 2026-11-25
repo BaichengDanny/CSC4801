@@ -15,3 +15,5 @@ output
 *.sqlite3-wal
 *.sqlite3-shm
 *.pptx
+
+node_modules/

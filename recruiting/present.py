@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 
 from flask import current_app
 
+from .matching import normalize_skills
+
 TINTS = (
     ('#1F5FA8', '#EAF1FA'),
     ('#5B3FC4', '#F4F1FD'),
@@ -62,6 +64,7 @@ def job_card(row, owner=None):
         'seq': row['id'],
         'title': row['title'],
         'company': row['company_name'],
+        'employerId': str(row['employer_id']),
         'location': row['location'] or 'Not listed',
         'type': row['job_type'] or 'Full-time',
         'status': row['posting_status'] or 'Active',
@@ -69,10 +72,12 @@ def job_card(row, owner=None):
         'cats': _categories(row),
         'desc': summary,
         'body': row['description'],
-        'skills': row['skills'],
+        'skills': normalize_skills(row['skills']),
         **paint(row['company_name']),
         **_logo(row),
     }
+    if 'score' in row:
+        card.update(score=row['score'], rank=row['rank'])
     if owner is not None:
         card['owner'] = str(owner)
     return card
@@ -103,7 +108,10 @@ def candidate_application(record):
 
 
 def employer_application(record):
-    return {**candidate_application(record), 'candidateId': str(record['candidate_id'])}
+    card = {**candidate_application(record), 'candidateId': str(record['candidate_id'])}
+    if 'score' in record:
+        card.update(score=record['score'], rank=record['rank'])
+    return card
 
 
 def candidate_profile(actor, details):
@@ -112,7 +120,7 @@ def candidate_profile(actor, details):
         'headline': details['headline'],
         'location': details['location'],
         'email': actor['email'],
-        'skills': details['skills'],
+        'skills': normalize_skills(details['skills']),
         'resume': details['resume'],
         'resumeUpdated': iso(None),
         'extras': bool(details['headline'] or details['location']),
@@ -126,7 +134,7 @@ def person(row, skills):
         'headline': row['headline'],
         'location': row['location'],
         'email': row['email'],
-        'skills': skills,
+        'skills': normalize_skills(skills),
         'tint': paint(row['display_name'])['tileBg'],
     }
 

@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../candidate/assets/shell.css">
 <link rel="stylesheet" href="assets/recruiter.css">
 <link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/html.js"></script>
 <script src="../shared/match.js"></script>
 <script src="assets/recruiter.js"></script>
 <style>
@@ -351,7 +352,15 @@ a.t.booked:hover{background:#E8E1FA;border-color:#CFC2F2;color:#4A31B0}
     const missing = [mDate, mStart, mEnd].filter((i) => !i.value);
     if (missing.length) { missing.forEach((i) => i.setAttribute('aria-invalid', 'true')); mErr.textContent = 'Choose a date, a start time and an end time.'; missing[0].focus(); return; }
     const [sh, sm] = mStart.value.split(':').map(Number), [eh, em] = mEnd.value.split(':').map(Number);
-    const start = RW.ptToUtc(mDate.value, sh, sm), end = RW.ptToUtc(mDate.value, eh, em);
+    let start, end;
+    try {
+      start = RW.ptToUtc(mDate.value, sh, sm);
+      end = RW.ptToUtc(mDate.value, eh, em);
+    } catch (error) {
+      mErr.textContent = error.message;
+      mStart.setAttribute('aria-invalid', 'true');
+      return;
+    }
     const r = RW.createSlot(start, end);
     if (!r.ok) { mErr.textContent = r.message + '.'; (/end/i.test(r.message) || /30/.test(r.message) ? mEnd : mStart).setAttribute('aria-invalid', 'true'); return; }
     const ymd = RW.ymdOf(start);

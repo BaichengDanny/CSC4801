@@ -6,8 +6,9 @@ from flask import Blueprint, g, request
 
 from . import accounts, jobs, present, scheduling
 from .auth import end_session, start_session
-from .db import get_db
+from .db import get_db, transaction
 from .errors import DomainError
+from .matching import normalize_skills, score
 
 bp = Blueprint('api', __name__, url_prefix='/api')
 JOB_TYPES = ('Full-time', 'Part-time', 'Contract', 'Internship')
@@ -25,14 +26,15 @@ def as_role(role):
 
 def body():
     data = request.get_json(silent=True)
-    if data is None:
-        data = {}
     if not isinstance(data, dict):
         raise DomainError(400, 'Send a JSON object.')
     return data
 
 
 def record_id(value):
+    # JSON booleans/floats must never select a different integer record.
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise DomainError(404, 'That record was not found.')
     try:
         number = int(value)
     except (TypeError, ValueError):
@@ -54,7 +56,6 @@ def description_from(data, current=''):
 
 
 def save_listing(actor, posting, data):
-    from .db import transaction
     summary = str(data.get('desc', posting['summary']) or '')
     location = str(data.get('location', posting['location']) or '')
     job_type = str(data.get('type', posting['job_type']) or 'Full-time')
@@ -146,23 +147,21 @@ def me():
     return {'ok': True, 'id': g.user['id'], 'email': g.user['email'], 'role': g.user['role'], 'name': g.user['display_name']}
 
 
-@bp.get('/candidate/bootstrap')
-@as_role('Candidate')
-def candidate_bootstrap():
-    details = accounts.profile(g.user, g.user['id'])
-    postings = jobs.recommendations(g.user)
-    company_rows = {row['name']: row for row in get_db().execute('SELECT * FROM companies')}
+def _candidate_payload(actor):
+    details = accounts.profile(actor, actor['id'])
+    postings = jobs.recommendations(actor)
+    company_rows = {row['employer_id']: row for row in get_db().execute('SELECT * FROM companies')}
     companies = {}
     cards = []
-    for posting in postings:
-        card = present.job_card(posting)
+    for rank, posting in enumerate(postings):
+        card = present.job_card({**posting, 'rank': rank})
         cards.append(card)
-        record = company_rows.get(posting['company_name'])
+        record = company_rows.get(posting['employer_id'])
         companies.setdefault(
-            posting['company_name'],
+            str(posting['employer_id']),
             present.company_card(record) if record else {'name': posting['company_name'], **present.paint(posting['company_name'])})
-    applications = [present.candidate_application(item) for item in jobs.applications(g.user)]
-    slots = [slot_for_viewer(row, g.user['id']) for row in candidate_slots()]
+    applications = [present.candidate_application(item) for item in jobs.applications(actor)]
+    slots = [slot_for_viewer(row, actor['id']) for row in candidate_slots()]
     return {
         'ok': True,
         'now': present.iso(None),
@@ -170,13 +169,31 @@ def candidate_bootstrap():
         'jobs': cards,
         'state': {
             'v': 2,
-            'profile': present.candidate_profile(g.user, details),
+            'profile': present.candidate_profile(actor, details),
             'saved': {},
             'applications': applications,
             'slots': slots,
             'notifRead': False,
         },
     }
+
+
+@bp.get('/candidate/bootstrap')
+@as_role('Candidate')
+def candidate_bootstrap():
+    return _candidate_payload(g.user)
+
+
+@bp.post('/candidate/matching-preview')
+@as_role('Candidate')
+def candidate_matching_preview():
+    # Read-only draft scoring: the same normalization, formula and ordering.
+    skills = normalize_skills(body().get('skills'))
+    rows = jobs.recommendations(g.user, skills=skills)
+    saved_skills = accounts.skills_for(g.user['id'])
+    return {'ok': True, 'jobs': [
+        {**present.job_card({**row, 'rank': rank}), 'baselineScore': score(saved_skills, row['skills'])}
+        for rank, row in enumerate(rows)]}
 
 
 @bp.post('/candidate/profile')
@@ -193,7 +210,8 @@ def update_candidate_profile():
         headline=data.get('headline', current['headline']),
         location=data.get('location', current['location']),
     )
-    return {'ok': True, 'profile': present.candidate_profile(g.user, updated)}
+    return {'ok': True, 'profile': present.candidate_profile(g.user, updated),
+            'snapshot': _candidate_payload(g.user)}
 
 
 @bp.post('/candidate/applications')
@@ -213,17 +231,14 @@ def book(application_id):
     return {'ok': True, 'application': present.candidate_application(jobs.application(g.user, application_id))}
 
 
-@bp.get('/employer/bootstrap')
-@as_role('Employer')
-def employer_bootstrap():
-    company = accounts.company(g.user)
-    postings = [present.job_card(item, g.user['id']) for item in jobs.owned_jobs(g.user)]
+def _employer_payload(actor):
+    company = accounts.company(actor)
+    postings = [present.job_card(item, actor['id']) for item in jobs.owned_jobs(actor)]
     applications = []
     people = {}
-    for posting in jobs.owned_jobs(g.user):
-        for applicant in jobs.applicants(g.user, posting['id']):
-            applications.append(present.employer_application(applicant))
-            people[applicant['candidate_id']] = applicant
+    for rank, applicant in enumerate(jobs.ranked_applications(actor)):
+        applications.append(present.employer_application({**applicant, 'rank': rank}))
+        people[applicant['candidate_id']] = applicant
     candidates = []
     for applicant in people.values():
         profile = get_db().execute(
@@ -232,11 +247,11 @@ def employer_bootstrap():
             (applicant['candidate_id'],)).fetchone()
         candidates.append(present.person(profile, applicant['skills']))
     slots = [present.slot_card(row, row['company_name'], str(row['application_id']) if row['application_id'] else None)
-             for row in employer_slots(g.user)]
+             for row in employer_slots(actor)]
     return {
         'ok': True,
         'now': present.iso(None),
-        'me': str(g.user['id']),
+        'me': str(actor['id']),
         'state': {
             'v': 1,
             'company': present.company_card(company),
@@ -250,35 +265,46 @@ def employer_bootstrap():
     }
 
 
+@bp.get('/employer/bootstrap')
+@as_role('Employer')
+def employer_bootstrap():
+    return _employer_payload(g.user)
+
+
 @bp.post('/employer/jobs')
 @as_role('Employer')
 def create_job():
     data = body()
-    created = jobs.create_job(g.user, data.get('title', ''), description_from(data), data.get('skills', []))
-    saved = save_listing(g.user, created, data)
-    return {'ok': True, 'job': present.job_card(saved, g.user['id'])}, 201
+    # Core fields and page metadata form one request-level write.
+    with transaction():
+        created = jobs.create_job(g.user, data.get('title', ''), description_from(data), data.get('skills', []))
+        saved = save_listing(g.user, created, data)
+    return {'ok': True, 'job': present.job_card(saved, g.user['id']),
+            'snapshot': _employer_payload(g.user)}, 201
 
 
 @bp.post('/employer/jobs/<int:job_id>')
 @as_role('Employer')
 def update_job(job_id):
     data = body()
-    current = jobs.job(g.user, job_id)
-    if any(key in data for key in ('title', 'body', 'desc', 'skills')):
-        current = jobs.update_job(
-            g.user, job_id,
-            data.get('title', current['title']),
-            description_from(data, current['description']),
-            data.get('skills', current['skills']))
-    saved = save_listing(g.user, current, data)
-    return {'ok': True, 'job': present.job_card(saved, g.user['id'])}
+    with transaction():
+        current = jobs.job(g.user, job_id)
+        if any(key in data for key in ('title', 'body', 'desc', 'skills')):
+            current = jobs.update_job(
+                g.user, job_id,
+                data.get('title', current['title']),
+                description_from(data, current['description']),
+                data.get('skills', current['skills']))
+        saved = save_listing(g.user, current, data)
+    return {'ok': True, 'job': present.job_card(saved, g.user['id']),
+            'snapshot': _employer_payload(g.user)}
 
 
 @bp.post('/employer/jobs/<int:job_id>/delete')
 @as_role('Employer')
 def delete_job(job_id):
     jobs.delete_job(g.user, job_id)
-    return {'ok': True}
+    return {'ok': True, 'snapshot': _employer_payload(g.user)}
 
 
 @bp.post('/employer/applications/<int:application_id>/status')
@@ -286,7 +312,9 @@ def delete_job(job_id):
 def set_status(application_id):
     data = body()
     updated = jobs.set_status(g.user, application_id, data.get('status', ''))
-    return {'ok': True, 'application': present.employer_application(updated)}
+    snapshot = _employer_payload(g.user)
+    card = next(item for item in snapshot['state']['applications'] if item['id'] == str(updated['id']))
+    return {'ok': True, 'application': card, 'snapshot': snapshot}
 
 
 @bp.post('/employer/slots')
@@ -336,10 +364,13 @@ def update_company():
 
 def normalize_slot(start, end):
     try:
-        parsed = [datetime.fromisoformat(str(value).replace('Z', '+00:00')).astimezone(timezone.utc).replace(microsecond=0) for value in (start, end)]
-    except (TypeError, ValueError) as error:
+        parsed = [
+            datetime.fromtimestamp(scheduling.parse_time(value), timezone.utc).isoformat()
+            for value in (start, end)
+        ]
+    except (OSError, OverflowError, ValueError) as error:
         raise DomainError(400, 'Enter a valid start and end time.') from error
-    return parsed[0].isoformat(), parsed[1].isoformat()
+    return parsed[0], parsed[1]
 
 
 def overlapping_slot(employer_id, start, end):

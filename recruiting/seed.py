@@ -80,7 +80,7 @@ def _display_skills(values):
 
 def _seed_catalog(password):
     """Load the Matchwork job catalog. Each company is its own demo employer."""
-    catalog = json.loads(CATALOG.read_text())
+    catalog = json.loads(CATALOG.read_text(encoding='utf-8'))
     employers = {}
     for name, company in catalog['companies'].items():
         actor = accounts.register(_catalog_email(name), password, 'Employer', name)

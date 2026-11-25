@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/shell.css">
 <link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/html.js"></script>
 <script src="../shared/match.js"></script>
 <script src="assets/matchwork.js"></script>
 <style>
@@ -273,6 +274,7 @@
   updateCount();
   render(false);
   requestAnimationFrame(() => { const r = $('.row[aria-current="true"]', listEl); if (r) r.scrollIntoView({ block: 'nearest' }); });
+  MW.onChange(() => render(false));
 })();
 </script>
 <span id="mw-ready" hidden></span>

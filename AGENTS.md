@@ -1,6 +1,6 @@
 # Project guide for coding agents
 
-Last updated: 2026-11-24 (Asia/Shanghai).
+Last updated: 2026-11-25 (Asia/Shanghai).
 
 ## Purpose and current state
 
@@ -12,7 +12,7 @@ locally runnable, and understandable by every team member.
 The required local application is implemented under `recruiting/`, with real
 unit tests, a synchronized booking race test, synthetic seed data, and a working
 Docker environment. The user authorized implementation on 2026-11-14. Current
-work is on `platform-draft`. See [verification evidence](docs/verification.md)
+work uses upstream `platform-draft`. The 2026-11-24 local acceptance branch is `qa/spec-verification-20261124`. See [verification evidence](docs/verification.md)
 for the 2026-11-14 checks; that record predates the Matchwork UI.
 
 This file records working rules, decisions, and milestone status. Update it as
@@ -66,7 +66,7 @@ Implemented design choices are documented in `SPEC.md`:
 - Standard-library `sqlite3`, versioned SQL migrations, normalized skill tables.
 - Slots belong to a job and derive their employer owner. Same-employer cross-job
   booking is allowed; job deletion respects dependent slots.
-- Integer UTC timestamps and an injectable `NOW` clock. Matchwork labels times Pacific (UTC−8).
+- Integer UTC timestamps and an injectable `NOW` clock. Matchwork labels times Pacific Time (PST UTC-8 / PDT UTC-7).
 - `BEGIN IMMEDIATE`, unique booking constraints, 10-second busy timeout; actual
   same-slot conflicts return 409, unrelated storage contention returns 503.
 - Fixed seed identities and slot offsets; optional `seed --at` reference time.
@@ -166,12 +166,21 @@ The exact local and Docker commands live in `INSTALL.md`:
 - Migrate: `python -m flask --app recruiting init-db`.
 - Reset/seed local demo data: `python -m flask --app recruiting seed --yes`.
 - Run: `python -m recruiting` (Waitress, default localhost:8080).
-- Required unit suite: `python -m pytest tests/unit -q` (53 passing on 2026-11-24).
-- Complete suite: `python -m pytest -q` (54 passing, including the real race).
+- Required unit suite: `python -m pytest tests/unit -q` (105 passing backend unit cases covered by the full suite on 2026-11-25).
+- Full backend/frontend units and parity: `python tests/run_units.py` (Node.js 24 required); `--include-concurrency` also runs the real race.
+- Complete Python suite: `python -m pytest -q` (106 passing on Windows and Docker, including the real race).
 - Docker: `docker build -t common-ground .`; see INSTALL.md for persistent-volume startup.
 
 Tests passed locally and inside the image. Keep reset operations restricted to
 explicit demo/test databases; never seed a user database just to run tests.
+
+The [2026-11-24 acceptance review](docs/qa-2026-11-24.md) records the merged Matchwork baseline, six repaired defect categories, six new unit cases, seven passing Docker browser groups, real HTTP concurrency, and volume persistence. Changes are local and awaiting team review.
+
+The [2026-11-25 deeper test round](docs/qa-2026-11-25.md) and [case matrix](docs/qa-round2-matrix.md) add 29 unit cases and three repaired defect categories: JSON record IDs, malformed JSON handling, and same-name employer identity. Final checks passed: 89 Python cases, 99 fixed-seed probes, nine browser groups, HTTP concurrency and volume persistence. Seventeen non-equivalent semantic mutants were killed; one equivalent is separate. Branch coverage is 181/208 (87.02%); uncovered paths and scope limits are recorded in the report. All changes remain local for team review.
+
+The [XSS/matching/CI supplement](docs/qa-supplement-2026-11-25.md) adds direct product escaping units, 1,241 same-input score comparisons, eight sort groups, and 11 backend entry/generator cases. That supplement verified: Windows/Docker 100 Python cases, 12 frontend units and 12 browser groups pass; Python branch coverage is 184/208 (88.46%). The existing CI now includes those checks and browser/HTTP flows; hosted Actions remains unrun until publication. [QA3-04](docs/issues/QA3-04-unicode-version.md) was subsequently repaired with backend-authoritative score/rank; see the [repair verification](docs/qa3-04-fix-2026-11-25.md). The default live API gate passes; the original offline-function diagnostic is retained separately. Per the user request, teacher resume-permission clarification and related documentation/test adjustments are deferred; preserve the existing policy and tests in this task.
+
+QA3-04 current verification: Windows/Docker 106 Python cases, 15 frontend units, 1,243 API score cases/eight sort groups, and 20 browser groups pass. Profile/job/status snapshots, server-side draft preview and focus/visible-page refresh preserve live score/order consistency; unsaved drafts are protected. Python coverage is 852/892 statements and 185/210 branch exits. Remote Actions and final main remain unrun; no publish or push was performed.
 
 ## Milestone tracker
 

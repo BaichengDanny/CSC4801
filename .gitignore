@@ -13,3 +13,5 @@ instance/
 output/
 .superpowers/
 *.pptx
+
+node_modules/
