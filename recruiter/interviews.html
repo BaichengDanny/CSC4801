@@ -24,7 +24,7 @@
 .tz{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 
 /* Days (same tiles as the candidate's booking flow) */
-.days{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px;margin-top:16px}
+.days{display:flex;gap:8px;overflow-x:auto;padding:2px;margin-top:16px}
 .day{flex:none;width:72px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:9px 6px 8px;border:1px solid var(--line-2);background:#fff;cursor:pointer;border-radius:calc(var(--r-sm) * var(--sq));transition:border-color .18s,background-color .18s,color .18s}
 .day:hover{border-color:#D8DEDA;background:#F6F7F7}
 .day .dw{font-size:12px;font-weight:600;color:var(--muted)}
@@ -157,7 +157,7 @@ a.t.booked:hover{background:#E8E1FA;border-color:#CFC2F2;color:#4A31B0}
             <div class="manual-title">Add a specific time <span>· must be exactly 30 minutes</span></div>
             <div class="field date"><label for="mDate">Date</label><input class="input" type="date" id="mDate" required></div>
             <div class="field"><label for="mStart">Start</label><input class="input" type="time" id="mStart" step="300" required></div>
-            <div class="field"><label for="mEnd">End</label><input class="input" type="time" id="mEnd" step="300" required></div>
+            <div class="field"><label for="mEnd">End</label><input class="input" type="time" id="mEnd" step="300" required title="A slot may end after midnight on the next day"></div>
             <button type="submit" class="btn btn-secondary">Add slot</button>
             <span class="err" id="mErr" role="alert"></span>
           </form>
@@ -208,9 +208,17 @@ a.t.booked:hover{background:#E8E1FA;border-color:#CFC2F2;color:#4A31B0}
   const FIRST = 8 * 60, LAST = 17 * 60 + 30, DAYS = 14;
   const addDays = (ymd, n) => { const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n, 12)).toISOString().slice(0, 10); };
   const today = RW.ymdOf(RW.NOW);
-  const dayList = Array.from({ length: DAYS }, (_, i) => addDays(today, i));
-  const qs = RW.params();
-  const st = { day: dayList.includes(qs.get('day')) ? qs.get('day') : today, showPast: false };
+  const upcomingDays = Array.from({ length: DAYS }, (_, i) => addDays(today, i));
+  function calendarDays(selectedDay) {
+    const datesWithSlots = RW.ownSlots().filter((slot) => new Date(slot.start) > RW.NOW)
+      .map((slot) => RW.ymdOf(slot.start));
+    return [...new Set([...upcomingDays, ...datesWithSlots, selectedDay])].sort();
+  }
+  const requestedDay = RW.params().get('day');
+  // Keep an explicitly selected date even if its last slot was deleted.
+  const validDay = /^\d{4}-\d{2}-\d{2}$/.test(requestedDay || '') &&
+    requestedDay >= today && addDays(requestedDay, 0) === requestedDay;
+  const st = { day: validDay ? requestedDay : today, showPast: false };
 
   RW.mountShell('interviews');
 
@@ -219,38 +227,40 @@ a.t.booked:hover{background:#E8E1FA;border-color:#CFC2F2;color:#4A31B0}
   const label = (min) => { const h = Math.floor(min / 60), m = min % 60; return `${(h % 12) || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
 
   function renderDays() {
-    $('#days').innerHTML = dayList.map((ymd) => {
+    $('#days').innerHTML = calendarDays(st.day).map((ymd) => {
       const noon = RW.ptToUtc(ymd, 12, 0);
       const s = slotsOn(ymd).filter((x) => new Date(x.start) > RW.NOW);
       const open = s.filter((x) => !x.bookedBy).length, booked = s.length - open;
       const wd = RW.fmt(noon, { weekday: 'short' });
       const dc = open ? `${open} open` : booked ? `<b>${booked} booked</b>` : '—';
-      return `<button type="button" class="day${/Sat|Sun/.test(wd) ? ' weekend' : ''}" data-day="${ymd}" aria-pressed="${ymd === st.day}" aria-label="${esc(RW.fmtLong(noon))}, ${open} open, ${booked} booked">
-        <span class="dw">${ymd === today ? 'Today' : esc(wd)}</span><span class="dn">${esc(RW.fmt(noon, { day: 'numeric' }))}</span><span class="dc">${dc}</span></button>`;
+      const dayLabel = ymd === today ? 'Today' : `${wd} ${RW.fmt(noon, { month: 'short' })}`;
+      const fullDate = RW.fmt(noon, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      return `<button type="button" class="day${/Sat|Sun/.test(wd) ? ' weekend' : ''}" data-day="${ymd}" aria-pressed="${ymd === st.day}" aria-label="${esc(fullDate)}, ${open} open, ${booked} booked">
+        <span class="dw">${esc(dayLabel)}</span><span class="dn">${esc(RW.fmt(noon, { day: 'numeric' }))}</span><span class="dc">${dc}</span></button>`;
     }).join('');
   }
 
   function renderTimes(popMin) {
     const noon = RW.ptToUtc(st.day, 12, 0);
     $('#dayTitle').textContent = st.day === today ? `Today, ${RW.fmt(noon, { month: 'long', day: 'numeric' })}` : RW.fmtLong(noon);
-    const byMin = new Map(slotsOn(st.day).map((s) => [minutesPT(s.start), s]));
+    const entries = slotsOn(st.day).map((s) => ({ m: minutesPT(s.start), s, start: s.start }));
+    const occupied = new Set(entries.map(({ m }) => m));
     const cells = [];
     let hiddenPast = 0;
     /* Slots outside the working day (added by exact time) still show, in order. */
-    const mins = new Set();
-    for (let m = FIRST; m <= LAST; m += 30) mins.add(m);
-    byMin.forEach((_, m) => mins.add(m));
-    [...mins].sort((a, b) => a - b).forEach((m) => {
-      const s = byMin.get(m);
-      const startIso = s ? s.start : RW.ptToUtc(st.day, Math.floor(m / 60), m % 60);
-      const past = new Date(startIso) <= RW.NOW;
+    for (let m = FIRST; m <= LAST; m += 30) {
+      if (!occupied.has(m)) entries.push({ m, start: RW.ptToUtc(st.day, Math.floor(m / 60), m % 60) });
+    }
+    entries.sort((a, b) => new Date(a.start) - new Date(b.start)).forEach(({ m, s, start }) => {
+      const past = new Date(start) <= RW.NOW;
+      const time = s ? esc(RW.fmtSlotTime(s.start)) : label(m);
       if (s && s.bookedBy) {
         const a = RW.application(s.bookedBy);
         cells.push(a
-          ? `<a class="t booked" href="applicants?job=${encodeURIComponent(a.jobId)}#${esc(a.id)}" data-min="${m}" title="Booked by ${esc(a.name)} · ${esc(a.job.title)}" aria-label="${label(m)}, booked by ${esc(a.name)}. Open applicant">${label(m)}<small>${esc(a.name)}</small></a>`
-          : `<span class="t booked" data-min="${m}">${label(m)}<small>Booked</small></span>`);
+          ? `<a class="t booked" href="applicants?job=${encodeURIComponent(a.jobId)}#${esc(a.id)}" data-min="${m}" title="Booked by ${esc(a.name)} · ${esc(a.job.title)}" aria-label="${time}, booked by ${esc(a.name)}. Open applicant">${time}<small>${esc(a.name)}</small></a>`
+          : `<span class="t booked" data-min="${m}">${time}<small>Booked</small></span>`);
       } else if (s && !past) {
-        cells.push(`<button type="button" class="t open" data-slot="${esc(s.id)}" data-min="${m}" aria-label="${label(m)}, open. Remove slot">${label(m)}<small><span class="s-open">Open</span><span class="s-rm">Remove</span></small></button>`);
+        cells.push(`<button type="button" class="t open" data-slot="${esc(s.id)}" data-min="${m}" aria-label="${time}, open. Remove slot">${time}<small><span class="s-open">Open</span><span class="s-rm">Remove</span></small></button>`);
       } else if (past && !s) {
         /* Times that already passed today aren't offered at all. */
         hiddenPast++;
@@ -292,9 +302,10 @@ a.t.booked:hover{background:#E8E1FA;border-color:#CFC2F2;color:#4A31B0}
     const open = inRange.filter((s) => !s.bookedBy).length;
     $('#sum').innerHTML = `<div><b>${open}</b><span>open slot${open === 1 ? '' : 's'}</span></div><div><b>${inRange.length - open}</b><span>booked</span></div>`;
     const waiting = RW.awaitingBooking().sort((a, b) => a.name.localeCompare(b.name));
+    const hasAvailability = RW.openSlots().length > 0;
     $('#wait').innerHTML = waiting.length
       ? waiting.map((a) => `<a href="applicants?job=${encodeURIComponent(a.jobId)}#${esc(a.id)}">${RW.avatarHTML(a.cand)}<span style="min-width:0"><b>${esc(a.name)}</b><small>${esc(a.job.title)}</small></span>${ICON.chev}</a>`).join('')
-        + (open ? '' : '<p class="wait-empty" style="margin-top:8px">They can\'t book until you add open slots.</p>')
+        + (hasAvailability ? '' : '<p class="wait-empty" style="margin-top:8px">They can\'t book until you add open slots.</p>')
       : '<p class="wait-empty">Everyone in Interviewing has booked a time.</p>';
   }
 
@@ -324,7 +335,7 @@ a.t.booked:hover{background:#E8E1FA;border-color:#CFC2F2;color:#4A31B0}
       const r = RW.deleteSlot(c.dataset.slot);
       if (!r.ok) { refuse(c, r.message); return; }
       renderAll();
-      $(`.t[data-min="${m}"]`).focus();
+      ($(`.t[data-min="${m}"]`) || $('.day[aria-pressed="true"]')).focus();
       RW.toast(`Removed ${label(m)} on ${RW.fmtDate(r.slot.start)}`, { undo: () => { const u = RW.createSlot(r.slot.start, r.slot.end); if (u.ok) renderAll(m); else RW.toast(u.message, { error: true }); } });
       return;
     }
@@ -352,20 +363,23 @@ a.t.booked:hover{background:#E8E1FA;border-color:#CFC2F2;color:#4A31B0}
     const missing = [mDate, mStart, mEnd].filter((i) => !i.value);
     if (missing.length) { missing.forEach((i) => i.setAttribute('aria-invalid', 'true')); mErr.textContent = 'Choose a date, a start time and an end time.'; missing[0].focus(); return; }
     const [sh, sm] = mStart.value.split(':').map(Number), [eh, em] = mEnd.value.split(':').map(Number);
-    let start, end;
-    try {
-      start = RW.ptToUtc(mDate.value, sh, sm);
-      end = RW.ptToUtc(mDate.value, eh, em);
-    } catch (error) {
-      mErr.textContent = error.message;
-      mStart.setAttribute('aria-invalid', 'true');
+    const endDay = sh === 23 && eh === 0 ? addDays(mDate.value, 1) : mDate.value;
+    const start = RW.ptToUtc(mDate.value, sh, sm), end = RW.ptToUtc(endDay, eh, em);
+    if (!start || !end) {
+      const field = !start ? mStart : mEnd;
+      mErr.textContent = 'Choose a time that occurs once in Pacific Time. Some times are skipped or repeated when clocks change.';
+      field.setAttribute('aria-invalid', 'true');
+      field.focus();
       return;
     }
     const r = RW.createSlot(start, end);
     if (!r.ok) { mErr.textContent = r.message + '.'; (/end/i.test(r.message) || /30/.test(r.message) ? mEnd : mStart).setAttribute('aria-invalid', 'true'); return; }
-    const ymd = RW.ymdOf(start);
-    if (dayList.includes(ymd)) { st.day = ymd; const u = RW.url(); u.searchParams.set('day', ymd); history.replaceState(null, '', u); }
+    st.day = RW.ymdOf(start);
+    const u = RW.url();
+    u.searchParams.set('day', st.day);
+    history.replaceState(null, '', u);
     renderAll(sh * 60 + sm);
+    $('.day[aria-pressed="true"]').scrollIntoView({ block: 'nearest', inline: 'nearest' });
     mStart.value = ''; mEnd.value = '';
     RW.toast(`Added ${RW.fmtTime(start)} on ${RW.fmtDate(start)}`);
   });

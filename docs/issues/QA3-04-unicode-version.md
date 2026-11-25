@@ -1,6 +1,6 @@
 # QA3-04：后端统一权威分数与排序（本地已修复）
 
-状态：**本地修复、验证通过**，2026-11-25；未提交/推送，远端 CI 与最终 main 未执行。
+状态：**本地修复、验证通过**，2026-11-25。已保存于 QA 分支并整合团队最新更新，见[整合验证](../delivery-2026-11-25.md)。远端状态以该分支 PR 的 Checks 为准；最终 main 尚未验收。
 关联 FP-MATCH-1、FP-CAN-2、FP-EMP-3。用户选定“后端统一提供权威分数和排序”方案。
 
 ## 原始反例与修复结果
@@ -15,6 +15,8 @@ API 交付 `score` / `rank`，两端在线页面投影这些事实；修改返�
 可见性及 5 秒轮询刷新。技能预览通过只读 API，保留草稿和现有权限。
 
 ## 修改与验证
+
+下列为原 QA3-04 修复阶段结果；整合后 121 项 Python、22 组浏览器结果见整合验证。
 
 实现与全量证据见 [修复报告](../qa3-04-fix-2026-11-25.md)。
 主要位置：`recruiting/jobs.py`、`api.py`、`present.py`、
@@ -42,4 +44,4 @@ D:\CSC4801\.venv\Scripts\python.exe tests/acceptance/unicode_version_probe.py --
 D:\CSC4801\.venv\Scripts\python.exe tests/acceptance/unicode_version_probe.py --legacy-functions
 ```
 
-剩余：团队审阅、最终 main 验证及真实远端 CI；本状态不等同于 GitHub issue/PR 已发布或已合并。
+剩余：团队审阅、核对 PR 的真实远端 CI、最终 main 验证。本地修复状态不等同于已合并。

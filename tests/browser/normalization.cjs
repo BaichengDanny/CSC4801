@@ -1,3 +1,4 @@
+const { postWithCsrf } = require('./session.cjs');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright');
@@ -6,7 +7,7 @@ const output=process.env.QA_OUTPUT||'output/qa-supplement/browser-normalization'
 const results=[],contexts=[]; const run=Date.now().toString(36);
 let browser,details={};
 async function post(ctx,route,data,expected=200){
-  const res=await ctx.request.post(base+route,{data});
+  const res=await postWithCsrf(ctx, base, route, data);
   assert.equal(res.status(),expected,await res.text()); return res.json();
 }
 async function account(role,suffix){

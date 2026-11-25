@@ -114,3 +114,7 @@ See [the supplement report](qa-supplement-2026-11-25.md). Windows and Docker pas
 ## QA3-04 repaired with backend authority
 
 See [the repair verification](qa3-04-fix-2026-11-25.md). Windows/Docker passed 106 Python cases, 15 JS units passed, and the authenticated API-to-frontend corpus passed 1,243 scores/eight sort groups. Twenty browser groups passed, including eight live Unicode/preview/refresh/draft/Dashboard guards. HTTP concurrency and volume persistence passed. The default Unicode gate now passes; historical offline-function differences are preserved as a separate diagnostic, not suppressed as a live failure. Hosted CI/final main remain unrun.
+
+## 2026-11-25 team-branch integration
+
+See [delivery verification](delivery-2026-11-25.md): latest team security/scheduling/date fixes integrated with QA; Windows/Docker 121 Python cases, 15 frontend units, 1,243 score cases/eight sort groups and 22 browser groups passed. Hosted checks must be attributed to the exact PR commit; final main is separate.

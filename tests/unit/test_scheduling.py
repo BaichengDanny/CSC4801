@@ -75,6 +75,51 @@ def test_booking_conflict_contract(people, scenario):
     assert jobs.application(people['candidate2'], other['id'])['booking'] is None
 
 
+@pytest.mark.parametrize(('already_booked', 'message'), [
+    (False, 'Only Interviewing applications can book an interview.'),
+    (True, 'This application already has an interview booking.'),
+])
+def test_booking_checks_application_eligibility_before_reading_slot(
+    people, scenario, monkeypatch, already_booked, message,
+):
+    from recruiting import jobs, scheduling
+    from recruiting.errors import DomainError
+
+    _, application, slot = scenario
+    candidate = people['candidate']
+    if already_booked:
+        scheduling.book(candidate, application['id'], slot['id'])
+    else:
+        jobs.set_status(people['employer'], application['id'], 'Pending')
+
+    def unexpected_slot_lookup(slot_id):
+        pytest.fail('Slot data was read for an ineligible application')
+
+    monkeypatch.setattr(scheduling, 'slot', unexpected_slot_lookup)
+    with pytest.raises(DomainError) as error:
+        scheduling.book(candidate, application['id'], slot['id'])
+    assert (error.value.status, error.value.message) == (409, message)
+
+
+def test_expired_slot_does_not_report_booking_state(people, scenario, app, monkeypatch):
+    from datetime import datetime, timezone
+
+    from recruiting import jobs, scheduling
+    from recruiting.errors import DomainError
+
+    job, application, slot = scenario
+    scheduling.book(people['candidate'], application['id'], slot['id'])
+    candidate = people['candidate2']
+    other = jobs.apply(candidate, job['id'])
+    jobs.set_status(people['employer'], other['id'], 'Interviewing')
+    monkeypatch.setitem(app.config, 'NOW', lambda: datetime(2030, 1, 3, tzinfo=timezone.utc))
+
+    with pytest.raises(DomainError) as error:
+        scheduling.book(candidate, other['id'], slot['id'])
+    assert (error.value.status, error.value.message) == (409, 'This interview slot is no longer in the future.')
+    assert jobs.application(candidate, other['id'])['booking'] is None
+
+
 def test_ineligible_bookings_leave_no_partial_changes(people, scenario, app):
     from recruiting import jobs, scheduling
     from recruiting.errors import DomainError

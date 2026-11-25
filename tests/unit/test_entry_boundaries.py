@@ -168,10 +168,12 @@ def test_seeded_application_booking_operation_model(people):
         elif operation=='book':
             sid=rng.choice(list(slots)); slot=slots[sid]
             actor=candidates[1-app_index] if rng.randrange(8)==0 else candidates[app_index]
+            # Match the integrated security contract: reject an ineligible
+            # application before looking up a slot belonging to anyone else.
             expected=(403 if actor['id']!=application['candidate_id'] else
+                      409 if state['slot'] is not None or state['status']!='Interviewing' else
                       404 if not slot['active'] else 403 if slot['foreign'] else
-                      409 if slot['application'] is not None or state['slot'] is not None or
-                             state['status']!='Interviewing' else None)
+                      409 if slot['application'] is not None else None)
             call=lambda:scheduling.book(actor,aid,sid)
             args=(aid,sid,actor['id'])
         elif operation=='delete':

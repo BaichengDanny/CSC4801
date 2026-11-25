@@ -417,7 +417,10 @@ def test_booked_slot_is_redacted_and_unavailable_to_other_candidate(app, people)
     theirs = client_for(app, other).get('/api/candidate/bootstrap').json
     employer = client_for(app, e).get('/api/employer/bootstrap').json
     assert own['state']['slots'][0]['bookedBy'] == str(own_app['id'])
-    assert theirs['state']['slots'][0]['bookedBy'] == 'other'
+    # The team branch strengthens redaction to complete omission; keep
+    # asserting the privacy boundary plus the owner's/employer's booking.
+    assert theirs['state']['slots'] == []
+    assert str(own_app['id']) not in {s['bookedBy'] for s in theirs['state']['slots']}
     assert employer['state']['slots'][0]['bookedBy'] == str(own_app['id'])
     assert scheduling.available_slots(other, other_app['id']) == []
     assert scheduling.employer_slots(e)[0]['application_id'] == own_app['id']

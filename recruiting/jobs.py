@@ -7,6 +7,8 @@ from .errors import DomainError
 from .matching import normalize_skills, score
 
 STATUSES = ('Pending', 'Interviewing', 'Rejected', 'Accepted')
+JOB_TYPES = ('Full-time', 'Part-time', 'Contract', 'Internship')
+UNCHANGED = object()
 
 
 def _job(job_id):
@@ -38,26 +40,46 @@ def _job_values(title, description, skills):
             text_value(description, 'Job description', 10000), normalize_skills(skills))
 
 
-def create_job(actor, title, description, skills):
+def _listing_values(listing):
+    summary = text_value(str(listing.get('summary') or ''), 'Job summary', 300, required=False)
+    location = text_value(str(listing.get('location') or ''), 'Location', 120, required=False)
+    job_type = listing.get('job_type') or 'Full-time'
+    status = listing.get('posting_status') or 'Active'
+    if job_type not in JOB_TYPES:
+        raise DomainError(400, 'Choose a job type.')
+    if status not in ('Active', 'Closed'):
+        raise DomainError(400, 'Choose Active or Closed.')
+    return summary.strip(), location.strip(), job_type, status
+
+
+def create_job(actor, title, description, skills, *, listing=None):
     require_role(actor, 'Employer')
     title, description, skills = _job_values(title, description, skills)
+    details = _listing_values(listing or {})
     with transaction() as db:
         job_id = db.execute(
-            'INSERT INTO jobs(employer_id,title,description,created_at) VALUES (?,?,?,?)',
-            (actor['id'], title, description, int(current_app.config['NOW']().timestamp()))).lastrowid
+            'INSERT INTO jobs(employer_id,title,description,created_at,summary,location,job_type,posting_status) '
+            'VALUES (?,?,?,?,?,?,?,?)',
+            (actor['id'], title, description, int(current_app.config['NOW']().timestamp()), *details)).lastrowid
         db.executemany('INSERT INTO job_skills VALUES (?,?)', [(job_id, s) for s in skills])
-    return job(actor, job_id)
+        return job(actor, job_id)
 
 
-def update_job(actor, job_id, title, description, skills):
+def update_job(actor, job_id, title=UNCHANGED, description=UNCHANGED, skills=UNCHANGED, *, listing=None):
     require_role(actor, 'Employer')
     with transaction() as db:
-        job(actor, job_id)
-        title, description, skills = _job_values(title, description, skills)
-        db.execute('UPDATE jobs SET title = ?, description = ? WHERE id = ?', (title, description, job_id))
-        db.execute('DELETE FROM job_skills WHERE job_id = ?', (job_id,))
-        db.executemany('INSERT INTO job_skills VALUES (?,?)', [(job_id, s) for s in skills])
-    return job(actor, job_id)
+        current = job(actor, job_id)
+        title = current['title'] if title is UNCHANGED else text_value(title, 'Job title', 150)
+        description = (current['description'] if description is UNCHANGED
+                       else text_value(description, 'Job description', 10000))
+        details = _listing_values({**current, **(listing or {})})
+        if skills is not UNCHANGED:
+            skills = normalize_skills(skills)
+            db.execute('DELETE FROM job_skills WHERE job_id = ?', (job_id,))
+            db.executemany('INSERT INTO job_skills VALUES (?,?)', [(job_id, s) for s in skills])
+        db.execute('UPDATE jobs SET title = ?, description = ?, summary = ?, location = ?, '
+                   'job_type = ?, posting_status = ? WHERE id = ?', (title, description, *details, job_id))
+        return job(actor, job_id)
 
 
 def delete_job(actor, job_id):

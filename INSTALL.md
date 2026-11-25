@@ -3,7 +3,10 @@
 ## Prerequisites
 
 - Python **3.12** (verified locally with 3.12.11), or Docker Desktop / Docker Engine.
-- A current browser. Running the product needs no Node.js, cloud account, paid API, or external database. Full frontend QA additionally uses Node.js 24.
+- A current browser. The application runs with Python only; no cloud account,
+  paid API or external database is needed. The required unit suite also executes
+  shipped JavaScript renderers and needs Node.js 22 or later outside Docker.
+  Full frontend/browser QA uses Node.js 24, as configured in CI.
 - Internet is needed to install the pinned packages or build the image initially.
 
 Run all commands from the repository root. The application does not load `.env`
@@ -70,7 +73,9 @@ python -m flask --app recruiting seed --yes --at 2030-01-01T00:00:00+00:00
 
 Fixed reference times can produce past slots when replayed later. For interactive
 review use the default seed command so booking eligibility remains demonstrable.
-Stored times are UTC. The pages label them Pacific Time (PST UTC-8 / PDT UTC-7).
+Times are stored in UTC. The pages use Pacific Time (`America/Los_Angeles`),
+with PST or PDT shown for individual slots. Slot API timestamps require `Z` or an
+explicit offset.
 
 ## Automated tests
 
@@ -80,6 +85,7 @@ python -m pytest tests/unit -q
 
 This runs the entire required unit suite non-interactively and exits nonzero on
 failure. Tests use temporary, isolated databases and never call external services.
+The XSS unit test runs the shipped rendering functions in Node.js with no npm packages.
 Run the complete suite, including the optional synchronized concurrency test:
 
 ```sh
@@ -103,8 +109,9 @@ python tests/run_units.py
 ```
 
 Add `--include-concurrency` to run the synchronized database race in that command.
-Python-only `pytest` commands above keep working without Node.js. These are
-separate test layers; Python coverage does not include JavaScript execution.
+The `pytest` suite includes the team's renderer/calendar subprocess checks,
+so Node.js is required even when invoking pytest directly. These are separate
+test layers; Python coverage does not include JavaScript execution.
 
 Individual frontend checks need only Node's built-in test runner:
 
@@ -131,8 +138,8 @@ The existing CI workflow now runs frontend units, authoritative API matching,
 Docker build/full pytest, seed/health, the browser business/DOM flow, normalization
 and employer-identity regressions, and HTTP concurrency. Failure artifacts are
 retained. Finite mutation checks and extra probes remain independent commands.
-Local equivalents are verified in the [supplement report](docs/qa-supplement-2026-11-25.md);
-a hosted Actions run still requires publishing the reviewed changes.
+Local integration results are in the [delivery verification](docs/delivery-2026-11-25.md).
+Use the exact QA pull-request commit and its Checks for hosted Actions status.
 
 The independent `unicode_version_probe.py` remains an unsuppressed CI gate. Its default now verifies authenticated API scores/ranks consumed by the product frontend, including both QA3-04 counterexamples. `--browser` verifies the deployed pages (set QA_BASE_URL); `--legacy-functions` preserves the former raw offline calculator diagnostic, which can still exit 1 by design. See the [repair verification](docs/qa3-04-fix-2026-11-25.md).
 
@@ -164,8 +171,9 @@ The persistence script requires matching container/image/volume/port arguments;
 
 ## Docker build and startup
 
-The only base image is `python:3.12.11-slim-bookworm`, declared in the root
-`Dockerfile`. SQLite runs inside the application; no additional images are needed.
+The root `Dockerfile` uses `python:3.12.11-slim-bookworm` for the application
+and copies the pinned Node.js runtime from `node:22.23.5-bookworm-slim` for the
+rendering test. SQLite runs inside the application container.
 The container runs as UID 10001. The named volume persists demo data across runs.
 
 ```sh
@@ -212,7 +220,9 @@ Matchwork, at http://127.0.0.1:8080/sign-in:
    days that already have an open slot. Book one and confirm the reserved time.
 4. Sign out. On the recruiter tab, sign in as `north@example.test` with the same
    password. Open Applicants and confirm Alex's booking. The resume stays private.
-   Change the status; the booking remains. Add a 30-minute slot on Interview schedule.
+   Change the status; the booking remains. On Interviews, use Add a specific time
+   to create a 30-minute slot more than two weeks out. Reload, find that date
+   in the calendar, and remove the slot. Check it no longer appears after reload.
 5. Sign out and sign in as `field@example.test`. Northstar jobs are not in that
    account's job list.
 6. From the signed-out page, use Create a new profile, fill the candidate fields,

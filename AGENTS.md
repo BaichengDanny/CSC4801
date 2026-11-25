@@ -12,8 +12,17 @@ locally runnable, and understandable by every team member.
 The required local application is implemented under `recruiting/`, with real
 unit tests, a synchronized booking race test, synthetic seed data, and a working
 Docker environment. The user authorized implementation on 2026-11-14. Current
-work uses upstream `platform-draft`. The 2026-11-24 local acceptance branch is `qa/spec-verification-20261124`. See [verification evidence](docs/verification.md)
-for the 2026-11-14 checks; that record predates the Matchwork UI.
+work uses the QA branch `qa/spec-verification-20261124` based on `platform-draft`.
+See the [integration verification](docs/delivery-2026-11-25.md) for the combined
+QA fixes and teammate commits through `c3e5b1c`. The
+[team audit](docs/matchwork-spec-audit-2026-11-25.md) records the earlier baseline;
+the [2026-11-14 record](docs/verification.md) predates Matchwork.
+
+The 2026-11-25 security follow-up added CSRF validation on POST requests,
+candidate-level filtering of interview slots, and a test of the shipped
+JavaScript renderers. Direct resume requests enforce ownership. Booking checks
+application eligibility and the slot start before reporting a booking conflict.
+See [SPEC.md](SPEC.md) for the request and visibility rules.
 
 This file records working rules, decisions, and milestone status. Update it as
 work progresses. It does not replace the product specification or installation
@@ -66,7 +75,7 @@ Implemented design choices are documented in `SPEC.md`:
 - Standard-library `sqlite3`, versioned SQL migrations, normalized skill tables.
 - Slots belong to a job and derive their employer owner. Same-employer cross-job
   booking is allowed; job deletion respects dependent slots.
-- Integer UTC timestamps and an injectable `NOW` clock. Matchwork labels times Pacific Time (PST UTC-8 / PDT UTC-7).
+- Integer UTC timestamps and an injectable `NOW` clock. Matchwork displays Pacific Time (`America/Los_Angeles`) and uses explicit UTC offsets in the slot API.
 - `BEGIN IMMEDIATE`, unique booking constraints, 10-second busy timeout; actual
   same-slot conflicts return 409, unrelated storage contention returns 503.
 - Fixed seed identities and slot offsets; optional `seed --at` reference time.
@@ -98,6 +107,10 @@ These are reminders of high-risk requirements, not a substitute for the full spe
   requires application ownership, the matching employer, `Interviewing` status,
   a future unbooked slot, and no existing booking for the application. Failed
   operations leave no partial changes. Later status changes preserve bookings.
+  Candidate responses include only the viewer's bookings and future open slots
+  at employers where the viewer has an unbooked `Interviewing` application.
+  The employer calendar keeps a valid selected date on reload after its last
+  slot is removed.
 - **Concurrency:** enforce booking exclusivity in SQLite, not merely in Python.
   Use transactions and database constraints for unique slot and application
   bookings. A same-slot race must yield one success, one `409` with exactly
@@ -112,7 +125,8 @@ These are reminders of high-risk requirements, not a substitute for the full spe
   values into SQL. Enable SQLite foreign-key enforcement on every connection.
 - Return user text as JSON. Escape it in page scripts before inserting HTML.
   Do not mark untrusted content safe. Prefer plain text over rich-HTML rendering.
-- Protect state-changing browser forms against CSRF. Use appropriate session
+- Require `X-CSRF-Token` on POST requests and rotate the token at sign-in or
+  registration. Use appropriate session
   cookie settings and document any local HTTP versus HTTPS differences.
 - Keep secrets, personal data, local databases, and generated artifacts out of
   version control. `.env.example` contains placeholders only. Seed accounts are
@@ -161,14 +175,15 @@ These are reminders of high-risk requirements, not a substitute for the full spe
 ### Command status
 
 Use Python 3.12 and the pinned `requirements.txt` / `requirements.lock`.
+The rendering test uses Node.js 22 or later. Docker includes a pinned runtime.
 The exact local and Docker commands live in `INSTALL.md`:
 
 - Migrate: `python -m flask --app recruiting init-db`.
 - Reset/seed local demo data: `python -m flask --app recruiting seed --yes`.
 - Run: `python -m recruiting` (Waitress, default localhost:8080).
-- Required unit suite: `python -m pytest tests/unit -q` (105 passing backend unit cases covered by the full suite on 2026-11-25).
+- Required unit suite: `python -m pytest tests/unit -q` (120 unit cases passed in the integration run).
 - Full backend/frontend units and parity: `python tests/run_units.py` (Node.js 24 required); `--include-concurrency` also runs the real race.
-- Complete Python suite: `python -m pytest -q` (106 passing on Windows and Docker, including the real race).
+- Complete Python suite: `python -m pytest -q` (121 passed on Windows and in Docker after team integration).
 - Docker: `docker build -t common-ground .`; see INSTALL.md for persistent-volume startup.
 
 Tests passed locally and inside the image. Keep reset operations restricted to
@@ -180,7 +195,7 @@ The [2026-11-25 deeper test round](docs/qa-2026-11-25.md) and [case matrix](docs
 
 The [XSS/matching/CI supplement](docs/qa-supplement-2026-11-25.md) adds direct product escaping units, 1,241 same-input score comparisons, eight sort groups, and 11 backend entry/generator cases. That supplement verified: Windows/Docker 100 Python cases, 12 frontend units and 12 browser groups pass; Python branch coverage is 184/208 (88.46%). The existing CI now includes those checks and browser/HTTP flows; hosted Actions remains unrun until publication. [QA3-04](docs/issues/QA3-04-unicode-version.md) was subsequently repaired with backend-authoritative score/rank; see the [repair verification](docs/qa3-04-fix-2026-11-25.md). The default live API gate passes; the original offline-function diagnostic is retained separately. Per the user request, teacher resume-permission clarification and related documentation/test adjustments are deferred; preserve the existing policy and tests in this task.
 
-QA3-04 current verification: Windows/Docker 106 Python cases, 15 frontend units, 1,243 API score cases/eight sort groups, and 20 browser groups pass. Profile/job/status snapshots, server-side draft preview and focus/visible-page refresh preserve live score/order consistency; unsaved drafts are protected. Python coverage is 852/892 statements and 185/210 branch exits. Remote Actions and final main remain unrun; no publish or push was performed.
+Historical QA3-04 verification before team integration: Windows/Docker 106 Python cases, 15 frontend units, 1,243 API score cases/eight sort groups, and 20 browser groups pass. Profile/job/status snapshots, server-side draft preview and focus/visible-page refresh preserve live score/order consistency; unsaved drafts are protected. Python coverage is 852/892 statements and 185/210 branch exits. Remote Actions and final main remain unrun; no publish or push was performed.
 
 ## Milestone tracker
 
@@ -194,10 +209,10 @@ agent remain labeled as such. External submission actions are tracked separately
 | M1 | Define architecture, schema, routes, permissions, screens, and transaction design | done | SPEC.md and implementation plan; agent choices recorded |
 | M2 | Application factory, database/migrations, configuration, Docker foundation | done | Docker build, startup, repeat migration, and volume persistence verified |
 | M3 | Authentication, authorization, candidate/company profiles, private resumes | done | Auth/profile/direct-request/session regression tests pass |
-| M4 | Jobs, matching, applications, employer applicant management | done | Workflow tests, all score examples, both tie-breakers and deletion conflicts pass |
-| M5 | Availability and atomic interview booking | done | Eligibility/conflict tests and synchronized two-connection race pass |
-| M6 | Security checks and browser workflow polish | done | Independent review fixes tested; desktop and 390px mobile checks pass |
-| M7 | Deterministic seed, CI, documentation, audit and submission readiness | in progress | Local delivery verified; hosted CI, label import, public main commit and submission remain external team actions |
+| M4 | Jobs, matching, applications, employer applicant management | done | Workflow tests, matching, deletion conflicts, and invalid job writes pass |
+| M5 | Availability and atomic interview booking | done | Ownership, time validation, and the synchronized race verified. Calendar selection after last-slot deletion and refresh passed in the browser and regression suite |
+| M6 | Security checks and browser workflow polish | done | Direct resume access, booking conflict visibility, CSRF, and JavaScript rendering regressions passed locally and in Docker. Browser sign-in, booking, employer visibility, and logout passed during the earlier security follow-up |
+| M7 | Deterministic seed, CI, documentation, audit and submission readiness | in progress | Combined QA/team changes verified locally and in Docker; hosted results belong to the exact PR commit. Public final main and course submission remain team actions |
 
 Security, tests, and documentation accompany each milestone; M6 and M7 consolidate
 their verification rather than postponing them until the end.
@@ -216,10 +231,7 @@ their verification rather than postponing them until the end.
 - Keep the guide concise. Put detailed design in `SPEC.md`, command instructions
   in `INSTALL.md`, and test mapping in `README.md`; use Git history for old progress.
 
-**Next action:** before course submission, complete the team roster, import
-GitHub audit labels, observe hosted CI, and submit the exact public `main`
-commit. Publishing `platform-draft` does not satisfy FP-SUB-1. Do not mark
-those external actions done based on local tests alone.
+**Next action:** review the QA pull request into `platform-draft` and its exact hosted checks. Before course submission, verify the final public `main` commit, team roster and audit labels. Draft-branch CI alone does not satisfy FP-SUB-1.
 
 ## Reference patterns
 

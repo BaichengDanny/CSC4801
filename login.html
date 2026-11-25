@@ -666,6 +666,19 @@
   }
 
   var hosted = location.protocol !== "file:";
+  async function submitAccount(path, body, errorMessage) {
+    var session = await fetch("/api/auth/csrf", { credentials: "same-origin" });
+    if (!session.ok) throw new Error("Could not start a secure session. Reload the page and try again.");
+    var token = (await session.json()).csrfToken;
+    var response = await fetch(path, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
+      body: JSON.stringify(body)
+    });
+    var data = await response.json();
+    if (!response.ok) throw new Error((data && data.message) || errorMessage);
+  }
   function signIn(payload) {
     if (!hosted) {
       return new Promise(function (resolve, reject) {
@@ -676,36 +689,22 @@
       });
     }
     var role = payload.role === "recruiter" ? "Employer" : "Candidate";
-    return fetch("/api/auth/login", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: payload.email, password: payload.password, role: role })
-    }).then(function (response) {
-      return response.json().then(function (data) {
-        if (!response.ok) throw new Error((data && data.message) || "Could not sign in.");
-        return { redirect: ROLES[payload.role].redirect };
-      });
+    return submitAccount("/api/auth/login", {
+      email: payload.email, password: payload.password, role: role
+    }, "Could not sign in.").then(function () {
+      return { redirect: ROLES[payload.role].redirect };
     });
   }
   function registerAccount(payload) {
     if (!hosted) return Promise.reject(new Error("Open the running app to create an account."));
-    return fetch("/api/auth/register", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: payload.email,
-        password: payload.password,
-        role: payload.role === "recruiter" ? "Employer" : "Candidate",
-        name: payload.name,
-        company: payload.company
-      })
-    }).then(function (response) {
-      return response.json().then(function (data) {
-        if (!response.ok) throw new Error((data && data.message) || "Could not create the account.");
-        return { redirect: ROLES[payload.role].redirect };
-      });
+    return submitAccount("/api/auth/register", {
+      email: payload.email,
+      password: payload.password,
+      role: payload.role === "recruiter" ? "Employer" : "Candidate",
+      name: payload.name,
+      company: payload.company
+    }, "Could not create the account.").then(function () {
+      return { redirect: ROLES[payload.role].redirect };
     });
   }
 

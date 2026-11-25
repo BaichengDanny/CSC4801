@@ -73,19 +73,38 @@ sign-in page.
 | GET `/health` | Lightweight health endpoint |
 | GET `/sign-in` | Matchwork sign-in and account creation |
 | GET `/candidate/...`, GET `/recruiter/...`, GET `/shared/...` | Matchwork HTML, CSS, and scripts |
+| GET `/api/auth/csrf` | Issue or read the current session's CSRF token before sign-in or registration |
 | POST `/api/auth/register`, POST `/api/auth/login`, POST `/api/auth/logout`, GET `/api/auth/me` | JSON registration and session |
 | GET `/api/candidate/bootstrap`, POST `/api/candidate/profile`, POST `/api/candidate/matching-preview`, POST `/api/candidate/applications`, POST `/api/candidate/applications/<id>/book` | Candidate reads and writes |
+| GET and POST `/api/candidate/<candidate_id>/resume` | Read or replace the owning candidate's raw-text resume |
 | GET `/api/employer/bootstrap`, POST `/api/employer/jobs`, POST `/api/employer/jobs/<id>`, POST `/api/employer/jobs/<id>/delete`, POST `/api/employer/applications/<id>/status`, POST `/api/employer/slots`, POST `/api/employer/slots/<id>/delete`, POST `/api/employer/company` | Employer reads and writes |
 
 JSON routes that consume a request payload require a JSON object; malformed, empty, null and scalar bodies return 400. Explicit empty objects remain valid for partial updates. JSON resource IDs accept positive signed-64-bit integers or integer strings; booleans and floats are rejected as missing records (404) rather than coerced.
 
-Job creation and editing wrap core fields and page metadata in one transaction. Nested service transactions use SQLite savepoints, so rejected metadata rolls back the complete request.
+Job services validate core fields and page metadata together and save them in one transaction. Nested service transactions use SQLite savepoints, so a failed composed write rolls back the complete request.
 
 JSON routes return `{ok, message}` with the same 401/403/404/409 contract.
-They authenticate with the SameSite session cookie and do not use the form
-CSRF token. Matchwork shows slot times in Pacific Time; values are stored as
+Every POST requires the session's CSRF token in `X-CSRF-Token`. Missing or
+mismatched tokens return 403. The sign-in page obtains the token from
+`/api/auth/csrf`. Successful login or registration rotates it. Signed-in
+pages use the token returned by `/api/auth/me`. Token responses use `no-store`.
+The direct resume route returns 403 for other candidates and employers before
+reading the profile or validating the write body. An owner whose profile row
+is missing receives 404. POST accepts a `resume` string and updates only that
+field. A profile edit that omits `resume` preserves the stored resume.
+
+Matchwork shows slot times in Pacific Time; values are stored as
 UTC. An employer's new slots are attached to that employer's oldest job so the
-existing slot-to-job rule still applies.
+existing slot-to-job rule still applies. Candidate job and slot cards carry the
+same employer ID. Candidate company profiles are keyed by this ID, and the
+booking picker uses it to identify eligible slots across that employer’s jobs.
+The candidate bootstrap returns the viewer's own bookings, including past
+bookings, and future unbooked slots for employers with an `Interviewing`
+application of the viewer that has yet to be booked.
+
+Job create and edit validate and save the title, description, skills, summary,
+location, job type, and posting status in one database operation. Partial edits
+resolve omitted fields from the current record inside the write transaction.
 
 ## Interface design
 
@@ -94,7 +113,7 @@ Fonts, a light card layout, and a sidebar on the dashboards. Sign-in and account
 creation share `login.html`; the candidate and employer roles are tabs on that
 page. Job cards, applicant rows, and interview slots are rendered by the page
 scripts from JSON. The page scripts escape text before inserting it into HTML. Live candidate and employer portals share `shared/html.js::escape`, which handles HTML text and quoted attributes and is called directly by Node unit tests. URL validation is a separate responsibility.
-Live job cards include a stable `employerId`. Candidate company records are keyed by that ID, and availability is matched against slot owner IDs; company names are display text and need not be unique. The standalone demo keeps its name-keyed catalog.
+Live job cards include the stable employer ID as `owner` and the compatible `employerId` alias. Candidate company records are keyed by that ID, and availability is matched against slot owner IDs; company names are display text and need not be unique. The standalone demo keeps its name-keyed catalog.
 
 Saved jobs are kept in `sessionStorage` under `mw.saved`. Mobile layouts stack
 the columns. The repository and Docker image name remain Common Ground.
@@ -149,20 +168,25 @@ the retained counterexamples.
 
 ## Scheduling and concurrency
 
-Service inputs must be timezone-aware ISO timestamps and are stored as epoch
-seconds. The Matchwork pages label those times Pacific Time (PST UTC-8 / PDT UTC-7). A configurable
-`NOW` callable supplies the current UTC time, allowing fixed-clock tests and
-reproducible seed commands.
+The slot API accepts ISO timestamps with explicit offsets or `Z`, at whole-second
+precision. It stores UTC epoch seconds. Matchwork uses `America/Los_Angeles`
+(Pacific Time, PST in winter and PDT in summer). Manual entry rejects skipped
+and repeated wall times during clock changes. Times spanning midnight end on
+the following date when the start is in the 23:00 hour and the end is in the
+00:00 hour. The employer calendar shows the next 14 days plus any farther future
+date with a slot. It also includes the date selected by a valid `day` URL
+parameter for today or later, even after the last slot on that day is removed.
+A configurable `NOW` callable supplies the current UTC time for testing and seeding.
 
-The slot API reuses the service parser and requires an explicit timezone and whole seconds. Out-of-range UTC dates return 400. Pacific wall times use the offset at the converted instant, and the manual form rejects the skipped spring-forward hour.
-
-Slot creation validates future start and exactly 30 minutes before writing.
+Slot creation validates a future start and exactly 30 minutes. It checks for
+overlap with the same employer’s slots inside the write transaction.
 Booking uses `BEGIN IMMEDIATE` to serialize competing writers. Inside the same
-transaction it reloads application/status and slot ownership/availability, checks
-all eligibility predicates, and inserts one booking. Unique constraints on slot
-and application IDs provide a second database guard. The loser of a same-slot race
-gets 409 with exactly `Slot already booked`. SQLite waits up to 10 seconds for a
-writer; unrelated lock exhaustion is 503, not falsely labeled a booked slot.
+transaction it verifies application ownership, `Interviewing` status, and the
+absence of a previous booking before looking up the slot. It checks the slot's
+employer and future start before reporting its booking state. Unique constraints
+on slot and application IDs provide a second database guard. The loser of an
+eligible same-slot race gets 409 with exactly `Slot already booked`. SQLite waits
+up to 10 seconds for a writer. Unrelated lock exhaustion returns 503.
 Status changes, deletion, and booking use write transactions so validations and
 mutations see consistent state. A booking survives later status changes.
 
@@ -170,9 +194,10 @@ mutations see consistent state. A booking survives later status changes.
 
 Parameterized SQL only; dynamic identifiers are internal constants. API
 responses are JSON, so user text is data rather than an HTML document. The
-Matchwork pages escape user text before inserting it. JSON routes authenticate
-with the SameSite session cookie. Any other POST still requires the session
-CSRF token. Limit request bodies to 1 MiB, passwords to 256 characters,
+Matchwork pages escape user text before inserting it. Protected routes authenticate
+with the SameSite session cookie. The request hook verifies the session-bound
+CSRF token for every POST, including those with empty bodies. Limit request
+bodies to 1 MiB, passwords to 256 characters,
 resumes/descriptions to documented service limits. Security headers include a
 same-origin content policy that allows the Google font stylesheets used by the
 pages, plus frame denial. HTTPS deployments set `COOKIE_SECURE=1`; local HTTP

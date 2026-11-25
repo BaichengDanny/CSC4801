@@ -1,3 +1,4 @@
+const { postWithCsrf } = require('./session.cjs');
 /* QA3-04: real authenticated APIs -> live portal DOM, score/order and refresh. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright');
@@ -7,7 +8,7 @@ const run=Date.now().toString(36),contexts=[],results=[],pageErrors=[];
 const cases=[['\u1C89','\u1C8A'],['\uA7CB','\u0264']];
 let browser,cp,ep,candidate,employer,other,ids=[],apps=[];
 async function post(ctx,route,data,expected=200){
- const response=await ctx.request.post(base+route,{data});
+ const response=await postWithCsrf(ctx, base, route, data);
  assert.equal(response.status(),expected,await response.text());return response.json();
 }
 async function bootstrap(ctx,role){

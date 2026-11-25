@@ -7,11 +7,13 @@
   /* Served by Flask, the page loads its data from the JSON API. file:// and the
      single-file build keep the local demo store. */
   const HOSTED = !window.__MW_PAGES && /^https?:$/.test(location.protocol);
+  let csrfToken;
   function api(method, path, payload) {
     const xhr = new XMLHttpRequest();
     xhr.open(method, path, false);
     xhr.withCredentials = true;
     if (payload !== undefined) xhr.setRequestHeader('Content-Type', 'application/json');
+    if (method === 'POST' && csrfToken) xhr.setRequestHeader('X-CSRF-Token', csrfToken);
     xhr.send(payload === undefined ? null : JSON.stringify(payload));
     let data = null;
     try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { data = { message: 'Unexpected response' }; }
@@ -22,6 +24,7 @@
     const me = api('GET', '/api/auth/me');
     if (!(me.status === 200 && me.data && me.data.role === 'Candidate')) location.replace('/sign-in#candidate');
     else {
+      csrfToken = me.data.csrfToken;
       const loaded = api('GET', '/api/candidate/bootstrap');
       if (loaded.status === 200) boot = loaded.data;
       else location.replace('/sign-in#candidate');
@@ -50,7 +53,10 @@
   const fmtDate = (d) => fmt(d, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const fmtShort = (d) => fmt(d, { month: 'short', day: 'numeric' });
   const fmtTime = (d) => fmt(d, { hour: 'numeric', minute: '2-digit' });
+  const fmtSlotTime = (d) => fmt(d, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   function fmtRange(s, e) {
+    const from = fmtSlotTime(s), to = fmtSlotTime(e);
+    if (from.split(' ').at(-1) !== to.split(' ').at(-1)) return `${from}–${to}`;
     const a = fmtTime(s), b = fmtTime(e);
     return `${a.slice(-2) === b.slice(-2) ? a.slice(0, -3) : a}–${b} PT`;
   }
@@ -101,10 +107,11 @@
   }
   const DATA = boot ? { companies: boot.companies, jobs: boot.jobs } : (HOSTED ? { companies: {}, jobs: [] } : loadData());
   const COMPANIES = DATA.companies || {};
+  const companyFor = (job) => COMPANIES[job.owner ?? job.company];
   /* Logos live on the company (tools/fetch-logos.mjs fills companies[name].logo/w/h), so every
      posting from a company shares one file. A logo set on the job itself still wins. */
   const JOBS = (DATA.jobs || []).map((j) => {
-    const c = COMPANIES[j.employerId] || COMPANIES[j.company];
+    const c = companyFor(j);
     return !j.logo && c && c.logo ? { ...j, logo: c.logo, w: c.w, h: c.h } : j;
   });
 
@@ -291,7 +298,10 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
   function openSlotsFor(app) {
     const j = job(app.jobId);
     if (!j || app.status !== 'Interviewing' || app.slotId) return [];
-    return state.slots.filter((x) => (live ? x.owner === j.employerId : x.company === j.company) && !x.bookedBy && new Date(x.start) > NOW).sort((a, b) => new Date(a.start) - new Date(b.start));
+    return state.slots.filter((x) => {
+      const sameEmployer = live ? x.owner === j.owner : x.company === j.company;
+      return sameEmployer && !x.bookedBy && new Date(x.start) > NOW;
+    }).sort((a, b) => new Date(a.start) - new Date(b.start));
   }
   function book(appId, slotId) {
     if (live) {
@@ -404,7 +414,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     const missing = j.skills.filter((t) => !hasSkill(mine, t));
     const app = appForJob(j.id);
     const saved = isSaved(j.id);
-    const co = COMPANIES[j.employerId] || COMPANIES[j.company] || {};
+    const co = companyFor(j) || {};
     const summary = j.skills.length
       ? `You have <b class="num">${have.length}</b> of <b class="num">${j.skills.length}</b> required skills`
       : 'This job lists no required skills, so everyone matches';
@@ -970,7 +980,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
   }
 
   window.MW = {
-    $, $$, esc, reduceMotion, NOW, TZ, TZ_LABEL, fmt, fmtDate, fmtShort, fmtTime, fmtRange, dayKey, ago,
+    $, $$, esc, reduceMotion, NOW, TZ, TZ_LABEL, fmt, fmtDate, fmtShort, fmtTime, fmtSlotTime, fmtRange, dayKey, ago,
     matchScore, normalizeSkills, hasSkill, byMatch, COMPANIES, skillKey, sameSkills, previewSkills, refresh, live,
     get state() { return state; }, persist, resetDemo, onChange: (fn) => listeners.add(fn),
     jobs, job, appForJob, slot, isSaved, toggleSave, apply, openSlotsFor, book, updateProfile, profileCompletion, needsBooking,

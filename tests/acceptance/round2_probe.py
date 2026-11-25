@@ -52,7 +52,9 @@ def main():
             clients = {}
             for actor in (c,e):
                 client=app.test_client()
-                assert client.post('/api/auth/login',json={
+                csrf=client.get('/api/auth/csrf')
+                headers={'X-CSRF-Token':csrf.json['csrfToken']} if csrf.status_code==200 else {}
+                assert client.post('/api/auth/login',headers=headers,json={
                     'email':actor['email'],'password':'DemoPass123!','role':actor['role']}).status_code == 200
                 clients[actor['role']]=client
             db=get_db()
@@ -69,7 +71,10 @@ def main():
                         'expected_status':expected}
                 try:
                     response=clients['Employer' if '/employer/' in path else 'Candidate'].post(
-                        path,data=raw,content_type='application/json')
+                        path,data=raw,content_type='application/json',headers=(
+                            {'X-CSRF-Token':clients['Employer' if '/employer/' in path else 'Candidate']
+                             .get('/api/auth/csrf').json['csrfToken']}
+                            if '/api/auth/csrf' in {rule.rule for rule in app.url_map.iter_rules()} else {}))
                     record.update(actual_status=response.status_code,response=response.json,
                                   data_unchanged=state()==before)
                     record['passed']=response.status_code==expected and record['data_unchanged']

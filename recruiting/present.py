@@ -57,7 +57,7 @@ def company_card(row):
     }
 
 
-def job_card(row, owner=None):
+def job_card(row):
     summary = row['summary'] or row['description'].split('\n', 1)[0]
     card = {
         'id': str(row['id']),
@@ -65,6 +65,7 @@ def job_card(row, owner=None):
         'title': row['title'],
         'company': row['company_name'],
         'employerId': str(row['employer_id']),
+        'owner': str(row['employer_id']),
         'location': row['location'] or 'Not listed',
         'type': row['job_type'] or 'Full-time',
         'status': row['posting_status'] or 'Active',
@@ -78,8 +79,6 @@ def job_card(row, owner=None):
     }
     if 'score' in row:
         card.update(score=row['score'], rank=row['rank'])
-    if owner is not None:
-        card['owner'] = str(owner)
     return card
 
 

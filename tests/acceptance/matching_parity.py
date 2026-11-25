@@ -43,7 +43,8 @@ def main():
         password_hash=get_db().execute('SELECT password_hash FROM users WHERE id=?',(e['id'],)).fetchone()[0]
         def login(actor):
             client=app.test_client()
-            response=client.post('/api/auth/login',json={'email':actor['email'],'password':'DemoPass123!','role':actor['role']})
+            token=client.get('/api/auth/csrf').json['csrfToken']
+            response=client.post('/api/auth/login',headers={'X-CSRF-Token':token},json={'email':actor['email'],'password':'DemoPass123!','role':actor['role']})
             assert response.status_code==200,response.json
             return client
         cc,ec=login(c),login(e)

@@ -15,3 +15,5 @@ output/
 *.pptx
 
 node_modules/
+static_analysis_*/
+TODO.md

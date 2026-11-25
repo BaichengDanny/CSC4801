@@ -1,3 +1,4 @@
+const { postWithCsrf } = require('./session.cjs');
 /* Local browser acceptance checks. Requires Playwright and an installed Chromium browser.
    Run with QA_BASE_URL and NODE_PATH configured as described in docs/qa-2026-11-24.md. */
 const assert = require('node:assert/strict');
@@ -43,9 +44,8 @@ async function newContext() {
 }
 
 async function register(context, role, suffix, name) {
-  const response = await context.request.post(base + '/api/auth/register', {
-    data: {email: 'qa-' + runId + '-' + suffix + '@example.test', password, role, name}
-  });
+  const response = await postWithCsrf(context, base, '/api/auth/register',
+    {email: 'qa-' + runId + '-' + suffix + '@example.test', password, role, name});
   assert.equal(response.status(), 201, await response.text());
 }
 
@@ -55,7 +55,7 @@ async function navigate(page, route, globalName) {
 }
 
 async function post(context, route, data, expected = 200) {
-  const response = await context.request.post(base + route, {data});
+  const response = await postWithCsrf(context, base, route, data);
   assert.equal(response.status(), expected, await response.text());
   return response.json();
 }
@@ -221,6 +221,44 @@ async function main() {
     await candidatePage.screenshot({path:path.join(output,'escaped-user-text.png'),fullPage:true});
   });
 
+  await check('closed-job-rejection-does-not-claim-application', async () => {
+    const job = (await post(employerPage.context(), '/api/employer/jobs',
+      {title: 'Closed role ' + runId, body: 'This role is closed', skills: [], status: 'Closed'}, 201)).job;
+    await navigate(candidatePage, '/candidate/jobs?id=' + job.id, 'MW');
+    const button = candidatePage.locator('[data-id="' + job.id + '"] [data-act="apply"]').first();
+    const [response] = await Promise.all([
+      candidatePage.waitForResponse(r => r.url().endsWith('/api/candidate/applications') && r.request().method() === 'POST'),
+      button.click()
+    ]);
+    assert.equal(response.status(), 409);
+    await candidatePage.waitForTimeout(150);
+    assert.equal(await candidatePage.evaluate(id => Boolean(MW.appForJob(id)), job.id), false);
+    assert.equal(await button.getAttribute('aria-disabled'), null);
+    assert.doesNotMatch(await button.innerText(), /Applied/);
+    const applications = await (await candidatePage.context().request.get(base + '/api/candidate/bootstrap')).json();
+    assert.equal(applications.state.applications.some(a => a.jobId === job.id), false);
+  });
+
+  await check('far-future-slot-delete-keeps-selected-calendar-day', async () => {
+    await navigate(employerPage, '/recruiter/interviews', 'RW');
+    const start = new Date(); start.setUTCDate(start.getUTCDate() + 40); start.setUTCHours(18, 0, 0, 0);
+    const slot = (await post(employerPage.context(), '/api/employer/slots',
+      {start: start.toISOString(), end: new Date(start.getTime() + 1800000).toISOString()}, 201)).slot;
+    const day = await employerPage.evaluate(start => RW.ymdOf(new Date(start)), start.toISOString());
+    await navigate(employerPage, '/recruiter/interviews?day=' + day, 'RW');
+    assert.equal(await employerPage.locator('#days [aria-pressed="true"]').getAttribute('data-day'), day);
+    const [response] = await Promise.all([
+      employerPage.waitForResponse(r => r.url().endsWith('/slots/' + slot.id + '/delete')),
+      employerPage.locator('#times button[data-slot="' + slot.id + '"]').click()
+    ]);
+    assert.equal(response.status(), 200);
+    await employerPage.reload({waitUntil: 'domcontentloaded'});
+    await employerPage.waitForFunction(() => Boolean(window.RW));
+    assert.equal(await employerPage.locator('#days [aria-pressed="true"]').getAttribute('data-day'), day);
+    assert.equal(await employerPage.locator('#mDate').inputValue(), day);
+    assert.equal(await employerPage.evaluate(id => RW.state.slots.some(s => s.id === id), slot.id), false);
+  });
+
   await check('pacific-time-roundtrip-on-daylight-saving-transition', async () => {
     await navigate(employerPage, '/recruiter/interviews', 'RW');
     const values = await employerPage.evaluate(() => [
@@ -228,15 +266,20 @@ async function main() {
       window.RW.ptToUtc('2027-11-07', 9, 0)
     ]);
     assert.deepEqual(values, ['2027-03-14T16:00:00.000Z','2027-11-07T17:00:00.000Z']);
-    const skippedHour = await employerPage.evaluate(() => {
-      try {
-        window.RW.ptToUtc('2027-03-14', 2, 30);
-        return 'accepted';
-      } catch (error) {
-        return error.message;
-      }
-    });
-    assert.match(skippedHour, /does not exist in Pacific Time/);
+    const invalidTimes = await employerPage.evaluate(() => [
+      window.RW.ptToUtc('2027-03-14', 2, 30),
+      window.RW.ptToUtc('2027-11-07', 1, 30)
+    ]);
+    assert.deepEqual(invalidTimes, [null, null], 'Reject skipped and repeated wall times');
+    for (const [date, start, end] of [
+      ['2027-03-14', '02:00', '02:30'], ['2027-11-07', '01:00', '01:30']
+    ]) {
+      await employerPage.locator('#mDate').fill(date);
+      await employerPage.locator('#mStart').fill(start);
+      await employerPage.locator('#mEnd').fill(end);
+      await employerPage.locator('#manual button[type=submit]').click();
+      assert.match(await employerPage.locator('#mErr').innerText(), /occurs once in Pacific Time/);
+    }
   });
 
   await check('mobile-pages-fit-390px-viewport', async () => {

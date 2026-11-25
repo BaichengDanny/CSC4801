@@ -1,3 +1,4 @@
+const { postWithCsrf } = require('./session.cjs');
 /* Round-2 regression: identical display names are not employer identities.
    Uses an independent headless browser and new synthetic accounts on a local app. */
 const assert = require('node:assert/strict');
@@ -11,7 +12,7 @@ const contexts = [];
 const run = Date.now().toString(36);
 let browser;
 async function post(context, route, data, expected = 200) {
-  const response = await context.request.post(base + route, {data});
+  const response = await postWithCsrf(context, base, route, data);
   assert.equal(response.status(), expected, await response.text());
   return response.json();
 }

@@ -15,17 +15,27 @@ class Session:
     def __init__(self, base):
         self.base = base.rstrip('/') + '/'
         self.opener = build_opener(ProxyHandler({}), HTTPCookieProcessor(CookieJar()))
+        self.csrf_token = None
 
     def request(self, path, data=None):
+        headers = {'Content-Type': 'application/json'}
+        if data is not None:
+            if self.csrf_token is None:
+                status, token = self.request('/api/auth/csrf')
+                assert status == 200, (path, status)
+                self.csrf_token = token['csrfToken']
+            headers['X-CSRF-Token'] = self.csrf_token
         request = Request(urljoin(self.base, path.lstrip('/')),
                           data=None if data is None else json.dumps(data).encode(),
-                          headers={'Content-Type': 'application/json'})
+                          headers=headers)
         try:
             response = self.opener.open(request, timeout=20)
         except HTTPError as error:
             response = error
         with response:
             raw = response.read().decode()
+            if path in ('/api/auth/register', '/api/auth/login', '/api/auth/logout') and response.status < 300:
+                self.csrf_token = None  # Authentication rotates the session token.
             return response.status, json.loads(raw)
 
     def post(self, path, data, expected=200):

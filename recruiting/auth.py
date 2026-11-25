@@ -36,17 +36,14 @@ def load_user():
             g.user = accounts.user(row['user_id'])
         else:
             session.clear()
-    if request.method == 'POST' and request.path.startswith('/api/'):
-        # JSON routes rely on the SameSite session cookie instead of a form token.
-        if g.user is None and request.endpoint not in ('api.login', 'api.register'):
-            raise DomainError(401, 'Please sign in to continue.')
+    if request.method != 'POST':
         return
-    if request.method == 'POST':
-        if request.endpoint not in ('auth.login', 'auth.register') and g.user is None:
-            raise DomainError(401, 'Please sign in to continue.')
-        expected, supplied = session.get('csrf_token'), request.form.get('csrf_token')
-        if not expected or not supplied or not hmac.compare_digest(expected.encode('utf-8'), supplied.encode('utf-8')):
-            raise DomainError(400, 'Your form expired. Reload the page and try again.')
+    if g.user is None and request.endpoint not in ('api.login', 'api.register'):
+        raise DomainError(401, 'Please sign in to continue.')
+    expected = session.get('csrf_token')
+    supplied = request.headers.get('X-CSRF-Token')
+    if not expected or not supplied or not hmac.compare_digest(expected.encode('utf-8'), supplied.encode('utf-8')):
+        raise DomainError(403, 'Your form expired. Reload the page and try again.')
 
 
 def end_session():

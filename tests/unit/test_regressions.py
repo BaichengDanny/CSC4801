@@ -1,8 +1,17 @@
+from pathlib import Path
+import subprocess
+
 import pytest
 
 
 def login(client, email, role):
     return client.post('/api/auth/login', json={'email': email, 'password': 'DemoPass123!', 'role': role})
+
+
+def test_interview_calendar_preserves_selected_day_after_last_slot_is_deleted():
+    script = Path(__file__).with_name('interview_calendar.cjs')
+    result = subprocess.run(['node', script], capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 @pytest.mark.parametrize('path', [

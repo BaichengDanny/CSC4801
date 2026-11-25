@@ -179,7 +179,7 @@
           </button>`).join('')}</div>
         <p class="bk-label" id="tl-${esc(a.id)}">Choose a time on ${esc(MW.fmt(daySlots[0].start, { weekday: 'long', month: 'short', day: 'numeric' }))}</p>
         <div class="slots" role="radiogroup" aria-labelledby="tl-${esc(a.id)}">${daySlots.map((s) => `
-          <label class="slot" data-slot="${esc(s.id)}"><input type="radio" name="slot-${esc(a.id)}" value="${esc(s.id)}"${s.id === p.slotId ? ' checked' : ''}><span class="r-sm">${esc(MW.fmtTime(s.start))}</span></label>`).join('')}</div>
+          <label class="slot" data-slot="${esc(s.id)}"><input type="radio" name="slot-${esc(a.id)}" value="${esc(s.id)}"${s.id === p.slotId ? ' checked' : ''}><span class="r-sm">${esc(MW.fmtSlotTime(s.start))}</span></label>`).join('')}</div>
         ${notes[a.id] ? `<p class="bk-msg r-sm" role="alert">${esc(notes[a.id])}</p>` : ''}
         <div class="panel bk-bar">
           <p>${chosen ? `<b>${esc(MW.fmt(chosen.start, { weekday: 'short', month: 'short', day: 'numeric' }))}</b>, ${esc(MW.fmtRange(chosen.start, chosen.end))}` : 'No time selected yet'}</p>
