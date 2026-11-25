@@ -168,11 +168,22 @@ def update_candidate_profile():
         g.user,
         data.get('name', current['display_name']),
         skills,
-        data.get('resume', current['resume']),
+        data.get('resume', accounts.UNCHANGED),
         headline=data.get('headline', current['headline']),
         location=data.get('location', current['location']),
     )
     return {'ok': True, 'profile': present.candidate_profile(g.user, updated)}
+
+
+@bp.route('/candidate/<int:candidate_id>/resume', methods=['GET', 'POST'])
+@as_role('Candidate')
+def candidate_resume(candidate_id):
+    accounts.require_owner(g.user, candidate_id)
+    if request.method == 'POST':
+        resume = accounts.replace_resume(g.user, body().get('resume'))
+    else:
+        resume = accounts.profile(g.user, candidate_id)['resume']
+    return {'ok': True, 'resume': resume}
 
 
 @bp.post('/candidate/applications')

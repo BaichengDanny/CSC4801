@@ -99,16 +99,17 @@ def book(actor, application_id, slot_id):
     # The second writer waits, then reads the committed booking and returns 409.
     with transaction() as db:
         application = jobs.application(actor, application_id)
-        availability = slot(slot_id)
-        if availability['employer_id'] != application['employer_id']:
-            raise DomainError(403, 'Choose a slot belonging to this application\'s employer.')
-        if availability['application_id'] is not None:
-            raise DomainError(409, 'Slot already booked')
+        # Check the application before looking up anyone else's availability.
         if application['booking'] is not None:
             raise DomainError(409, 'This application already has an interview booking.')
         if application['status'] != 'Interviewing':
             raise DomainError(409, 'Only Interviewing applications can book an interview.')
+        availability = slot(slot_id)
+        if availability['employer_id'] != application['employer_id']:
+            raise DomainError(403, 'Choose a slot belonging to this application\'s employer.')
         if availability['starts_at'] <= now_timestamp():
             raise DomainError(409, 'This interview slot is no longer in the future.')
+        if availability['application_id'] is not None:
+            raise DomainError(409, 'Slot already booked')
         db.execute('INSERT INTO bookings(application_id,slot_id) VALUES (?,?)', (application_id, slot_id))
     return jobs.booking_for(application_id)

@@ -9,6 +9,10 @@ from .errors import DomainError
 from .matching import normalize_skills
 
 
+RESUME_LIMIT = 50_000
+UNCHANGED = object()
+
+
 def require_role(actor, role):
     if actor is None:
         raise DomainError(401, 'Please sign in to continue.')
@@ -89,18 +93,28 @@ def update_profile(actor, display_name, skills, resume, headline=None, location=
     require_role(actor, 'Candidate')
     name = text_value(display_name, 'Display name', 100)
     normalized = normalize_skills(skills)
-    resume = text_value(resume, 'Resume', 50000, required=False)
+    resume = None if resume is UNCHANGED else text_value(resume, 'Resume', RESUME_LIMIT, required=False)
     current = get_db().execute(
         'SELECT headline, location FROM candidate_profiles WHERE user_id = ?', (actor['id'],)).fetchone()
     headline = current['headline'] if headline is None else text_value(headline, 'Headline', 160, required=False).strip()
     location = current['location'] if location is None else text_value(location, 'Location', 120, required=False).strip()
     with transaction() as db:
         db.execute('UPDATE users SET display_name = ? WHERE id = ?', (name, actor['id']))
-        db.execute('UPDATE candidate_profiles SET resume = ?, headline = ?, location = ? WHERE user_id = ?',
-                   (resume, headline, location, actor['id']))
+        db.execute('UPDATE candidate_profiles SET resume = COALESCE(?, resume), headline = ?, location = ? '
+                   'WHERE user_id = ?', (resume, headline, location, actor['id']))
         db.execute('DELETE FROM candidate_skills WHERE candidate_id = ?', (actor['id'],))
         db.executemany('INSERT INTO candidate_skills VALUES (?,?)', [(actor['id'], s) for s in normalized])
     return profile(actor, actor['id'])
+
+
+def replace_resume(actor, resume):
+    require_role(actor, 'Candidate')
+    resume = text_value(resume, 'Resume', RESUME_LIMIT, required=False)
+    with transaction() as db:
+        updated = db.execute('UPDATE candidate_profiles SET resume = ? WHERE user_id = ?', (resume, actor['id']))
+        if updated.rowcount == 0:
+            raise DomainError(404, 'Candidate profile not found.')
+    return resume
 
 
 def company(actor):

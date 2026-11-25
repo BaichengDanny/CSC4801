@@ -211,10 +211,13 @@ a.t.booked:hover{background:#E8E1FA;border-color:#CFC2F2;color:#4A31B0}
   function calendarDays(selectedDay) {
     const datesWithSlots = RW.ownSlots().filter((slot) => new Date(slot.start) > RW.NOW)
       .map((slot) => RW.ymdOf(slot.start));
-    return [...new Set([...upcomingDays, ...datesWithSlots, ...(selectedDay ? [selectedDay] : [])])].sort();
+    return [...new Set([...upcomingDays, ...datesWithSlots, selectedDay])].sort();
   }
   const requestedDay = RW.params().get('day');
-  const st = { day: calendarDays().includes(requestedDay) ? requestedDay : today, showPast: false };
+  // Keep an explicitly selected date even if its last slot was deleted.
+  const validDay = /^\d{4}-\d{2}-\d{2}$/.test(requestedDay || '') &&
+    requestedDay >= today && addDays(requestedDay, 0) === requestedDay;
+  const st = { day: validDay ? requestedDay : today, showPast: false };
 
   RW.mountShell('interviews');
 

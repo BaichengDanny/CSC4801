@@ -13,3 +13,5 @@ instance/
 output/
 .superpowers/
 *.pptx
+static_analysis_*/
+TODO.md

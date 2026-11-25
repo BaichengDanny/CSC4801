@@ -58,6 +58,69 @@ def test_resume_stays_private_and_user_text_is_json(app, people):
     assert employer_body['state']['jobs'][0]['title'] == visible
 
 
+def test_direct_resume_requires_candidate_ownership(app, people):
+    candidate_id = people['candidate']['id']
+    path = f'/api/candidate/{candidate_id}/resume'
+    guest = app.test_client()
+    assert guest.get(path).status_code == 401
+    assert guest.post(path, json={'resume': 'New text'}).status_code == 401
+
+    owner = app.test_client()
+    assert login(owner).status_code == 200
+    own_resume = owner.get(path)
+    assert own_resume.status_code == 200 and own_resume.cache_control.no_store
+    assert own_resume.json == {'ok': True, 'resume': 'Private resume'}
+    for email, role in (('blair@example.test', 'Candidate'), ('north@example.test', 'Employer')):
+        other = app.test_client()
+        assert login(other, email, role).status_code == 200
+        for response in (other.get(path), other.post(path, json={'resume': 'New text'}),
+                         other.post(path, json=['Invalid body'])):
+            assert response.status_code == 403
+            assert 'resume' not in response.json
+    assert owner.get(path).json['resume'] == 'Private resume'
+
+    assert owner.post(path, json={'resume': 'New text'}, csrf=False).status_code == 403
+    assert owner.post(path, json={}).status_code == 400
+    saved = owner.post(path, json={'resume': '  Updated text\n'})
+    assert saved.status_code == 200
+    assert saved.json['resume'] == '  Updated text\n'
+    profile = owner.get('/api/candidate/bootstrap').json['state']['profile']
+    assert profile['resume'] == '  Updated text\n'
+    assert profile['name'] == 'Alex Morgan' and profile['skills'] == ['python', 'sql']
+    assert owner.post(path, json={'resume': ''}).json['resume'] == ''
+    assert owner.get(path).json['resume'] == ''
+
+
+def test_direct_resume_returns_404_when_owners_profile_is_missing(app, people):
+    from recruiting.db import get_db
+
+    candidate_id = people['candidate']['id']
+    get_db().execute('DELETE FROM candidate_profiles WHERE user_id = ?', (candidate_id,))
+    owner = app.test_client()
+    assert login(owner).status_code == 200
+    path = f'/api/candidate/{candidate_id}/resume'
+    assert owner.get(path).status_code == 404
+    assert owner.post(path, json={'resume': 'New text'}).status_code == 404
+
+
+def test_profile_edit_preserves_resume_saved_since_profile_was_read(app, people, monkeypatch):
+    from recruiting import accounts
+
+    owner = app.test_client()
+    assert login(owner).status_code == 200
+    original = accounts.update_profile
+
+    def update_after_resume_save(actor, *args, **kwargs):
+        accounts.replace_resume(actor, 'Newer resume')
+        return original(actor, *args, **kwargs)
+
+    monkeypatch.setattr(accounts, 'update_profile', update_after_resume_save)
+    response = owner.post('/api/candidate/profile', json={'name': 'Updated Name'})
+    assert response.status_code == 200
+    assert response.json['profile']['name'] == 'Updated Name'
+    assert response.json['profile']['resume'] == 'Newer resume'
+
+
 def test_candidate_and_employer_api_browser_workflow(app, people):
     employer = app.test_client()
     login(employer, 'north@example.test', 'Employer')

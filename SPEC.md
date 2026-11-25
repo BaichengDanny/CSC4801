@@ -76,6 +76,7 @@ sign-in page.
 | GET `/api/auth/csrf` | Issue or read the current session's CSRF token before sign-in or registration |
 | POST `/api/auth/register`, POST `/api/auth/login`, POST `/api/auth/logout`, GET `/api/auth/me` | JSON registration and session |
 | GET `/api/candidate/bootstrap`, POST `/api/candidate/profile`, POST `/api/candidate/applications`, POST `/api/candidate/applications/<id>/book` | Candidate reads and writes |
+| GET and POST `/api/candidate/<candidate_id>/resume` | Read or replace the owning candidate's raw-text resume |
 | GET `/api/employer/bootstrap`, POST `/api/employer/jobs`, POST `/api/employer/jobs/<id>`, POST `/api/employer/jobs/<id>/delete`, POST `/api/employer/applications/<id>/status`, POST `/api/employer/slots`, POST `/api/employer/slots/<id>/delete`, POST `/api/employer/company` | Employer reads and writes |
 
 JSON routes return `{ok, message}` with the same 401/403/404/409 contract.
@@ -83,6 +84,11 @@ Every POST requires the session's CSRF token in `X-CSRF-Token`. Missing or
 mismatched tokens return 403. The sign-in page obtains the token from
 `/api/auth/csrf`. Successful login or registration rotates it. Signed-in
 pages use the token returned by `/api/auth/me`. Token responses use `no-store`.
+The direct resume route returns 403 for other candidates and employers before
+reading the profile or validating the write body. An owner whose profile row
+is missing receives 404. POST accepts a `resume` string and updates only that
+field. A profile edit that omits `resume` preserves the stored resume.
+
 Matchwork shows slot times in Pacific Time; values are stored as
 UTC. An employer's new slots are attached to that employer's oldest job so the
 existing slot-to-job rule still applies. Candidate job and slot cards carry the
@@ -123,17 +129,19 @@ precision. It stores UTC epoch seconds. Matchwork uses `America/Los_Angeles`
 and repeated wall times during clock changes. Times spanning midnight end on
 the following date when the start is in the 23:00 hour and the end is in the
 00:00 hour. The employer calendar shows the next 14 days plus any farther future
-date with a slot, including saved dates after reload. A configurable `NOW`
-callable supplies the current UTC time for testing and seeding.
+date with a slot. It also includes the date selected by a valid `day` URL
+parameter for today or later, even after the last slot on that day is removed.
+A configurable `NOW` callable supplies the current UTC time for testing and seeding.
 
 Slot creation validates a future start and exactly 30 minutes. It checks for
 overlap with the same employer’s slots inside the write transaction.
 Booking uses `BEGIN IMMEDIATE` to serialize competing writers. Inside the same
-transaction it reloads application/status and slot ownership/availability, checks
-all eligibility predicates, and inserts one booking. Unique constraints on slot
-and application IDs provide a second database guard. The loser of a same-slot race
-gets 409 with exactly `Slot already booked`. SQLite waits up to 10 seconds for a
-writer; unrelated lock exhaustion is 503, not falsely labeled a booked slot.
+transaction it verifies application ownership, `Interviewing` status, and the
+absence of a previous booking before looking up the slot. It checks the slot's
+employer and future start before reporting its booking state. Unique constraints
+on slot and application IDs provide a second database guard. The loser of an
+eligible same-slot race gets 409 with exactly `Slot already booked`. SQLite waits
+up to 10 seconds for a writer. Unrelated lock exhaustion returns 503.
 Status changes, deletion, and booking use write transactions so validations and
 mutations see consistent state. A booking survives later status changes.
 

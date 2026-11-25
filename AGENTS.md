@@ -18,7 +18,9 @@ predates the Matchwork UI.
 
 The 2026-11-25 security follow-up added CSRF validation on POST requests,
 candidate-level filtering of interview slots, and a test of the shipped
-JavaScript renderers. See [SPEC.md](SPEC.md) for the request and visibility rules.
+JavaScript renderers. Direct resume requests enforce ownership. Booking checks
+application eligibility and the slot start before reporting a booking conflict.
+See [SPEC.md](SPEC.md) for the request and visibility rules.
 
 This file records working rules, decisions, and milestone status. Update it as
 work progresses. It does not replace the product specification or installation
@@ -105,6 +107,8 @@ These are reminders of high-risk requirements, not a substitute for the full spe
   operations leave no partial changes. Later status changes preserve bookings.
   Candidate responses include only the viewer's bookings and future open slots
   at employers where the viewer has an unbooked `Interviewing` application.
+  The employer calendar keeps a valid selected date on reload after its last
+  slot is removed.
 - **Concurrency:** enforce booking exclusivity in SQLite, not merely in Python.
   Use transactions and database constraints for unique slot and application
   bookings. A same-slot race must yield one success, one `409` with exactly
@@ -175,8 +179,8 @@ The exact local and Docker commands live in `INSTALL.md`:
 - Migrate: `python -m flask --app recruiting init-db`.
 - Reset/seed local demo data: `python -m flask --app recruiting seed --yes`.
 - Run: `python -m recruiting` (Waitress, default localhost:8080).
-- Required unit suite: `python -m pytest tests/unit -q` (61 passing in the full run on 2026-11-25).
-- Complete suite: `python -m pytest -q` (62 passing locally and in a network-isolated Docker container on 2026-11-25, including the booking race).
+- Required unit suite: `python -m pytest tests/unit -q` (68 passing in the full run on 2026-11-25).
+- Complete suite: `python -m pytest -q` (69 passing locally and in a network-isolated Docker container on 2026-11-25, including the booking race).
 - Docker: `docker build -t common-ground .`; see INSTALL.md for persistent-volume startup.
 
 Tests passed locally and inside the image. Keep reset operations restricted to
@@ -195,8 +199,8 @@ agent remain labeled as such. External submission actions are tracked separately
 | M2 | Application factory, database/migrations, configuration, Docker foundation | done | Docker build, startup, repeat migration, and volume persistence verified |
 | M3 | Authentication, authorization, candidate/company profiles, private resumes | done | Auth/profile/direct-request/session regression tests pass |
 | M4 | Jobs, matching, applications, employer applicant management | done | Workflow tests, matching, deletion conflicts, and invalid job writes pass |
-| M5 | Availability and atomic interview booking | done | Ownership, time validation, remote dates, and the synchronized race verified |
-| M6 | Security checks and browser workflow polish | done | CSRF, slot visibility, and JavaScript rendering regressions passed locally and in Docker. Browser sign-in, booking, employer visibility, and logout passed against a temporary database |
+| M5 | Availability and atomic interview booking | done | Ownership, time validation, and the synchronized race verified. Calendar selection after last-slot deletion and refresh passed in the browser and regression suite |
+| M6 | Security checks and browser workflow polish | done | Direct resume access, booking conflict visibility, CSRF, and JavaScript rendering regressions passed locally and in Docker. Browser sign-in, booking, employer visibility, and logout passed during the earlier security follow-up |
 | M7 | Deterministic seed, CI, documentation, audit and submission readiness | in progress | Clean Docker build and draft CI passed. GitHub is private, audit labels are absent, and the reviewed commit is absent from remote `main` |
 
 Security, tests, and documentation accompany each milestone; M6 and M7 consolidate
