@@ -26,7 +26,7 @@ function renderSelection(day, slots) {
     ptToUtc: (date, hour, minute) => new Date(`${date}T00:00:00Z`).setUTCHours(hour, minute),
     fmt: () => '', fmtLong: () => '', fmtTime: () => '', fmtSlotTime: () => '',
     ownSlots: () => slots, openSlots: () => slots, awaitingBooking: () => [],
-    mountShell() {},
+    mountShell() {}, onChange() {},
   };
 
   vm.runInNewContext(script, { RW }, { filename: pagePath });

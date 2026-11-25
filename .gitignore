@@ -13,5 +13,18 @@ instance/
 output/
 .superpowers/
 *.pptx
+
+node_modules/
 static_analysis_*/
 TODO.md
+
+# Local QA narratives are kept outside the shared source tree.
+/QA_REVIEW_REPORT.md
+/docs/delivery-2026-11-25.md
+/docs/issues/QA3-04-unicode-version.md
+/docs/qa-2026-11-24.md
+/docs/qa-2026-11-25.md
+/docs/qa-round2-matrix.md
+/docs/qa-round2-plan.md
+/docs/qa-supplement-2026-11-25.md
+/docs/qa3-04-fix-2026-11-25.md

@@ -14,7 +14,7 @@ function loadPortal(file, name) {
   document.documentElement = { style: { setProperty() {} } };
   const location = new URL('file:///matchwork-test.html');
   const context = vm.createContext({ window, document, location, EventTarget });
-  for (const asset of ['shared/match.js', file]) {
+  for (const asset of ['shared/html.js', 'shared/match.js', file]) {
     vm.runInContext(fs.readFileSync(path.join(root, asset), 'utf8'), context, { filename: asset });
   }
   return window[name];

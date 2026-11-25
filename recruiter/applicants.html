@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../candidate/assets/shell.css">
 <link rel="stylesheet" href="assets/recruiter.css">
 <link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/html.js"></script>
 <script src="../shared/match.js"></script>
 <script src="assets/recruiter.js"></script>
 <style>
@@ -352,6 +353,7 @@
   renderPick();
   renderTabs();
   renderList(false);
+  RW.onChange(() => { renderPick(); renderTabs(); renderList(false); });
 })();
 </script>
 <span id="mw-ready" hidden></span>

@@ -41,7 +41,7 @@
   /* ---------- Utilities ---------- */
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = window.MWHTML.escape;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* All times are stored in UTC and shown in Pacific Time. */
@@ -73,8 +73,16 @@
   }
 
   /* ---------- Matching (FP-MATCH-1) ----------
-     One implementation for both portals: /shared/match.js (window.MWMatch). */
-  const { normalizeSkills, matchScore, hasSkill, compareJobs: byMatch } = window.MWMatch;
+     Live score/rank comes from the backend. Shared JS only projects it; the calculator serves offline demos. */
+  const legacyMatch = window.MWMatch; // Local file/demo behavior only.
+  const { matchScore } = legacyMatch;
+  const normalizeSkills = (list) => live ? new Set(list || []) : legacyMatch.normalizeSkills(list);
+  const hasSkill = (list, skill) => live ? new Set(list || []).has(skill) : legacyMatch.hasSkill(list, skill);
+  const byMatch = (a, b) => live ? legacyMatch.byServerRank(a, b) : legacyMatch.compareJobs(a, b);
+  const skillKey = (value) => live ? String(value).trim() : String(value).trim().toLowerCase();
+  const sameSkills = (a, b) => live
+    ? JSON.stringify([...a].sort()) === JSON.stringify([...b].sort())
+    : (() => { const A = normalizeSkills(a), B = normalizeSkills(b); return A.size === B.size && [...A].every(x => B.has(x)); })();
 
   /* ---------- Companies + jobs ----------
      Read-only job data lives in assets/jobs.json: { companies: { name: {...} }, jobs: [...] }.
@@ -198,6 +206,51 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     }
     listeners.forEach((fn) => fn(state));
   }
+  function snapshotKey(data) {
+    return JSON.stringify([data.jobs, data.companies, {
+      ...data.state, profile: { ...data.state.profile, resumeUpdated: null },
+      saved: {}, notifRead: false
+    }]);
+  }
+  let lastSnapshot = live ? snapshotKey(boot) : '';
+  function acceptSnapshot(data) {
+    lastSnapshot = snapshotKey(data);
+    const saved = state.saved, notifRead = state.notifRead;
+    Object.assign(state, data.state, { saved, notifRead });
+    Object.keys(COMPANIES).forEach(key => delete COMPANIES[key]);
+    Object.assign(COMPANIES, data.companies);
+    JOBS.splice(0, JOBS.length, ...data.jobs);
+    NOW.setTime(new Date(data.now).getTime());
+    persist();
+  }
+  function refresh(force = false) {
+    if (!live) return false;
+    if (!force) {
+      const leave = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(leave);
+      if (leave.defaultPrevented) return false; // Keep unsaved forms intact.
+    }
+    const res = api('GET', '/api/candidate/bootstrap');
+    if (res.status === 401 || res.status === 403) { location.replace('/sign-in#candidate'); return false; }
+    const error = apiResult(res, 'Could not refresh matching results');
+    if (error) throw new Error(error.message);
+    const previousTime = NOW.getTime();
+    NOW.setTime(new Date(res.data.now).getTime());
+    if (lastSnapshot === snapshotKey(res.data)) {
+      const expired = state.slots.some(slot => new Date(slot.start).getTime() > previousTime && new Date(slot.start) <= NOW);
+      if (expired) persist();
+      return expired;
+    }
+    acceptSnapshot(res.data);
+    return true;
+  }
+  function previewSkills(skills) {
+    if (!live) return jobs().map(j => ({ ...j, baselineScore: j.match, match: matchScore(skills, j.skills) }));
+    const res = api('POST', '/api/candidate/matching-preview', { skills });
+    const error = apiResult(res, 'Could not preview matching results');
+    if (error) throw new Error(error.message);
+    return legacyMatch.fromServer(res.data.jobs);
+  }
   function resetDemo() {
     if (live) { try { sessionStorage.removeItem('mw.saved'); } catch (e) { /* ignore */ } location.reload(); return; }
     state = DEFAULT_STATE(); persist();
@@ -208,6 +261,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
   }
 
   function jobs() {
+    if (live) return legacyMatch.fromServer(JOBS).map(j => ({ ...j, tags: j.skills }));
     const skills = state.profile.skills;
     return JOBS.map((j) => ({ ...j, tags: j.skills, match: matchScore(skills, j.skills) })).sort(byMatch);
   }
@@ -288,8 +342,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     const res = api('POST', '/api/candidate/profile', patch);
     const failed = apiResult(res, 'Could not save your profile');
     if (failed) throw new Error(failed.message);
-    state.profile = res.data.profile;
-    persist();
+    acceptSnapshot(res.data.snapshot);
   }
   function profileCompletion() {
     const p = state.profile;
@@ -842,6 +895,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     let doc, base;
     try {
       doc = await source(key);
+      if (live) refresh(true);
       if (seq !== navSeq) return;
       base = BUNDLE ? location.href : new URL(url, location.href).href;
       await prepareStyles(doc, base);
@@ -918,9 +972,16 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
   /* Dead "#" links never jump. */
   document.addEventListener('click', (e) => { const a = e.target.closest('a[href="#"]'); if (a) e.preventDefault(); });
 
+  if (live) {
+    const update = () => { try { refresh(); } catch (error) { console.warn('Matching refresh failed', error); } };
+    window.addEventListener('focus', update);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
+    setInterval(() => { if (!document.hidden) update(); }, 5000);
+  }
+
   window.MW = {
     $, $$, esc, reduceMotion, NOW, TZ, TZ_LABEL, fmt, fmtDate, fmtShort, fmtTime, fmtSlotTime, fmtRange, dayKey, ago,
-    matchScore, normalizeSkills, hasSkill, byMatch, COMPANIES,
+    matchScore, normalizeSkills, hasSkill, byMatch, COMPANIES, skillKey, sameSkills, previewSkills, refresh, live,
     get state() { return state; }, persist, resetDemo, onChange: (fn) => listeners.add(fn),
     jobs, job, appForJob, slot, isSaved, toggleSave, apply, openSlotsFor, book, updateProfile, profileCompletion, needsBooking,
     ICON, logoHTML, scoreHTML, tagsHTML, statusHTML, applyInner, bodyHTML, initials, jobDetailHTML, wireJobActions,

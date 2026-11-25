@@ -7,10 +7,14 @@
 (function (root) {
   'use strict';
 
+  // Match Python's explicit whitespace set, including BOM, NEL and U+001C–1F.
+  const edgeWhitespace = /^[\u0009-\u000D\u001C-\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]+|[\u0009-\u000D\u001C-\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]+$/g;
+  const cleanSkill = (value) => String(value == null ? '' : value).replace(edgeWhitespace, '').toLowerCase();
+
   function normalizeSkills(list) {
     const out = new Set();
     (list || []).forEach((s) => {
-      const k = String(s == null ? '' : s).trim().toLowerCase();
+      const k = cleanSkill(s);
       if (k) out.add(k);
     });
     return out;
@@ -26,11 +30,19 @@
   }
 
   function hasSkill(candidateSkills, skill) {
-    return normalizeSkills(candidateSkills).has(String(skill == null ? '' : skill).trim().toLowerCase());
+    return normalizeSkills(candidateSkills).has(cleanSkill(skill));
   }
 
   const lc = (s) => String(s == null ? '' : s).toLowerCase();
-  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  // JS's UTF-16 ordering differs from Python for supplementary characters.
+  function cmp(a, b) {
+    const left = Array.from(String(a)), right = Array.from(String(b));
+    for (let index = 0; index < Math.min(left.length, right.length); index++) {
+      const difference = left[index].codePointAt(0) - right[index].codePointAt(0);
+      if (difference) return difference;
+    }
+    return left.length - right.length;
+  }
   /* Integer ids compare numerically so "10" sorts after "2", matching the database. */
   function cmpId(a, b) {
     const as = String(a), bs = String(b);
@@ -40,7 +52,7 @@
 
   /* Candidate dashboard: score desc, then case-insensitive job title, then stable job id. */
   function compareJobs(a, b) {
-    return (b.match - a.match) || cmp(lc(a.title), lc(b.title)) || cmp(a.seq != null ? a.seq : a.id, b.seq != null ? b.seq : b.id);
+    return (b.match - a.match) || cmp(lc(a.title), lc(b.title)) || cmpId(a.id, b.id);
   }
 
   /* Employer applicants: score desc, then case-insensitive display name, then stable candidate id. */
@@ -48,5 +60,20 @@
     return (b.match - a.match) || cmp(lc(a.name), lc(b.name)) || cmpId(a.candidateId, b.candidateId);
   }
 
-  root.MWMatch = Object.freeze({ normalizeSkills, matchScore, hasSkill, compareJobs, compareApplicants });
+  // Live portals consume API facts; these functions never normalize or score.
+  function byServerRank(a, b) {
+    if (!Number.isInteger(a.rank) || a.rank < 0 || !Number.isInteger(b.rank) || b.rank < 0)
+      throw new Error('Missing authoritative API rank');
+    return a.rank - b.rank;
+  }
+  function fromServer(rows) {
+    return rows.map((row) => {
+      if (!Number.isInteger(row.score) || row.score < 0 || row.score > 100 ||
+          !Number.isInteger(row.rank) || row.rank < 0)
+        throw new Error('Missing authoritative API score or rank');
+      return { ...row, match: row.score };
+    }).sort(byServerRank);
+  }
+
+  root.MWMatch = Object.freeze({ fromServer, byServerRank, normalizeSkills, matchScore, hasSkill, compareJobs, compareApplicants });
 })(window);

@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/html.js"></script>
 <script src="../shared/match.js"></script>
 <script src="assets/matchwork.js"></script>
 <style>
@@ -687,15 +688,15 @@ html.mw-loading,html.mw-loading *{cursor:progress}
 
   /* ---------- Data ---------- */
   /* Shared with every candidate page: assets/matchwork.js */
-  const MY_SKILLS = MW.state.profile.skills;
+  let MY_SKILLS = MW.state.profile.skills;
   const CATEGORIES = ['All Jobs', 'Software', 'AI / ML', 'Data', 'Backend', 'Frontend'];
-  const JOBS = MW.jobs();
+  let JOBS = MW.jobs();
 
   const state = { cat: 'All Jobs', query: '', loc: '', minMatch: 0, savedOnly: false, notApplied: false, saved: new Set(Object.keys(MW.state.saved)), applied: new Set(MW.state.applications.map((a) => a.jobId)) };
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = MW.esc;
 
   /* ---------- Greeting by time of day ---------- */
   const hr = new Date().getHours();
@@ -994,6 +995,10 @@ html.mw-loading,html.mw-loading *{cursor:progress}
   /* ---------- Shared data: profile, checklist, next interview, notifications ---------- */
   function renderShared() {
     const p = MW.state.profile;
+    MY_SKILLS = p.skills; JOBS = MW.jobs();
+    state.applied = new Set(MW.state.applications.map(a => a.jobId));
+    state.saved = new Set(Object.keys(MW.state.saved));
+    renderJobs(false); updateSavedBadge(false);
     $('#welcome-title').textContent = p.name;
     $('#avatar').textContent = MW.initials(p.name);
     $('#accountBtn').setAttribute('aria-label', `Account menu for ${p.name}`);

@@ -75,9 +75,13 @@ sign-in page.
 | GET `/candidate/...`, GET `/recruiter/...`, GET `/shared/...` | Matchwork HTML, CSS, and scripts |
 | GET `/api/auth/csrf` | Issue or read the current session's CSRF token before sign-in or registration |
 | POST `/api/auth/register`, POST `/api/auth/login`, POST `/api/auth/logout`, GET `/api/auth/me` | JSON registration and session |
-| GET `/api/candidate/bootstrap`, POST `/api/candidate/profile`, POST `/api/candidate/applications`, POST `/api/candidate/applications/<id>/book` | Candidate reads and writes |
+| GET `/api/candidate/bootstrap`, POST `/api/candidate/profile`, POST `/api/candidate/matching-preview`, POST `/api/candidate/applications`, POST `/api/candidate/applications/<id>/book` | Candidate reads and writes |
 | GET and POST `/api/candidate/<candidate_id>/resume` | Read or replace the owning candidate's raw-text resume |
 | GET `/api/employer/bootstrap`, POST `/api/employer/jobs`, POST `/api/employer/jobs/<id>`, POST `/api/employer/jobs/<id>/delete`, POST `/api/employer/applications/<id>/status`, POST `/api/employer/slots`, POST `/api/employer/slots/<id>/delete`, POST `/api/employer/company` | Employer reads and writes |
+
+JSON routes that consume a request payload require a JSON object; malformed, empty, null and scalar bodies return 400. Explicit empty objects remain valid for partial updates. JSON resource IDs accept positive signed-64-bit integers or integer strings; booleans and floats are rejected as missing records (404) rather than coerced.
+
+Job services validate core fields and page metadata together and save them in one transaction. Nested service transactions use SQLite savepoints, so a failed composed write rolls back the complete request.
 
 JSON routes return `{ok, message}` with the same 401/403/404/409 contract.
 Every POST requires the session's CSRF token in `X-CSRF-Token`. Missing or
@@ -108,18 +112,57 @@ The browser product is **Matchwork**. Pages use Plus Jakarta Sans from Google
 Fonts, a light card layout, and a sidebar on the dashboards. Sign-in and account
 creation share `login.html`; the candidate and employer roles are tabs on that
 page. Job cards, applicant rows, and interview slots are rendered by the page
-scripts from JSON. The page scripts escape text before inserting it into HTML.
+scripts from JSON. The page scripts escape text before inserting it into HTML. Live candidate and employer portals share `shared/html.js::escape`, which handles HTML text and quoted attributes and is called directly by Node unit tests. URL validation is a separate responsibility.
+Live job cards include the stable employer ID as `owner` and the compatible `employerId` alias. Candidate company records are keyed by that ID, and availability is matched against slot owner IDs; company names are display text and need not be unique. The standalone demo keeps its name-keyed catalog.
+
 Saved jobs are kept in `sessionStorage` under `mw.saved`. Mobile layouts stack
 the columns. The repository and Docker image name remain Common Ground.
 
 ## Matching
 
-`recruiting.matching.score(candidate_skills, required_skills)` normalizes inputs,
-returns 100 for an empty required set, otherwise `100 * len(C & R) // len(R)`.
-Resume text is not consulted. Both services call this function. Candidate results
-include every job, sorted by (-score, title.lower(), job_id). Employer applicants
-sort by (-score, display_name.lower(), candidate_id). Profile or job skill edits
-are reflected on the next read; scores are not stale snapshots.
+`recruiting.matching.score(candidate_skills, required_skills)` is the authority
+for both live roles. It normalizes inputs, returns 100 for an empty required set,
+otherwise `100 * len(C & R) // len(R)`. Resume text is not consulted.
+The existing Python 3.12 lowercase behavior is retained; no character-specific
+patch, NFC/NFKC, casefold, or schema migration is introduced.
+
+The explicit edge-whitespace set is U+0009–000D, U+001C–0020, U+0085, U+00A0,
+U+1680, U+2000–200A, U+2028/2029, U+202F, U+205F, U+3000, U+FEFF.
+Internal whitespace and U+200B/U+180E remain data. Stored skills are normalized
+again when scored/presented, so legacy values do not require destructive reset.
+
+Candidate API job cards include integer `score` (0–100) and `rank`. They include
+every non-deleted job and order by (-score, title.lower(), job_id).
+Employer application cards use the same score function and rank by
+(-score, display_name.lower(), candidate_id); a final application-ID key makes
+the optional all-jobs view deterministic when the same candidate has multiple
+applications. Filtering that global list by job preserves the required per-job order.
+
+The live candidate/employer pages consume these facts through
+`shared/match.js::fromServer` and `byServerRank`. They do not recalculate scores,
+Unicode case normalization, or match ordering in JavaScript. IDs remain strings.
+Skills sent to live editors are canonicalized by the backend, and the browser
+compares already canonical skill values without applying a second lowercase.
+
+POST `/api/candidate/matching-preview` requires Candidate authorization and a
+validated skills list. It is read-only and uses the same recommendation service,
+returning sorted draft cards with `score`/`rank` plus `baselineScore` for the
+currently saved profile. This preserves the existing before/after skill preview,
+including when job requirements change while a draft is open.
+
+Profile and job mutations return a fresh `snapshot`; status changes do too.
+Live state accepts it immediately, preserving saved jobs and notification-read
+state. Navigation, window focus, and becoming visible also refresh from the API.
+Visible pages attempt a refresh every five seconds, applying changed results to
+the current DOM. Existing unsaved-form guards pause background adoption until the
+draft is saved or discarded. This is polling/focus refresh, not push delivery.
+
+The standalone file/demo retains its local calculator for offline behavior.
+The original raw Python/JS comparison remains available as
+`matching_parity.py --legacy-functions` and
+`unicode_version_probe.py --legacy-functions`. Its runtime casing differences
+are diagnostic facts about that unused online calculator; the live regression
+now verifies authenticated API -> actual frontend consumption and real pages.
 
 ## Scheduling and concurrency
 

@@ -12,9 +12,10 @@ locally runnable, and understandable by every team member.
 The required local application is implemented under `recruiting/`, with real
 unit tests, a synchronized booking race test, synthetic seed data, and a working
 Docker environment. The user authorized implementation on 2026-11-14. Current
-work is on `platform-draft`. See the [Matchwork specification audit](docs/matchwork-spec-audit-2026-11-25.md)
-for the baseline at `a48647f` and the local repair checks. The [2026-11-14 verification record](docs/verification.md)
-predates the Matchwork UI.
+work uses the QA branch `qa/spec-verification-20261124` based on `platform-draft`.
+The branch includes teammate commits through `c3e5b1c`. The
+[team audit](docs/matchwork-spec-audit-2026-11-25.md) records the earlier baseline;
+the [2026-11-14 record](docs/verification.md) predates Matchwork.
 
 The 2026-11-25 security follow-up added CSRF validation on POST requests,
 candidate-level filtering of interview slots, and a test of the shipped
@@ -179,12 +180,24 @@ The exact local and Docker commands live in `INSTALL.md`:
 - Migrate: `python -m flask --app recruiting init-db`.
 - Reset/seed local demo data: `python -m flask --app recruiting seed --yes`.
 - Run: `python -m recruiting` (Waitress, default localhost:8080).
-- Required unit suite: `python -m pytest tests/unit -q` (68 passing in the full run on 2026-11-25).
-- Complete suite: `python -m pytest -q` (69 passing locally and in a network-isolated Docker container on 2026-11-25, including the booking race).
+- Required unit suite: `python -m pytest tests/unit -q` (120 unit cases passed in the integration run).
+- Full backend/frontend units and parity: `python tests/run_units.py` (Node.js 24 required); `--include-concurrency` also runs the real race.
+- Complete Python suite: `python -m pytest -q` (121 passed on Windows and in Docker after team integration).
 - Docker: `docker build -t common-ground .`; see INSTALL.md for persistent-volume startup.
 
 Tests passed locally and inside the image. Keep reset operations restricted to
 explicit demo/test databases; never seed a user database just to run tests.
+
+Online matching is authoritative in the backend; portal snapshots, draft preview
+and guarded focus/poll refresh use its results. Original offline diagnostics
+remain available in the acceptance scripts. The hosted
+[PR verification](https://github.com/BaichengDanny/CSC4801/actions/runs/45630416506)
+passed for `0ac3d34`. Attribute later CI results to their exact commits.
+
+Per the user request, private QA summaries and round reports remain local and
+are excluded from Git and Docker contexts. Teacher resume-permission
+clarification and related adjustments remain deferred; preserve the existing
+owner-only policy and tests.
 
 ## Milestone tracker
 
@@ -201,7 +214,7 @@ agent remain labeled as such. External submission actions are tracked separately
 | M4 | Jobs, matching, applications, employer applicant management | done | Workflow tests, matching, deletion conflicts, and invalid job writes pass |
 | M5 | Availability and atomic interview booking | done | Ownership, time validation, and the synchronized race verified. Calendar selection after last-slot deletion and refresh passed in the browser and regression suite |
 | M6 | Security checks and browser workflow polish | done | Direct resume access, booking conflict visibility, CSRF, and JavaScript rendering regressions passed locally and in Docker. Browser sign-in, booking, employer visibility, and logout passed during the earlier security follow-up |
-| M7 | Deterministic seed, CI, documentation, audit and submission readiness | in progress | Clean Docker build and draft CI passed. GitHub is private, audit labels are absent, and the reviewed commit is absent from remote `main` |
+| M7 | Deterministic seed, CI, documentation, audit and submission readiness | in progress | Combined QA/team changes verified locally and in Docker; hosted results belong to the exact PR commit. Public final main and course submission remain team actions |
 
 Security, tests, and documentation accompany each milestone; M6 and M7 consolidate
 their verification rather than postponing them until the end.
@@ -220,8 +233,7 @@ their verification rather than postponing them until the end.
 - Keep the guide concise. Put detailed design in `SPEC.md`, command instructions
   in `INSTALL.md`, and test mapping in `README.md`; use Git history for old progress.
 
-**Next action:** use the Matchwork audit to track the remaining application and
-course delivery findings.
+**Next action:** review the QA pull request into `platform-draft` and its exact hosted checks. Before course submission, verify the final public `main` commit, team roster and audit labels. Draft-branch CI alone does not satisfy FP-SUB-1.
 
 ## Reference patterns
 

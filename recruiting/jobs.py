@@ -103,9 +103,9 @@ def owned_jobs(actor):
     return results
 
 
-def recommendations(actor):
+def recommendations(actor, skills=None):
     require_role(actor, 'Candidate')
-    skills = skills_for(actor['id'])
+    skills = skills_for(actor['id']) if skills is None else normalize_skills(skills)
     applied = {r['job_id'] for r in get_db().execute('SELECT job_id FROM applications WHERE candidate_id = ?', (actor['id'],))}
     results = []
     for row in get_db().execute('SELECT id FROM jobs'):
@@ -172,6 +172,15 @@ def applicants(actor, job_id):
         result['score'] = score(result['skills'], posting['skills'])
         results.append(result)
     return sorted(results, key=lambda a: (-a['score'], a['display_name'].lower(), a['candidate_id']))
+
+
+def ranked_applications(actor):
+    """Rank only this employer's applications with the same per-job score logic."""
+    require_role(actor, 'Employer')
+    rows = [applicant for posting in owned_jobs(actor)
+            for applicant in applicants(actor, posting['id'])]
+    return sorted(rows, key=lambda a: (
+        -a['score'], a['display_name'].lower(), a['candidate_id'], a['id']))
 
 
 def set_status(actor, application_id, status):

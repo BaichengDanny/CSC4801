@@ -3,8 +3,10 @@
 ## Prerequisites
 
 - Python **3.12** (verified locally with 3.12.11), or Docker Desktop / Docker Engine.
-- A current browser. Running the full test suite outside Docker also needs Node.js 22 or later.
-  Flask serves the application using Python only.
+- A current browser. The application runs with Python only; no cloud account,
+  paid API or external database is needed. The required unit suite also executes
+  shipped JavaScript renderers and needs Node.js 22 or later outside Docker.
+  Full frontend/browser QA uses Node.js 24, as configured in CI.
 - Internet is needed to install the pinned packages or build the image initially.
 
 Run all commands from the repository root. The application does not load `.env`
@@ -95,6 +97,76 @@ For the two-connection booking race alone:
 ```sh
 python -m pytest tests/integration/test_concurrency.py -q
 ```
+
+## Frontend units, matching parity and CI
+
+With Node.js **24** and the pinned Python requirements installed, one command
+runs all backend units, the real shared JavaScript escape/matching units, and
+the fixed-seed authenticated API-to-frontend contract:
+
+```sh
+python tests/run_units.py
+```
+
+Add `--include-concurrency` to run the synchronized database race in that command.
+The `pytest` suite includes the team's renderer/calendar subprocess checks,
+so Node.js is required even when invoking pytest directly. These are separate
+test layers; Python coverage does not include JavaScript execution.
+
+Individual frontend checks need only Node's built-in test runner:
+
+```sh
+node --test tests/frontend/html.test.cjs tests/frontend/matching.test.cjs
+python tests/acceptance/matching_parity.py
+```
+
+For browser acceptance install the locked QA dependency and Chromium:
+
+```sh
+npm ci
+npx playwright install chromium
+```
+
+GitHub Actions uses `npx playwright install --with-deps chromium` on Ubuntu.
+The browser scripts use managed Chromium on Linux and installed Edge on Windows;
+`QA_BROWSER` can specify another executable. Set `QA_BASE_URL` to an explicitly
+local test instance and `QA_OUTPUT` to an ignored artifacts directory.
+Then run `npm run test:browser`, `npm run test:normalization`,
+`npm run test:authoritative` and `node tests/browser/round2.cjs`.
+
+The existing CI workflow now runs frontend units, authoritative API matching,
+Docker build/full pytest, seed/health, the browser business/DOM flow, normalization
+and employer-identity regressions, and HTTP concurrency. Failure artifacts are
+retained. Finite mutation checks and extra probes remain independent commands.
+Use the exact QA pull-request commit and its Checks for hosted Actions status.
+
+The independent `unicode_version_probe.py` remains an unsuppressed CI gate. Its default now verifies authenticated API scores/ranks consumed by the product frontend, including both QA3-04 counterexamples. `--browser` verifies the deployed pages (set QA_BASE_URL); `--legacy-functions` preserves the former raw offline calculator diagnostic, which can still exit 1 by design.
+
+## Optional deeper QA
+
+The required commands above need only the pinned project requirements.
+For the fixed-seed probes and isolated semantic mutation checks:
+
+```sh
+python tests/acceptance/round2_probe.py --output output/qa-round2/probe-after.json
+python tests/acceptance/mutation_check.py
+```
+
+The mutation runner copies files into hidden directories under ignored `output/`
+and verifies that product sources are unchanged. It never mutates the checkout.
+
+Optional branch coverage (development tool, not a product dependency):
+
+```sh
+python -m pip install coverage==7.10.7
+python -m coverage run --branch --source=recruiting --data-file=output/qa-round2/.coverage -m pytest -q
+python -m coverage report --data-file=output/qa-round2/.coverage -m
+```
+
+The optional `tests/acceptance/docker_persistence.py` script recreates an
+explicitly named local QA container and verifies its existing volume.
+It requires matching `--container`, `--image`, `--volume` and `--port` arguments;
+`--reset-after` explicitly opts into resetting only that QA instance.
 
 ## Docker build and startup
 

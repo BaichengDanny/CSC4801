@@ -7,21 +7,77 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install pinned QA tools
+        run: |
+          python -m pip install -r requirements.txt
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Actual frontend escape and matching units
+        run: |
+          mkdir -p output/ci
+          npm test
+      - name: Authoritative API to frontend matching contract
+        run: python tests/acceptance/matching_parity.py --output output/ci/matching-parity.json
       - name: Build the complete environment
         run: docker build -t common-ground .
-      - name: Run all tests in an isolated container
+      - name: Run all Python tests in an isolated container
         run: docker run --rm common-ground python -m pytest -q
-      - name: Start, seed, and smoke-test
+      - name: Start local synthetic-data instance
+        run: docker run -d --name common-ground-smoke -p 127.0.0.1:8080:8080 common-ground
+      - name: Wait for application readiness
         run: |
-          docker run -d --name common-ground-smoke -p 127.0.0.1:8080:8080 common-ground
           for attempt in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:8080/health; then break; fi
+            if curl --fail --silent http://127.0.0.1:8080/health; then exit 0; fi
             sleep 1
           done
+          echo "Application did not become healthy" >&2
+          exit 1
+      - name: Seed and smoke-test
+        run: |
           docker exec common-ground-smoke python -m flask --app recruiting seed --yes
           curl --fail http://127.0.0.1:8080/sign-in
+      - name: Browser business flow and rendered XSS
+        env:
+          QA_BASE_URL: http://127.0.0.1:8080
+          QA_OUTPUT: output/ci/browser
+        run: npm run test:browser
+      - name: API to both portals normalization and Unicode order
+        env:
+          QA_BASE_URL: http://127.0.0.1:8080
+          QA_OUTPUT: output/ci/normalization
+        run: npm run test:normalization
+      - name: Unicode authority, ordering and refresh through live pages
+        env:
+          QA_BASE_URL: http://127.0.0.1:8080
+          QA_OUTPUT: output/ci/authoritative
+        run: npm run test:authoritative
+      - name: Same-name employer identity regression
+        env:
+          QA_BASE_URL: http://127.0.0.1:8080
+          QA_OUTPUT: output/ci/employer-identity
+        run: node tests/browser/round2.cjs
+      - name: Actual HTTP booking concurrency
+        run: python tests/acceptance/http_smoke.py --base-url http://127.0.0.1:8080
+      - name: Unicode authoritative API regression
+        run: python tests/acceptance/unicode_version_probe.py --output output/ci/unicode-version.json
+      - name: Save verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-results
+          path: output/ci
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Container logs and cleanup
         if: always()
         run: |

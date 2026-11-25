@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 
 from flask import current_app
 
+from .matching import normalize_skills
+
 TINTS = (
     ('#1F5FA8', '#EAF1FA'),
     ('#5B3FC4', '#F4F1FD'),
@@ -57,11 +59,12 @@ def company_card(row):
 
 def job_card(row):
     summary = row['summary'] or row['description'].split('\n', 1)[0]
-    return {
+    card = {
         'id': str(row['id']),
         'seq': row['id'],
         'title': row['title'],
         'company': row['company_name'],
+        'employerId': str(row['employer_id']),
         'owner': str(row['employer_id']),
         'location': row['location'] or 'Not listed',
         'type': row['job_type'] or 'Full-time',
@@ -70,10 +73,13 @@ def job_card(row):
         'cats': _categories(row),
         'desc': summary,
         'body': row['description'],
-        'skills': row['skills'],
+        'skills': normalize_skills(row['skills']),
         **paint(row['company_name']),
         **_logo(row),
     }
+    if 'score' in row:
+        card.update(score=row['score'], rank=row['rank'])
+    return card
 
 
 def application_events(record):
@@ -101,7 +107,10 @@ def candidate_application(record):
 
 
 def employer_application(record):
-    return {**candidate_application(record), 'candidateId': str(record['candidate_id'])}
+    card = {**candidate_application(record), 'candidateId': str(record['candidate_id'])}
+    if 'score' in record:
+        card.update(score=record['score'], rank=record['rank'])
+    return card
 
 
 def candidate_profile(actor, details):
@@ -110,7 +119,7 @@ def candidate_profile(actor, details):
         'headline': details['headline'],
         'location': details['location'],
         'email': actor['email'],
-        'skills': details['skills'],
+        'skills': normalize_skills(details['skills']),
         'resume': details['resume'],
         'resumeUpdated': iso(None),
         'extras': bool(details['headline'] or details['location']),
@@ -124,7 +133,7 @@ def person(row, skills):
         'headline': row['headline'],
         'location': row['location'],
         'email': row['email'],
-        'skills': skills,
+        'skills': normalize_skills(skills),
         'tint': paint(row['display_name'])['tileBg'],
     }
 

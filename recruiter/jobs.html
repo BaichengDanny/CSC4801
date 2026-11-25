@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../candidate/assets/shell.css">
 <link rel="stylesheet" href="assets/recruiter.css">
 <link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/html.js"></script>
 <script src="../shared/match.js"></script>
 <script src="assets/recruiter.js"></script>
 <style>
@@ -155,7 +156,8 @@
       listEl.innerHTML = st.filter === 'All'
         ? `<div class="empty"><strong>No jobs yet</strong>Post your first job and matched candidates can apply.<br><a class="btn btn-primary" href="jobs?new=1">Post a job</a></div>`
         : `<div class="empty"><strong>No ${esc(st.filter.toLowerCase())} jobs</strong>${st.filter === 'Closed' ? 'Jobs you close stop taking applications and show up here.' : 'Reopen a closed job or post a new one.'}</div>`;
-      if (st.mode === 'view') { st.sel = null; renderRail(); }
+      if (st.mode === 'view') st.sel = null;
+      renderRail();
       return;
     }
     if (st.mode !== 'new' && !list.some((j) => j.id === st.sel)) { st.sel = list[0].id; if (st.mode === 'edit') st.mode = 'view'; }
@@ -251,7 +253,7 @@
       const parts = input.value.split(',').map((s) => s.trim()).filter(Boolean);
       if (!parts.length) return false;
       let last = null;
-      parts.forEach((p) => { if (!draftSkills.some((x) => x.toLowerCase() === p.toLowerCase())) { draftSkills.push(p); last = p; } });
+      parts.forEach((p) => { if (!draftSkills.some((x) => RW.skillKey(x) === RW.skillKey(p))) { draftSkills.push(p); last = p; } });
       input.value = ''; st.dirty = true; drawSkills(last);
       return true;
     };
@@ -393,6 +395,7 @@
 
   renderTabs();
   renderList(false);
+  RW.onChange(() => { if (!st.dirty) { renderTabs(); renderList(false); renderRail(false); } });
 })();
 </script>
 <span id="mw-ready" hidden></span>

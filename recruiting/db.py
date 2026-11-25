@@ -28,17 +28,26 @@ def close_db(exception=None):
 @contextmanager
 def transaction():
     connection = get_db()
+    nested = connection.in_transaction
     try:
-        connection.execute('BEGIN IMMEDIATE')
+        if nested:
+            connection.execute('SAVEPOINT service_write')
+        else:
+            connection.execute('BEGIN IMMEDIATE')
         yield connection
-        connection.commit()
-    except sqlite3.OperationalError as error:
-        connection.rollback()
-        if getattr(error, 'sqlite_errorcode', None) in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
+        if nested:
+            connection.execute('RELEASE SAVEPOINT service_write')
+        else:
+            connection.commit()
+    except Exception as error:
+        if nested:
+            connection.execute('ROLLBACK TO SAVEPOINT service_write')
+            connection.execute('RELEASE SAVEPOINT service_write')
+        else:
+            connection.rollback()
+        if isinstance(error, sqlite3.OperationalError) and getattr(error, 'sqlite_errorcode', None) in (
+                sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
             raise DomainError(503, 'Database is busy. Please try again.') from error
-        raise
-    except Exception:
-        connection.rollback()
         raise
 
 
@@ -50,7 +59,7 @@ def migrate():
             continue
         try:
             # Migration contents are trusted, version-controlled SQL, never request input.
-            connection.executescript('BEGIN IMMEDIATE;\n' + migration.read_text())
+            connection.executescript('BEGIN IMMEDIATE;\n' + migration.read_text(encoding='utf-8'))
             connection.execute('INSERT INTO schema_migrations VALUES (?)', (migration.name,))
             connection.commit()
         except Exception:

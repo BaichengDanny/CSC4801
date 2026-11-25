@@ -1,7 +1,7 @@
 /* Matchwork employer portal: demo store, business rules and app shell.
    Front-end only. Every mutating call returns { ok, code, message } with the HTTP status the
    full-stack API must return (400 / 403 / 404 / 409), so the UI already handles the real contract.
-   Matching comes from /shared/match.js, the same implementation the candidate portal calls. */
+   Live matching comes from the backend; shared/match.js projects API facts and keeps the offline demo calculator. */
 (function () {
   'use strict';
 
@@ -52,12 +52,17 @@
   }
   function hasRecruiterSession() { return authed; }
 
-  const { normalizeSkills, matchScore, hasSkill, compareApplicants } = window.MWMatch;
+  const legacyMatch = window.MWMatch;
+  const { matchScore } = legacyMatch; // Local file/demo behavior only.
+  const normalizeSkills = (list) => live ? new Set(list || []) : legacyMatch.normalizeSkills(list);
+  const hasSkill = (list, skill) => live ? new Set(list || []).has(skill) : legacyMatch.hasSkill(list, skill);
+  const compareApplicants = (a, b) => live ? legacyMatch.byServerRank(a, b) : legacyMatch.compareApplicants(a, b);
+  const skillKey = (value) => live ? String(value).trim() : String(value).trim().toLowerCase();
 
   /* ---------- Utilities ---------- */
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = window.MWHTML.escape;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* All times are stored in UTC and shown in Pacific Time, like the candidate portal. */
@@ -215,6 +220,35 @@
     if (!live) { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable: keep in memory */ } }
     listeners.forEach((fn) => { try { fn(state); } catch (err) { console.error(err); } });
   }
+  let lastSnapshot = live ? JSON.stringify(boot.state) : '';
+  function acceptSnapshot(data) {
+    lastSnapshot = JSON.stringify(data.state);
+    const notifRead = state.notifRead;
+    Object.assign(state, data.state, { notifRead });
+    NOW.setTime(new Date(data.now).getTime());
+    persist();
+  }
+  function refresh(force = false) {
+    if (!live) return false;
+    if (!force) {
+      const leave = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(leave);
+      if (leave.defaultPrevented) return false;
+    }
+    const res = api('GET', '/api/employer/bootstrap');
+    if (res.status === 401 || res.status === 403) { location.replace('/sign-in#recruiter'); return false; }
+    const error = failed(res, 'Could not refresh applicant results');
+    if (error) throw new Error(error.message);
+    const previousTime = NOW.getTime();
+    NOW.setTime(new Date(res.data.now).getTime());
+    if (lastSnapshot === JSON.stringify(res.data.state)) {
+      const expired = state.slots.some(slot => new Date(slot.start).getTime() > previousTime && new Date(slot.start) <= NOW);
+      if (expired) persist();
+      return expired;
+    }
+    acceptSnapshot(res.data);
+    return true;
+  }
   function resetDemo() {
     if (live) { location.reload(); return; }
     state = DEFAULT_STATE(); persist();
@@ -247,7 +281,7 @@
   /* An application with its candidate, job, booked slot and score: the row the applicant views show. */
   function view(a) {
     const j = findJob(a.jobId), c = candidate(a.candidateId);
-    return { ...a, job: j, cand: c, name: c.name, match: matchScore(c.skills, j.skills), slot: a.slotId ? slot(a.slotId) : null };
+    return { ...a, job: j, cand: c, name: c.name, match: live ? legacyMatch.fromServer([a])[0].match : matchScore(c.skills, j.skills), slot: a.slotId ? slot(a.slotId) : null };
   }
   /* FP-EMP-3: applicants for one owned job, highest score first, ties by name then candidate id. */
   function applicants(jobId) {
@@ -265,6 +299,7 @@
   const JOB_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship'];
   /* Required skills keep the employer's spelling, minus blanks and case-insensitive duplicates. */
   function cleanSkills(list) {
+    if (live) return (list || []).map(s => String(s).trim()).filter(Boolean);
     const seen = new Set(), out = [];
     (list || []).forEach((s) => { const t = String(s == null ? '' : s).trim().replace(/\s+/g, ' '); const k = t.toLowerCase(); if (t && !seen.has(k)) { seen.add(k); out.push(t); } });
     return out;
@@ -290,7 +325,7 @@
       const res = api('POST', '/api/employer/jobs', pickJob(d));
       const error = failed(res, 'Could not create the job');
       if (error) return error;
-      state.jobs.push(res.data.job); persist();
+      acceptSnapshot(res.data.snapshot);
       return { ok: true, job: res.data.job };
     }
     const seq = Math.max(0, ...state.jobs.map((j) => j.seq || 0)) + 1;
@@ -309,9 +344,7 @@
       const res = api('POST', '/api/employer/jobs/' + encodeURIComponent(id), pickJob(merged));
       const error = failed(res, 'Could not update the job');
       if (error) return error;
-      const index = state.jobs.findIndex((item) => item.id === id);
-      if (index >= 0) state.jobs[index] = res.data.job;
-      persist();
+      acceptSnapshot(res.data.snapshot);
       return { ok: true, job: res.data.job };
     }
     const errors = validateJob(merged);
@@ -332,8 +365,7 @@
       const res = api('POST', '/api/employer/jobs/' + encodeURIComponent(id) + '/delete');
       const error = failed(res, 'Could not delete the job');
       if (error) return error;
-      state.jobs = state.jobs.filter((item) => item.id !== id);
-      persist();
+      acceptSnapshot(res.data.snapshot);
       return { ok: true, job: j };
     }
     const b = deleteBlockers(id);
@@ -355,11 +387,8 @@
       const error = failed(res, 'Could not update the status');
       if (error) return error;
       const prev = a.status;
-      a.status = res.data.application.status;
-      a.events = res.data.application.events;
-      a.slotId = res.data.application.slotId;
-      persist();
-      return { ok: true, app: view(a), prev };
+      acceptSnapshot(res.data.snapshot);
+      return { ok: true, app: application(appId), prev };
     }
     const prev = a.status;
     a.status = status;
@@ -470,9 +499,9 @@
   function candTagsHTML(c, j, max) {
     const req = normalizeSkills(j.skills);
     const list = cleanSkills(c.skills);
-    list.sort((a, b) => Number(req.has(b.toLowerCase())) - Number(req.has(a.toLowerCase())));
+    list.sort((a, b) => Number(req.has(live ? b : b.toLowerCase())) - Number(req.has(live ? a : a.toLowerCase())));
     const shown = max ? list.slice(0, max) : list, extra = list.length - shown.length;
-    return shown.map((s) => req.has(s.toLowerCase())
+    return shown.map((s) => req.has(live ? s : s.toLowerCase())
       ? `<span class="tag match">${ICON.checkSm}${esc(s)}<span class="sr"> (required)</span></span>`
       : `<span class="tag">${esc(s)}</span>`).join('') + (extra > 0 ? `<span class="tag" title="${esc(list.slice(max).join(', '))}">+${extra}</span>` : '');
   }
@@ -901,6 +930,7 @@
       }
       try {
         const page = await loadPage(key);
+        if (live) refresh(true);
         if (sequence === navigation) renderPage(page, target, push);
       } catch (error) {
         if (sequence === navigation) {
@@ -959,9 +989,16 @@
     else setTimeout(prefetch, 300);
   }
 
+  if (live) {
+    const update = () => { try { refresh(); } catch (error) { console.warn('Applicant refresh failed', error); } };
+    window.addEventListener('focus', update);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
+    setInterval(() => { if (!document.hidden) update(); }, 5000);
+  }
+
   window.RW = {
     $, $$, esc, reduceMotion, params, hash, url, NOW, TZ, TZ_LABEL, SLOT_MIN, fmt, fmtDate, fmtLong, fmtShort, fmtTime, fmtSlotTime, fmtRange, dayKey, ymdOf, ptToUtc, ago,
-    matchScore, normalizeSkills, hasSkill, cleanSkills,
+    matchScore, normalizeSkills, hasSkill, cleanSkills, skillKey, refresh, live,
     get state() { return state; }, persist, resetDemo, onChange: (fn) => listeners.add(fn),
     company, candidate, jobs, job, applicants, allApplicants, application, awaitingBooking, ownSlots, openSlots, slot, view,
     JOB_TYPES, STATUSES, SIZES, createJob, updateJob, deleteJob, deleteBlockers, setStatus, createSlot, deleteSlot, updateCompany,
