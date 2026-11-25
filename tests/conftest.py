@@ -1,6 +1,15 @@
 from datetime import datetime, timezone
 
 import pytest
+from flask.testing import FlaskClient
+
+
+class MatchworkClient(FlaskClient):
+    def post(self, path, *, csrf=True, headers=None, **kwargs):
+        if csrf:
+            token = self.get('/api/auth/csrf').json['csrfToken']
+            headers = {**(headers or {}), 'X-CSRF-Token': token}
+        return super().post(path, headers=headers, **kwargs)
 
 
 @pytest.fixture
@@ -13,6 +22,7 @@ def app(tmp_path):
         'SECRET_KEY': 'test-key-not-a-production-secret',
         'NOW': lambda: datetime(2030, 1, 1, 9, tzinfo=timezone.utc),
     })
+    app.test_client_class = MatchworkClient
     with app.app_context():
         migrate()
         yield app

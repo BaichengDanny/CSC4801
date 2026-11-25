@@ -3,7 +3,8 @@
 ## Prerequisites
 
 - Python **3.12** (verified locally with 3.12.11), or Docker Desktop / Docker Engine.
-- A current browser. No Node.js, cloud account, paid API, or external database is needed.
+- A current browser. Running the full test suite outside Docker also needs Node.js 22 or later.
+  Flask serves the application using Python only.
 - Internet is needed to install the pinned packages or build the image initially.
 
 Run all commands from the repository root. The application does not load `.env`
@@ -82,6 +83,7 @@ python -m pytest tests/unit -q
 
 This runs the entire required unit suite non-interactively and exits nonzero on
 failure. Tests use temporary, isolated databases and never call external services.
+The XSS unit test runs the shipped rendering functions in Node.js with no npm packages.
 Run the complete suite, including the optional synchronized concurrency test:
 
 ```sh
@@ -96,8 +98,9 @@ python -m pytest tests/integration/test_concurrency.py -q
 
 ## Docker build and startup
 
-The only base image is `python:3.12.11-slim-bookworm`, declared in the root
-`Dockerfile`. SQLite runs inside the application; no additional images are needed.
+The root `Dockerfile` uses `python:3.12.11-slim-bookworm` for the application
+and copies the pinned Node.js runtime from `node:22.23.5-bookworm-slim` for the
+rendering test. SQLite runs inside the application container.
 The container runs as UID 10001. The named volume persists demo data across runs.
 
 ```sh

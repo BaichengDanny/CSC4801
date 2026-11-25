@@ -16,6 +16,10 @@ work is on `platform-draft`. See the [Matchwork specification audit](docs/matchw
 for the baseline at `a48647f` and the local repair checks. The [2026-11-14 verification record](docs/verification.md)
 predates the Matchwork UI.
 
+The 2026-11-25 security follow-up added CSRF validation on POST requests,
+candidate-level filtering of interview slots, and a test of the shipped
+JavaScript renderers. See [SPEC.md](SPEC.md) for the request and visibility rules.
+
 This file records working rules, decisions, and milestone status. Update it as
 work progresses. It does not replace the product specification or installation
 guide, and its roadmap is not evidence that a feature has been implemented.
@@ -99,6 +103,8 @@ These are reminders of high-risk requirements, not a substitute for the full spe
   requires application ownership, the matching employer, `Interviewing` status,
   a future unbooked slot, and no existing booking for the application. Failed
   operations leave no partial changes. Later status changes preserve bookings.
+  Candidate responses include only the viewer's bookings and future open slots
+  at employers where the viewer has an unbooked `Interviewing` application.
 - **Concurrency:** enforce booking exclusivity in SQLite, not merely in Python.
   Use transactions and database constraints for unique slot and application
   bookings. A same-slot race must yield one success, one `409` with exactly
@@ -113,7 +119,8 @@ These are reminders of high-risk requirements, not a substitute for the full spe
   values into SQL. Enable SQLite foreign-key enforcement on every connection.
 - Return user text as JSON. Escape it in page scripts before inserting HTML.
   Do not mark untrusted content safe. Prefer plain text over rich-HTML rendering.
-- Protect state-changing browser forms against CSRF. Use appropriate session
+- Require `X-CSRF-Token` on POST requests and rotate the token at sign-in or
+  registration. Use appropriate session
   cookie settings and document any local HTTP versus HTTPS differences.
 - Keep secrets, personal data, local databases, and generated artifacts out of
   version control. `.env.example` contains placeholders only. Seed accounts are
@@ -162,13 +169,14 @@ These are reminders of high-risk requirements, not a substitute for the full spe
 ### Command status
 
 Use Python 3.12 and the pinned `requirements.txt` / `requirements.lock`.
+The rendering test uses Node.js 22 or later. Docker includes a pinned runtime.
 The exact local and Docker commands live in `INSTALL.md`:
 
 - Migrate: `python -m flask --app recruiting init-db`.
 - Reset/seed local demo data: `python -m flask --app recruiting seed --yes`.
 - Run: `python -m recruiting` (Waitress, default localhost:8080).
-- Required unit suite: `python -m pytest tests/unit -q` (56 passing in the full run on 2026-11-25).
-- Complete suite: `python -m pytest -q` (57 passing locally and in Docker on 2026-11-25, including the booking race).
+- Required unit suite: `python -m pytest tests/unit -q` (61 passing in the full run on 2026-11-25).
+- Complete suite: `python -m pytest -q` (62 passing locally and in a network-isolated Docker container on 2026-11-25, including the booking race).
 - Docker: `docker build -t common-ground .`; see INSTALL.md for persistent-volume startup.
 
 Tests passed locally and inside the image. Keep reset operations restricted to
@@ -188,7 +196,7 @@ agent remain labeled as such. External submission actions are tracked separately
 | M3 | Authentication, authorization, candidate/company profiles, private resumes | done | Auth/profile/direct-request/session regression tests pass |
 | M4 | Jobs, matching, applications, employer applicant management | done | Workflow tests, matching, deletion conflicts, and invalid job writes pass |
 | M5 | Availability and atomic interview booking | done | Ownership, time validation, remote dates, and the synchronized race verified |
-| M6 | Security checks and browser workflow polish | in progress | Scheduling fixes verified in Chrome. The separate JavaScript rendering security test is deferred |
+| M6 | Security checks and browser workflow polish | done | CSRF, slot visibility, and JavaScript rendering regressions passed locally and in Docker. Browser sign-in, booking, employer visibility, and logout passed against a temporary database |
 | M7 | Deterministic seed, CI, documentation, audit and submission readiness | in progress | Clean Docker build and draft CI passed. GitHub is private, audit labels are absent, and the reviewed commit is absent from remote `main` |
 
 Security, tests, and documentation accompany each milestone; M6 and M7 consolidate
@@ -208,8 +216,8 @@ their verification rather than postponing them until the end.
 - Keep the guide concise. Put detailed design in `SPEC.md`, command instructions
   in `INSTALL.md`, and test mapping in `README.md`; use Git history for old progress.
 
-**Next action:** resume the deferred security verification when requested. The
-Matchwork audit also tracks remaining application and course delivery findings.
+**Next action:** use the Matchwork audit to track the remaining application and
+course delivery findings.
 
 ## Reference patterns
 

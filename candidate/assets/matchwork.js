@@ -7,11 +7,13 @@
   /* Served by Flask, the page loads its data from the JSON API. file:// and the
      single-file build keep the local demo store. */
   const HOSTED = !window.__MW_PAGES && /^https?:$/.test(location.protocol);
+  let csrfToken;
   function api(method, path, payload) {
     const xhr = new XMLHttpRequest();
     xhr.open(method, path, false);
     xhr.withCredentials = true;
     if (payload !== undefined) xhr.setRequestHeader('Content-Type', 'application/json');
+    if (method === 'POST' && csrfToken) xhr.setRequestHeader('X-CSRF-Token', csrfToken);
     xhr.send(payload === undefined ? null : JSON.stringify(payload));
     let data = null;
     try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { data = { message: 'Unexpected response' }; }
@@ -22,6 +24,7 @@
     const me = api('GET', '/api/auth/me');
     if (!(me.status === 200 && me.data && me.data.role === 'Candidate')) location.replace('/sign-in#candidate');
     else {
+      csrfToken = me.data.csrfToken;
       const loaded = api('GET', '/api/candidate/bootstrap');
       if (loaded.status === 200) boot = loaded.data;
       else location.replace('/sign-in#candidate');

@@ -4,7 +4,7 @@ from functools import wraps
 from flask import Blueprint, g, request
 
 from . import accounts, jobs, present, scheduling
-from .auth import end_session, start_session
+from .auth import csrf_token, end_session, start_session
 from .db import get_db
 from .errors import DomainError
 
@@ -60,24 +60,25 @@ def employer_slots(actor):
         (actor['id'],)).fetchall()
 
 
-def candidate_slots():
+def candidate_slots(actor):
     return get_db().execute(
-        'SELECT s.*, j.employer_id, c.name AS company_name, b.application_id, a.candidate_id AS booked_candidate '
+        'SELECT s.*, j.employer_id, c.name AS company_name, b.application_id '
         'FROM slots s JOIN jobs j ON j.id = s.job_id '
         'JOIN companies c ON c.employer_id = j.employer_id '
         'LEFT JOIN bookings b ON b.slot_id = s.id '
-        'LEFT JOIN applications a ON a.id = b.application_id ORDER BY s.starts_at, s.id').fetchall()
+        'LEFT JOIN applications a ON a.id = b.application_id '
+        'WHERE a.candidate_id = ? OR (b.id IS NULL AND s.starts_at > ? AND EXISTS ('
+        'SELECT 1 FROM applications eligible JOIN jobs applied_job ON applied_job.id = eligible.job_id '
+        'LEFT JOIN bookings existing ON existing.application_id = eligible.id '
+        "WHERE eligible.candidate_id = ? AND eligible.status = 'Interviewing' "
+        'AND applied_job.employer_id = j.employer_id AND existing.id IS NULL)) '
+        'ORDER BY s.starts_at, s.id',
+        (actor['id'], scheduling.now_timestamp(), actor['id'])).fetchall()
 
 
-def slot_for_viewer(row, viewer_id):
-    booked = row['application_id']
-    if booked is None:
-        marker = None
-    elif row['booked_candidate'] == viewer_id:
-        marker = str(booked)
-    else:
-        marker = 'other'
-    return present.slot_card(row, row['company_name'], marker)
+@bp.get('/auth/csrf')
+def get_csrf():
+    return {'ok': True, 'csrfToken': csrf_token()}, 200, {'Cache-Control': 'no-store'}
 
 
 @bp.post('/auth/register')
@@ -121,7 +122,8 @@ def logout():
 def me():
     if g.user is None:
         raise DomainError(401, 'Please sign in to continue.')
-    return {'ok': True, 'id': g.user['id'], 'email': g.user['email'], 'role': g.user['role'], 'name': g.user['display_name']}
+    return {'ok': True, 'id': g.user['id'], 'email': g.user['email'], 'role': g.user['role'],
+            'name': g.user['display_name'], 'csrfToken': csrf_token()}
 
 
 @bp.get('/candidate/bootstrap')
@@ -138,7 +140,8 @@ def candidate_bootstrap():
         if card['owner'] not in companies:
             companies[card['owner']] = present.company_card(company_rows[posting['employer_id']])
     applications = [present.candidate_application(item) for item in jobs.applications(g.user)]
-    slots = [slot_for_viewer(row, g.user['id']) for row in candidate_slots()]
+    slots = [present.slot_card(row, row['company_name'], str(row['application_id']) if row['application_id'] else None)
+             for row in candidate_slots(g.user)]
     return {
         'ok': True,
         'now': present.iso(None),

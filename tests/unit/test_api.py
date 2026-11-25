@@ -201,9 +201,58 @@ def test_candidate_bootstrap_distinguishes_same_name_employers(app, people):
     slots = {s['id']: s for s in payload['state']['slots']}
     assert target['company'] == unrelated['company'] == 'Northstar'
     assert target['owner'] == slots[str(available['id'])]['owner']
-    assert unrelated['owner'] == slots[str(other['id'])]['owner'] != target['owner']
+    assert unrelated['owner'] != target['owner']
+    assert str(other['id']) not in slots
     assert payload['companies'][target['owner']]['about'] == 'A small engineering team.'
     assert payload['companies'][unrelated['owner']]['about'] == 'Independent employer with the same name.'
+
+
+def test_candidate_schedule_contains_only_own_bookings_and_eligible_open_slots(app, people, monkeypatch):
+    from datetime import datetime, timezone
+
+    from recruiting import jobs, scheduling
+
+    candidate, other = people['candidate'], people['candidate2']
+    employer = people['employer']
+    job = jobs.create_job(employer, 'Engineer', 'Build services', [])
+    second_job = jobs.create_job(employer, 'Data Engineer', 'Build reports', [])
+    own = jobs.apply(candidate, job['id'])
+    next_application = jobs.apply(candidate, second_job['id'])
+    other_application = jobs.apply(other, job['id'])
+    for application in (own, other_application):
+        jobs.set_status(employer, application['id'], 'Interviewing')
+
+    def slot(day, hour):
+        return scheduling.create_slot(employer, job['id'], f'2030-01-{day}T{hour}:00:00Z', f'2030-01-{day}T{hour}:30:00Z')
+
+    own_slot = slot('02', '10')
+    slot('02', '11')  # Unbooked slot that will have elapsed.
+    other_slot = slot('04', '10')
+    available = slot('05', '10')
+    scheduling.book(candidate, own['id'], own_slot['id'])
+    scheduling.book(other, other_application['id'], other_slot['id'])
+    jobs.set_status(employer, own['id'], 'Rejected')
+    monkeypatch.setitem(app.config, 'NOW', lambda: datetime(2030, 1, 3, tzinfo=timezone.utc))
+
+    def visible(client):
+        response = client.get('/api/candidate/bootstrap')
+        assert response.status_code == 200
+        return {item['id']: item['bookedBy'] for item in response.json['state']['slots']}
+
+    client = app.test_client()
+    assert login(client, candidate['email'], 'Candidate').status_code == 200
+    assert visible(client) == {str(own_slot['id']): str(own['id'])}
+    jobs.set_status(employer, next_application['id'], 'Interviewing')
+    assert visible(client) == {str(own_slot['id']): str(own['id']), str(available['id']): None}
+
+    other_client = app.test_client()
+    assert login(other_client, other['email'], 'Candidate').status_code == 200
+    assert visible(other_client) == {str(other_slot['id']): str(other_application['id'])}
+    newcomer = app.test_client()
+    assert newcomer.post('/api/auth/register', json={
+        'email': 'new@example.test', 'password': 'DemoPass123!', 'name': 'New Candidate', 'role': 'Candidate',
+    }).status_code == 201
+    assert visible(newcomer) == {}
 
 
 def test_slot_api_requires_explicit_timezone_and_preserves_far_future_slot(app, people):

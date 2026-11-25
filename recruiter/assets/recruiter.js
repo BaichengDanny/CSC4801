@@ -10,11 +10,13 @@
      http(s); file:// previews skip the check. Log Out clears the flag. */
   /* Single-file build (matchwork-recruiter.html): every page lives in window.__RW_PAGES. */
   const BUNDLE = !!window.__RW_PAGES;
+  let csrfToken;
   function api(method, path, payload) {
     const xhr = new XMLHttpRequest();
     xhr.open(method, path, false);
     xhr.withCredentials = true;
     if (payload !== undefined) xhr.setRequestHeader('Content-Type', 'application/json');
+    if (method === 'POST' && csrfToken) xhr.setRequestHeader('X-CSRF-Token', csrfToken);
     xhr.send(payload === undefined ? null : JSON.stringify(payload));
     let data = null;
     try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { data = { message: 'Unexpected response' }; }
@@ -35,6 +37,7 @@
     authed = me.status === 200 && me.data && me.data.role === 'Employer';
     if (!authed) location.replace('/sign-in#recruiter');
     else {
+      csrfToken = me.data.csrfToken;
       const loaded = api('GET', '/api/employer/bootstrap');
       if (loaded.status === 200) boot = loaded.data;
       else authed = false;

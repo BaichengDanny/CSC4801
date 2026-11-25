@@ -73,17 +73,24 @@ sign-in page.
 | GET `/health` | Lightweight health endpoint |
 | GET `/sign-in` | Matchwork sign-in and account creation |
 | GET `/candidate/...`, GET `/recruiter/...`, GET `/shared/...` | Matchwork HTML, CSS, and scripts |
+| GET `/api/auth/csrf` | Issue or read the current session's CSRF token before sign-in or registration |
 | POST `/api/auth/register`, POST `/api/auth/login`, POST `/api/auth/logout`, GET `/api/auth/me` | JSON registration and session |
 | GET `/api/candidate/bootstrap`, POST `/api/candidate/profile`, POST `/api/candidate/applications`, POST `/api/candidate/applications/<id>/book` | Candidate reads and writes |
 | GET `/api/employer/bootstrap`, POST `/api/employer/jobs`, POST `/api/employer/jobs/<id>`, POST `/api/employer/jobs/<id>/delete`, POST `/api/employer/applications/<id>/status`, POST `/api/employer/slots`, POST `/api/employer/slots/<id>/delete`, POST `/api/employer/company` | Employer reads and writes |
 
 JSON routes return `{ok, message}` with the same 401/403/404/409 contract.
-They authenticate with the SameSite session cookie and do not use the form
-CSRF token. Matchwork shows slot times in Pacific Time; values are stored as
+Every POST requires the session's CSRF token in `X-CSRF-Token`. Missing or
+mismatched tokens return 403. The sign-in page obtains the token from
+`/api/auth/csrf`. Successful login or registration rotates it. Signed-in
+pages use the token returned by `/api/auth/me`. Token responses use `no-store`.
+Matchwork shows slot times in Pacific Time; values are stored as
 UTC. An employer's new slots are attached to that employer's oldest job so the
 existing slot-to-job rule still applies. Candidate job and slot cards carry the
 same employer ID. Candidate company profiles are keyed by this ID, and the
 booking picker uses it to identify eligible slots across that employer’s jobs.
+The candidate bootstrap returns the viewer's own bookings, including past
+bookings, and future unbooked slots for employers with an `Interviewing`
+application of the viewer that has yet to be booked.
 
 Job create and edit validate and save the title, description, skills, summary,
 location, job type, and posting status in one database operation. Partial edits
@@ -134,9 +141,10 @@ mutations see consistent state. A booking survives later status changes.
 
 Parameterized SQL only; dynamic identifiers are internal constants. API
 responses are JSON, so user text is data rather than an HTML document. The
-Matchwork pages escape user text before inserting it. JSON routes authenticate
-with the SameSite session cookie. Any other POST still requires the session
-CSRF token. Limit request bodies to 1 MiB, passwords to 256 characters,
+Matchwork pages escape user text before inserting it. Protected routes authenticate
+with the SameSite session cookie. The request hook verifies the session-bound
+CSRF token for every POST, including those with empty bodies. Limit request
+bodies to 1 MiB, passwords to 256 characters,
 resumes/descriptions to documented service limits. Security headers include a
 same-origin content policy that allows the Google font stylesheets used by the
 pages, plus frame denial. HTTPS deployments set `COOKIE_SECURE=1`; local HTTP
