@@ -20,6 +20,8 @@
     xhr.send(payload === undefined ? null : JSON.stringify(payload));
     let data = null;
     try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { data = { message: 'Unexpected response' }; }
+    /* The session ended (signed out in another tab, expired, or the demo data was reset). */
+    if (xhr.status === 401 && !path.startsWith('/api/auth/')) location.replace('/sign-in#recruiter');
     return { status: xhr.status, data };
   }
   /* Where pages read their query and hash. In the bundle, if the browser refused to change the URL
@@ -313,8 +315,11 @@
     if (d.status && !['Active', 'Closed'].includes(d.status)) errors.status = 'Choose Active or Closed.';
     return errors;
   }
+  /* A blank location stays blank. Cards from the server show "Not listed" for it, with
+     locationSet: false, and that placeholder must not be saved back as a real place. */
+  const placeOf = (d) => (d.locationSet === false && d.location === 'Not listed' ? '' : String(d.location || '').trim());
   const pickJob = (d) => ({
-    title: String(d.title || '').trim(), location: String(d.location || '').trim() || 'Remote', type: d.type || 'Full-time',
+    title: String(d.title || '').trim(), location: placeOf(d), type: d.type || 'Full-time',
     desc: String(d.desc || '').trim(), body: String(d.body || '').replace(/\s+$/, ''), skills: cleanSkills(d.skills), status: d.status || 'Active',
   });
   /* FP-EMP-2 */
@@ -357,6 +362,15 @@
     const apps = appsFor(id).length, slots = state.slots.filter((s) => s.jobId === id).length;
     return { apps, slots, blocked: apps > 0 || slots > 0 };
   }
+  /* Name what actually blocks deletion. New interview slots attach to the oldest job. */
+  function deleteBlockedText(b) {
+    const parts = [];
+    if (b.apps) parts.push(`${b.apps} application${b.apps === 1 ? '' : 's'}`);
+    if (b.slots) parts.push(`${b.slots} interview slot${b.slots === 1 ? '' : 's'}`);
+    return `It still has ${parts.join(' and ')}. `
+      + (b.slots ? 'Interview slots you add are kept on your oldest job. ' : '')
+      + 'Close the posting to stop new applications.';
+  }
   function deleteJob(id) {
     const j = findJob(id);
     if (!j) return fail(404, 'That job no longer exists');
@@ -369,7 +383,7 @@
       return { ok: true, job: j };
     }
     const b = deleteBlockers(id);
-    if (b.blocked) return fail(409, `“${j.title}” has ${b.apps} application${b.apps === 1 ? '' : 's'}, so it can't be deleted. Close it instead.`);
+    if (b.blocked) return fail(409, `“${j.title}” can't be deleted. ${deleteBlockedText(b)}`);
     state.jobs = state.jobs.filter((x) => x.id !== id); persist();
     return { ok: true, job: j };
   }
@@ -519,9 +533,9 @@
   /* "Today, 10:00 AM" / "Wed, 11:00 AM" this week / "Nov 4" further out: short enough for a table cell. */
   function whenShort(iso) {
     const days = Math.round((new Date(ymdOf(iso)) - new Date(ymdOf(NOW))) / 864e5);
-    if (days === 0) return `Today, ${fmtTime(iso)}`;
-    if (days === 1) return `Tomorrow, ${fmtTime(iso)}`;
-    if (days > 1 && days < 7) return `${fmt(iso, { weekday: 'short' })}, ${fmtTime(iso)}`;
+    if (days === 0) return `Today, ${fmtTime(iso)} PT`;
+    if (days === 1) return `Tomorrow, ${fmtTime(iso)} PT`;
+    if (days > 1 && days < 7) return `${fmt(iso, { weekday: 'short' })}, ${fmtTime(iso)} PT`;
     return fmtShort(iso);
   }
   function ivCellHTML(a) {
@@ -648,7 +662,7 @@
           </button>
           <div class="popover" id="accountMenu" role="menu" aria-label="Account">
             <a href="company" class="menu-item" role="menuitem">Company Profile</a>
-            <button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>
+            ${live ? '' : '<button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>'}
             <div class="menu-sep" role="separator"></div>
             <a href="/sign-in#recruiter" class="menu-item danger" role="menuitem">Log Out</a>
           </div>
@@ -691,6 +705,11 @@
     const pop = $('#notifPop');
     if (!pop) return;
     const items = notifications();
+    /* On the served site, "Mark all read" remembers which notifications were seen, so a new
+       one shows as unread again. The server always sends notifRead: false. */
+    const fingerprint = items.map((n) => `${n.title}|${n.text}|${n.when}`).join('\n');
+    const NOTIF_KEY = 'rw.notifSeen.' + ME;
+    if (live) { try { state.notifRead = !!items.length && localStorage.getItem(NOTIF_KEY) === fingerprint; } catch (e) { /* keep in memory */ } }
     pop.innerHTML = `<div class="notif-head">Notifications <button type="button" id="markRead"${state.notifRead || !items.length ? ' disabled' : ''}>${state.notifRead || !items.length ? 'All caught up' : 'Mark all read'}</button></div>` +
       (items.length ? items.slice(0, 6).map((n) => `<a href="${esc(n.href)}" class="notif-item">
         ${n.kind === 'app'
@@ -698,7 +717,11 @@
           : '<span class="notif-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B3FC4" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg></span>'}
         <div><strong>${esc(n.title)}</strong>, ${esc(n.text)}<time>${esc(n.when)}</time></div></a>`).join('')
         : '<div class="notif-item">No notifications yet.</div>');
-    $('#markRead').addEventListener('click', (e) => { e.stopPropagation(); state.notifRead = true; persist(); });
+    $('#markRead').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (live) { try { localStorage.setItem(NOTIF_KEY, fingerprint); } catch (err) { /* keep in memory */ } }
+      state.notifRead = true; persist();
+    });
     $('#bellDot').classList.toggle('hide', state.notifRead || !items.length);
     $('#bellBtn').setAttribute('aria-label', `Notifications${state.notifRead || !items.length ? ', none new' : `, ${items.length} new`}`);
   }
@@ -753,7 +776,8 @@
     }
     setupPopover($('#bellBtn'), $('#notifPop'));
     setupPopover($('#accountBtn'), $('#accountMenu'), () => $('#accountMenu .menu-item').focus());
-    $('#resetDemo').addEventListener('click', () => { resetDemo(); location.reload(); });
+    const reset = $('#resetDemo');
+    if (reset) reset.addEventListener('click', () => { resetDemo(); location.reload(); });
     listeners.add(fillChrome);
     const fit = () => { moveIndicator($('.nav-indicator'), $('.nav [aria-current="page"]')); if (opts.onLayout) opts.onLayout(); };
     slideNav();
@@ -1001,7 +1025,7 @@
     matchScore, normalizeSkills, hasSkill, cleanSkills, skillKey, refresh, live,
     get state() { return state; }, persist, resetDemo, onChange: (fn) => listeners.add(fn),
     company, candidate, jobs, job, applicants, allApplicants, application, awaitingBooking, ownSlots, openSlots, slot, view,
-    JOB_TYPES, STATUSES, SIZES, createJob, updateJob, deleteJob, deleteBlockers, setStatus, createSlot, deleteSlot, updateCompany,
+    JOB_TYPES, STATUSES, SIZES, createJob, updateJob, deleteJob, deleteBlockers, deleteBlockedText, pickJob, setStatus, createSlot, deleteSlot, updateCompany,
     ICON, logoHTML, avatarHTML, initials, scoreHTML, statusHTML, candTagsHTML, bodyHTML, ivCellHTML, whenShort,
     toast, setupPopover, closePopovers, moveIndicator, renderChrome, mountShell, notifications,
   };

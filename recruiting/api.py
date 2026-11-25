@@ -1,4 +1,5 @@
 """JSON API used by the Matchwork pages. Services still enforce every rule."""
+import re
 from functools import wraps
 
 from flask import Blueprint, g, request
@@ -23,20 +24,24 @@ def as_role(role):
 
 
 def body():
-    data = request.get_json(silent=True)
+    try:
+        data = request.get_json(silent=True)
+    except RecursionError:
+        # Python's JSON parser recurses per nesting level; a deeply nested body is bad input.
+        raise DomainError(400, 'Send a JSON object.') from None
     if not isinstance(data, dict):
         raise DomainError(400, 'Send a JSON object.')
     return data
 
 
 def record_id(value):
-    # JSON booleans/floats must never select a different integer record.
-    if isinstance(value, bool) or not isinstance(value, (int, str)):
-        raise DomainError(404, 'That record was not found.')
-    try:
+    """Accept a JSON integer or a string of ASCII digits; booleans, floats, and padding are not IDs."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        number = value
+    elif isinstance(value, str) and re.fullmatch(r'[0-9]{1,19}', value):
         number = int(value)
-    except (TypeError, ValueError):
-        raise DomainError(404, 'That record was not found.') from None
+    else:
+        raise DomainError(404, 'That record was not found.')
     if not 0 < number < 2**63:
         raise DomainError(404, 'That record was not found.')
     return number
@@ -189,6 +194,7 @@ def update_candidate_profile():
         data.get('resume', accounts.UNCHANGED),
         headline=data.get('headline', current['headline']),
         location=data.get('location', current['location']),
+        prefs=data.get('prefs'),
     )
     return {'ok': True, 'profile': present.candidate_profile(g.user, updated),
             'snapshot': _candidate_payload(g.user)}

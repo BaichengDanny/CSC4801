@@ -19,7 +19,7 @@ def seed_demo(at):
     migrate()
     with transaction() as db:
         # Fixed table names, in foreign-key dependency order.
-        for table in ('auth_sessions', 'bookings', 'slots', 'applications', 'job_skills',
+        for table in ('auth_sessions', 'bookings', 'application_events', 'slots', 'applications', 'job_skills',
                       'jobs', 'candidate_skills', 'candidate_profiles', 'companies', 'users'):
             db.execute(f'DELETE FROM {table}')
         db.execute("UPDATE metadata SET value = ? WHERE key = 'session_generation'", (secrets.token_hex(24),))
@@ -46,7 +46,9 @@ def seed_demo(at):
     jobs.set_status(field, rejected['id'], 'Rejected')
     accepted = jobs.apply(casey, graduate['id'])
     jobs.set_status(field, accepted['id'], 'Accepted')
-    day = at.astimezone(timezone.utc).replace(hour=10, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    # 18:00 UTC is 10:00 AM Pacific in winter and 11:00 AM in summer, so demo interviews
+    # fall in business hours on the pages, which show Pacific Time.
+    day = at.astimezone(timezone.utc).replace(hour=18, minute=0, second=0, microsecond=0) + timedelta(days=1)
     # Use the reference clock during seeding so a fixed --at reproduces old fixtures.
     from flask import current_app
     original_clock = current_app.config['NOW']

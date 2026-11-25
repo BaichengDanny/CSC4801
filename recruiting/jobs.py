@@ -117,7 +117,7 @@ def recommendations(actor, skills=None):
 
 def booking_for(application_id):
     row = get_db().execute(
-        'SELECT b.id, b.slot_id, s.starts_at, s.ends_at FROM bookings b '
+        'SELECT b.id, b.slot_id, b.created_at, s.starts_at, s.ends_at FROM bookings b '
         'JOIN slots s ON s.id = b.slot_id WHERE b.application_id = ?', (application_id,)).fetchone()
     return dict(row) if row else None
 
@@ -132,7 +132,17 @@ def application_record(application_id):
         raise DomainError(404, 'Application not found.')
     result = dict(row)
     result['booking'] = booking_for(application_id)
+    result['history'] = [dict(r) for r in get_db().execute(
+        'SELECT status, created_at FROM application_events WHERE application_id = ? ORDER BY created_at, id',
+        (application_id,))]
     return result
+
+
+def with_score(record):
+    """Add the applicant's current match score for the record's job (FP-MATCH-1)."""
+    record['skills'] = skills_for(record['candidate_id'])
+    record['score'] = score(record['skills'], _job(record['job_id'])['skills'])
+    return record
 
 
 def application(actor, application_id):
@@ -190,5 +200,8 @@ def set_status(actor, application_id, status):
         require_owner(actor, result['employer_id'])
         if status not in STATUSES:
             raise DomainError(400, 'Choose a valid application status.')
-        db.execute('UPDATE applications SET status = ? WHERE id = ?', (status, application_id))
-    return application_record(application_id)
+        if status != result['status']:
+            db.execute('UPDATE applications SET status = ? WHERE id = ?', (status, application_id))
+            db.execute('INSERT INTO application_events(application_id, status, created_at) VALUES (?,?,?)',
+                       (application_id, status, int(current_app.config['NOW']().timestamp())))
+    return with_score(application_record(application_id))

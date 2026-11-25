@@ -111,5 +111,6 @@ def book(actor, application_id, slot_id):
             raise DomainError(409, 'This interview slot is no longer in the future.')
         if availability['application_id'] is not None:
             raise DomainError(409, 'Slot already booked')
-        db.execute('INSERT INTO bookings(application_id,slot_id) VALUES (?,?)', (application_id, slot_id))
+        db.execute('INSERT INTO bookings(application_id,slot_id,created_at) VALUES (?,?,?)',
+                   (application_id, slot_id, int(now_timestamp())))
     return jobs.booking_for(application_id)

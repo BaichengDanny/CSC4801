@@ -67,6 +67,9 @@ def job_card(row):
         'employerId': str(row['employer_id']),
         'owner': str(row['employer_id']),
         'location': row['location'] or 'Not listed',
+        # The pages show 'Not listed' for an empty location; this flag keeps the job
+        # editor from saving that placeholder as a real location.
+        'locationSet': bool(row['location']),
         'type': row['job_type'] or 'Full-time',
         'status': row['posting_status'] or 'Active',
         'posted': iso(row['created_at']),
@@ -82,16 +85,24 @@ def job_card(row):
     return card
 
 
+STATUS_EVENT = {'Interviewing': 'Moved to Interviewing', 'Rejected': 'Rejected', 'Accepted': 'Accepted',
+                'Pending': 'Moved back to Pending'}
+
+
 def application_events(record):
-    applied = iso(record.get('created_at'))
-    events = [['Applied', applied]]
-    labels = {'Interviewing': 'Moved to Interviewing', 'Rejected': 'Rejected', 'Accepted': 'Accepted', 'Pending': 'Moved back to Pending'}
-    if record['status'] != 'Pending':
-        events.append([labels[record['status']], applied])
+    """The application timeline, with a null timestamp for undated legacy activity."""
+    history = record.get('history') or []
+    events = [(item['created_at'], STATUS_EVENT[item['status']]) for item in history]
+    if not history and record['status'] != 'Pending':
+        events.append((None, STATUS_EVENT[record['status']]))
     booking = record.get('booking')
     if booking:
-        events.append(['Interview booked', iso(booking['starts_at'])])
-    return events
+        events.append((booking.get('created_at') or None, 'Interview booked'))
+    # Legacy activity predates recorded history, even when its exact time is unknown.
+    events.sort(key=lambda event: (event[0] is not None, event[0] or 0))
+    timeline = [['Applied', iso(record.get('created_at'))]]
+    timeline.extend([label, iso(when) if when is not None else None] for when, label in events)
+    return timeline
 
 
 def candidate_application(record):
@@ -121,8 +132,9 @@ def candidate_profile(actor, details):
         'email': actor['email'],
         'skills': normalize_skills(details['skills']),
         'resume': details['resume'],
-        'resumeUpdated': iso(None),
-        'extras': bool(details['headline'] or details['location']),
+        'resumeUpdated': iso(details['resume_updated_at']) if details.get('resume_updated_at') else None,
+        'prefs': details.get('prefs'),
+        'extras': bool(details['headline'] or details['location'] or details.get('prefs')),
     }
 
 

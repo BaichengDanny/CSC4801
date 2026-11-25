@@ -17,14 +17,18 @@
     xhr.send(payload === undefined ? null : JSON.stringify(payload));
     let data = null;
     try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { data = { message: 'Unexpected response' }; }
+    /* The session ended (signed out in another tab, expired, or the demo data was reset). */
+    if (xhr.status === 401 && !path.startsWith('/api/auth/')) location.replace('/sign-in#candidate');
     return { status: xhr.status, data };
   }
   let boot = null;
+  let userId = '';
   if (HOSTED) {
     const me = api('GET', '/api/auth/me');
     if (!(me.status === 200 && me.data && me.data.role === 'Candidate')) location.replace('/sign-in#candidate');
     else {
       csrfToken = me.data.csrfToken;
+      userId = String(me.data.id);
       const loaded = api('GET', '/api/candidate/bootstrap');
       if (loaded.status === 200) boot = loaded.data;
       else location.replace('/sign-in#candidate');
@@ -34,9 +38,15 @@
       if (!a) return;
       e.preventDefault();
       api('POST', '/api/auth/logout');
+      /* Browser-only data belongs to this account; a shared computer must not show it to the next one. */
+      try { sessionStorage.removeItem(SAVED_KEY); } catch (err) { /* storage unavailable */ }
       location.href = a.getAttribute('href');
     }, true);
   }
+
+  /* Saved jobs and read notifications are kept in the browser per account. */
+  const SAVED_KEY = 'mw.saved.' + userId;
+  const NOTIF_KEY = 'mw.notifSeen.' + userId;
 
   /* ---------- Utilities ---------- */
   const $ = (s, r = document) => r.querySelector(s);
@@ -61,6 +71,15 @@
     return `${a.slice(-2) === b.slice(-2) ? a.slice(0, -3) : a}–${b} PT`;
   }
   const dayKey = (d) => fmt(d, { year: 'numeric', month: '2-digit', day: '2-digit' });
+  /* Whole Pacific calendar days from NOW to d: 0 today, 1 tomorrow. */
+  function daysFromToday(d) {
+    const utcDay = (x) => { const [m, dd, y] = dayKey(x).split('/').map(Number); return Date.UTC(y, m - 1, dd); };
+    return Math.round((utcDay(d) - utcDay(NOW)) / 864e5);
+  }
+  function relativeDay(d) {
+    const n = daysFromToday(d);
+    return n <= 0 ? 'Today' : n === 1 ? 'Tomorrow' : `In ${n} days`;
+  }
   function ago(d) {
     const days = Math.round((NOW - new Date(d)) / 864e5);
     if (days <= 0) return 'Today';
@@ -187,7 +206,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
   if (live) {
     state = boot.state;
     try {
-      const saved = JSON.parse(sessionStorage.getItem('mw.saved') || '{}');
+      const saved = JSON.parse(sessionStorage.getItem(SAVED_KEY) || '{}');
       if (saved && typeof saved === 'object') state.saved = saved;
     } catch (e) { /* keep the empty server list */ }
   } else if (!HOSTED) {
@@ -208,7 +227,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
   }
   function snapshotKey(data) {
     return JSON.stringify([data.jobs, data.companies, {
-      ...data.state, profile: { ...data.state.profile, resumeUpdated: null },
+      ...data.state,
       saved: {}, notifRead: false
     }]);
   }
@@ -252,7 +271,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     return legacyMatch.fromServer(res.data.jobs);
   }
   function resetDemo() {
-    if (live) { try { sessionStorage.removeItem('mw.saved'); } catch (e) { /* ignore */ } location.reload(); return; }
+    if (live) { try { sessionStorage.removeItem(SAVED_KEY); } catch (e) { /* ignore */ } location.reload(); return; }
     state = DEFAULT_STATE(); persist();
   }
   function apiResult(res, fallback) {
@@ -260,10 +279,12 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     return null;
   }
 
+  /* FP-MATCH-1: the server's score (recruiting/matching.py) is the one shown. The local
+     formula is only for the offline demo build, which has no server. */
   function jobs() {
     if (live) return legacyMatch.fromServer(JOBS).map(j => ({ ...j, tags: j.skills }));
     const skills = state.profile.skills;
-    return JOBS.map((j) => ({ ...j, tags: j.skills, match: matchScore(skills, j.skills) })).sort(byMatch);
+    return JOBS.map((j) => ({ ...j, tags: j.skills, match: Number.isInteger(j.score) ? j.score : matchScore(skills, j.skills) })).sort(byMatch);
   }
   const job = (id) => jobs().find((j) => j.id === id);
   const appForJob = (jobId) => state.applications.find((a) => a.jobId === jobId);
@@ -272,7 +293,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
 
   function toggleSave(jobId) {
     if (isSaved(jobId)) delete state.saved[jobId]; else state.saved[jobId] = new Date(NOW.getTime() + 60e3).toISOString();
-    if (live) { try { sessionStorage.setItem('mw.saved', JSON.stringify(state.saved)); } catch (e) { /* ignore */ } }
+    if (live) { try { sessionStorage.setItem(SAVED_KEY, JSON.stringify(state.saved)); } catch (e) { /* ignore */ } }
     persist();
     return isSaved(jobId);
   }
@@ -337,12 +358,18 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     persist();
     return { ok: true, app, slot: sl };
   }
+  /* Returns { ok: true } or { ok: false, message } so the page can say what went wrong. */
   function updateProfile(patch) {
-    if (!live) { Object.assign(state.profile, patch); persist(); return; }
+    if (!live) {
+      /* Offline demo only: the server sets these when signed in. */
+      const derived = { ...('resume' in patch ? { resumeUpdated: new Date(NOW.getTime() + 15 * 60e3).toISOString() } : {}), ...('prefs' in patch ? { extras: true } : {}) };
+      Object.assign(state.profile, patch, derived); persist(); return { ok: true };
+    }
     const res = api('POST', '/api/candidate/profile', patch);
     const failed = apiResult(res, 'Could not save your profile');
-    if (failed) throw new Error(failed.message);
+    if (failed) return failed;
     acceptSnapshot(res.data.snapshot);
+    return { ok: true };
   }
   function profileCompletion() {
     const p = state.profile;
@@ -615,7 +642,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
           </button>
           <div class="popover" id="accountMenu" role="menu" aria-label="Account">
             <a href="profile" class="menu-item" role="menuitem">My Profile</a>
-            <button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>
+            ${live ? '' : '<button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>'}
             <div class="menu-sep" role="separator"></div>
             <a href="/sign-in#candidate" class="menu-item danger" role="menuitem">Log Out</a>
           </div>
@@ -646,7 +673,8 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
 
     setupPopover($('#bellBtn'), $('#notifPop'));
     setupPopover($('#accountBtn'), $('#accountMenu'), () => $('#accountMenu .menu-item').focus());
-    $('#resetDemo').addEventListener('click', () => { resetDemo(); location.reload(); });
+    const reset = $('#resetDemo');
+    if (reset) reset.addEventListener('click', () => { resetDemo(); location.reload(); });
 
     const syncNav = () => moveIndicator($('.nav-indicator'), $('.nav [aria-current="page"]'));
     fillChrome();
@@ -682,14 +710,21 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
       const j = job(a.jobId), sl = slot(a.slotId);
       items.push({ href: 'interviews', icon: 'cal', title: 'Interview scheduled', text: `${j.title} at ${j.company}`, when: null, sub: `${fmtDate(sl.start)}, ${fmtTime(sl.start)} PT` });
     });
+    /* On the served site, "Mark all read" remembers exactly which reminders were seen, so a
+       new reminder shows as unread again. The server always sends notifRead: false. */
+    const fingerprint = items.map((n) => `${n.title}|${n.text}|${n.sub || n.when}`).join('\n');
+    if (live) { try { state.notifRead = !!items.length && localStorage.getItem(NOTIF_KEY) === fingerprint; } catch (e) { /* keep in memory */ } }
     const pop = $('#notifPop');
     pop.innerHTML = `<div class="notif-head">Notifications <button type="button" id="markRead"${state.notifRead ? ' disabled' : ''}>${state.notifRead ? 'All caught up' : 'Mark all read'}</button></div>` +
       (items.length ? items.map((n) => `<a class="notif-item" href="${n.href}"><span class="notif-icon"${n.icon === 'book' ? ' style="background:#FFF7DF"' : ''}>${n.icon === 'book'
         ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C6A12" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
         : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6A4FC9" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>'}</span>
-        <div><strong>${esc(n.title)}</strong>, ${esc(n.text)}<time>${n.sub ? esc(n.sub) : esc(ago(n.when))}</time></div></a>`).join('')
+        <div><strong>${esc(n.title)}</strong>, ${esc(n.text)}${n.sub || n.when ? `<time>${esc(n.sub || ago(n.when))}</time>` : ''}</div></a>`).join('')
         : '<div class="notif-item">No notifications yet.</div>');
-    $('#markRead').addEventListener('click', () => { state.notifRead = true; persist(); });
+    $('#markRead').addEventListener('click', () => {
+      if (live) { try { localStorage.setItem(NOTIF_KEY, fingerprint); } catch (e) { /* keep in memory */ } }
+      state.notifRead = true; persist();
+    });
     $('#bellDot').classList.toggle('hide', state.notifRead || !items.length);
     $('#bellBtn').setAttribute('aria-label', `Notifications${state.notifRead || !items.length ? ', none new' : `, ${items.length} new`}`);
   }
@@ -981,6 +1016,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
 
   window.MW = {
     $, $$, esc, reduceMotion, NOW, TZ, TZ_LABEL, fmt, fmtDate, fmtShort, fmtTime, fmtSlotTime, fmtRange, dayKey, ago,
+    relativeDay,
     matchScore, normalizeSkills, hasSkill, byMatch, COMPANIES, skillKey, sameSkills, previewSkills, refresh, live,
     get state() { return state; }, persist, resetDemo, onChange: (fn) => listeners.add(fn),
     jobs, job, appForJob, slot, isSaved, toggleSave, apply, openSlotsFor, book, updateProfile, profileCompletion, needsBooking,

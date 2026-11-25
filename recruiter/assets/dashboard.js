@@ -79,14 +79,14 @@
     const todays = upcoming.filter((x) => RW.ymdOf(x.s.start) === today);
     $('#ivToday').innerHTML = todays.length ? todays.map(({ s, a }) => `<a href="applicants?job=${encodeURIComponent(a.jobId)}#${esc(a.id)}" class="iv-slot">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-        <span><b>${esc(RW.fmtRange(s.start, s.end))}</b><span>${esc(a.name)} · ${esc(a.job.title)}</span></span>
+        <span><b>${esc(RW.fmtRange(s.start, s.end))} PT</b><span>${esc(a.name)} · ${esc(a.job.title)}</span></span>
         ${CHEV}
       </a>`).join('') : '<p class="iv-none">No interviews today.</p>';
     const weekEnd = RW.NOW.getTime() + WEEK;
     const later = upcoming.filter((x) => RW.ymdOf(x.s.start) !== today && new Date(x.s.start) < weekEnd);
     const waiting = RW.awaitingBooking().length;
     $('#ivLater').innerHTML = later.length
-      ? `<b>${later.length} more</b> this week · next ${esc(RW.fmt(later[0].s.start, { weekday: 'short' }))}, ${esc(RW.fmtTime(later[0].s.start))}`
+      ? `<b>${later.length} more</b> this week · next ${esc(RW.fmt(later[0].s.start, { weekday: 'short' }))}, ${esc(RW.fmtTime(later[0].s.start))} PT`
       : waiting ? `<b>${waiting}</b> applicant${waiting === 1 ? '' : 's'} still choosing a time` : 'Nothing else booked this week.';
   }
 

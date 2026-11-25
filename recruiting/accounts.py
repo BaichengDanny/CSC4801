@@ -2,6 +2,7 @@
 import re
 import sqlite3
 
+from flask import current_app
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .db import get_db, transaction
@@ -11,6 +12,11 @@ from .matching import normalize_skills
 
 RESUME_LIMIT = 50_000
 UNCHANGED = object()
+PREFERRED_JOB_TYPES = ('Full-time', 'Contract', 'Any')
+
+
+def _now():
+    return int(current_app.config['NOW']().timestamp())
 
 
 def require_role(actor, role):
@@ -82,26 +88,43 @@ def profile(actor, candidate_id):
     require_role(actor, 'Candidate')
     require_owner(actor, candidate_id)
     row = get_db().execute(
-        'SELECT resume, headline, location FROM candidate_profiles WHERE user_id = ?', (candidate_id,)).fetchone()
+        'SELECT resume, headline, location, resume_updated_at, pref_job_type, pref_remote '
+        'FROM candidate_profiles WHERE user_id = ?', (candidate_id,)).fetchone()
     if row is None:
         raise DomainError(404, 'Candidate profile not found.')
+    prefs = {'type': row['pref_job_type'], 'remote': bool(row['pref_remote'])} if row['pref_job_type'] else None
     return {**user(candidate_id), 'resume': row['resume'], 'headline': row['headline'],
-            'location': row['location'], 'skills': skills_for(candidate_id)}
+            'location': row['location'], 'skills': skills_for(candidate_id),
+            'resume_updated_at': row['resume_updated_at'], 'prefs': prefs}
 
 
-def update_profile(actor, display_name, skills, resume, headline=None, location=None):
+def preference_values(prefs):
+    """Validate the profile form's work preferences: a job type and an open-to-remote flag."""
+    if (not isinstance(prefs, dict) or prefs.get('type') not in PREFERRED_JOB_TYPES
+            or not isinstance(prefs.get('remote'), bool)):
+        raise DomainError(400, 'Work preferences need a job type of Full-time, Contract, or Any, and a remote choice.')
+    return prefs['type'], int(prefs['remote'])
+
+
+def update_profile(actor, display_name, skills, resume, headline=None, location=None, prefs=None):
+    """Validate every field first, then write them together. None or UNCHANGED keeps a stored value."""
     require_role(actor, 'Candidate')
     name = text_value(display_name, 'Display name', 100)
     normalized = normalize_skills(skills)
     resume = None if resume is UNCHANGED else text_value(resume, 'Resume', RESUME_LIMIT, required=False)
     current = get_db().execute(
-        'SELECT headline, location FROM candidate_profiles WHERE user_id = ?', (actor['id'],)).fetchone()
+        'SELECT headline, location, pref_job_type, pref_remote FROM candidate_profiles WHERE user_id = ?',
+        (actor['id'],)).fetchone()
     headline = current['headline'] if headline is None else text_value(headline, 'Headline', 160, required=False).strip()
     location = current['location'] if location is None else text_value(location, 'Location', 120, required=False).strip()
+    job_type, remote = ((current['pref_job_type'], current['pref_remote']) if prefs is None
+                        else preference_values(prefs))
     with transaction() as db:
         db.execute('UPDATE users SET display_name = ? WHERE id = ?', (name, actor['id']))
-        db.execute('UPDATE candidate_profiles SET resume = COALESCE(?, resume), headline = ?, location = ? '
-                   'WHERE user_id = ?', (resume, headline, location, actor['id']))
+        db.execute('UPDATE candidate_profiles SET resume = COALESCE(?, resume), '
+                   'resume_updated_at = CASE WHEN ? IS NULL THEN resume_updated_at ELSE ? END, '
+                   'headline = ?, location = ?, pref_job_type = ?, pref_remote = ? WHERE user_id = ?',
+                   (resume, resume, _now(), headline, location, job_type, remote, actor['id']))
         db.execute('DELETE FROM candidate_skills WHERE candidate_id = ?', (actor['id'],))
         db.executemany('INSERT INTO candidate_skills VALUES (?,?)', [(actor['id'], s) for s in normalized])
     return profile(actor, actor['id'])
@@ -111,7 +134,8 @@ def replace_resume(actor, resume):
     require_role(actor, 'Candidate')
     resume = text_value(resume, 'Resume', RESUME_LIMIT, required=False)
     with transaction() as db:
-        updated = db.execute('UPDATE candidate_profiles SET resume = ? WHERE user_id = ?', (resume, actor['id']))
+        updated = db.execute('UPDATE candidate_profiles SET resume = ?, resume_updated_at = ? WHERE user_id = ?',
+                             (resume, _now(), actor['id']))
         if updated.rowcount == 0:
             raise DomainError(404, 'Candidate profile not found.')
     return resume

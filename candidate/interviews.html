@@ -190,9 +190,6 @@
 
   function ivRow(a, past) {
     const j = a.job, s = a.slot;
-    const [month, day, year] = MW.dayKey(s.start).split('/').map(Number);
-    const [todayMonth, todayDay, todayYear] = MW.dayKey(MW.NOW).split('/').map(Number);
-    const days = (Date.UTC(year, month - 1, day) - Date.UTC(todayYear, todayMonth - 1, todayDay)) / 864e5;
     return `<div class="ivr${past ? ' past' : ''}">
       <div class="leaf r-md"><span class="m">${esc(MW.fmt(s.start, { month: 'short' }))}</span><span class="d">${esc(MW.fmt(s.start, { day: 'numeric' }))}</span></div>
       <div style="min-width:0">
@@ -200,7 +197,7 @@
         <div class="meta"><span>${esc(j.company)}</span><span aria-hidden="true">·</span><span>${esc(j.location)}</span></div>
         <div class="when"><span>${ICON.cal}${esc(MW.fmt(s.start, { weekday: 'long' }))}</span><span>${ICON.clock}${esc(MW.fmtRange(s.start, s.end))}</span></div>
       </div>
-      <div class="side">${past ? MW.statusHTML(a.status) : `<span class="soon">${days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`}</span>`}
+      <div class="side">${past ? MW.statusHTML(a.status) : `<span class="soon">${esc(MW.relativeDay(s.start))}</span>`}
         <a class="link-arrow" href="applications#${esc(a.id)}">Application ${ICON.arrow}</a></div>
     </div>`;
   }

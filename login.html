@@ -495,8 +495,10 @@
     $("signup-link").textContent = creating ? c.signupLinkBack : c.signupLink;
     $("name-field").hidden = !creating;
     $("company-field").hidden = !(creating && role === "recruiter");
-    $("forgot-link").hidden = creating;
-    $("remember-row").hidden = creating;
+    // Served by Flask there is no password reset and sessions always last 12 hours, so these
+    // offline-demo controls are hidden instead of pretending to work.
+    $("forgot-link").hidden = creating || location.protocol !== "file:";
+    $("remember-row").hidden = creating || location.protocol !== "file:";
     $("legal-note").firstChild.textContent = creating ? "By creating an account, you agree to our " : "By signing in, you agree to our ";
     password.autocomplete = creating ? "new-password" : "current-password";
     password.placeholder = creating ? "At least 8 characters" : "Enter your password";
@@ -771,7 +773,11 @@
     });
   }
 
-  // Social / SSO buttons (placeholders)
+  // Social / SSO buttons are placeholders for the offline demo; the served site signs in by email only.
+  if (hosted) {
+    document.querySelector(".social").hidden = true;
+    document.querySelector(".separator").hidden = true;
+  }
   document.querySelectorAll("[data-provider]").forEach(function (btn) {
     btn.addEventListener("click", function () {
       toast("Continue with " + btn.textContent.trim(), "Hook this button up to your OAuth / SSO flow.");

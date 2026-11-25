@@ -670,7 +670,7 @@ html.mw-loading,html.mw-loading *{cursor:progress}
           </a>
           <a href="jobs" class="qa">
             <span class="qa-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 9-5.2"/><path d="M18 11v5l1.5 2h-15"/><path d="M10 20a2 2 0 0 0 4 0"/><path d="M19 3v5M16.5 5.5h5"/></svg></span>
-            <span class="label">Create Job Alert<small class="hint">Alerts for new roles</small></span>
+            <span class="label">Find Jobs<small class="hint">Search every open role</small></span>
             <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
           </a>
           </div>
@@ -954,12 +954,7 @@ html.mw-loading,html.mw-loading *{cursor:progress}
   $('#fpReset').addEventListener('click', () => resetPanel());
   updateFilterCount();
   setupPopover($('#accountBtn'), $('#accountMenu'), () => $('#accountMenu .menu-item').focus());
-  $('#markRead').addEventListener('click', () => {
-    $('#bellDot').classList.add('hide');
-    $('#bellBtn').setAttribute('aria-label', 'Notifications, none new');
-    $('#markRead').disabled = true;
-    $('#markRead').textContent = 'All caught up';
-  });
+  /* "Mark all read" is wired by MW.renderNotifs(), which replaces the static notification markup. */
 
   /* ---------- Count-up + ring ---------- */
   function countTo(el, to, dur = 700) {
@@ -1030,7 +1025,9 @@ html.mw-loading,html.mw-loading *{cursor:progress}
   }
   renderShared();
   MW.onChange(renderShared);
-  $('#resetDemo').addEventListener('click', () => { MW.resetDemo(); location.reload(); });
+  /* Resetting is only meaningful in the offline demo; the served site keeps data on the server. */
+  if (MW.live) $('#resetDemo').remove();
+  else $('#resetDemo').addEventListener('click', () => { MW.resetDemo(); location.reload(); });
 
   /* ---------- Init ---------- */
   renderJobs(false);

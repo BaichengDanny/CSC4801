@@ -286,7 +286,8 @@
       ${interviewHTML(a)}
       <div>
         <div class="ad-sub">History</div>
-        <ol class="timeline">${a.events.map(([ev, at], i) => `<li class="${ev === 'Rejected' ? 'neg' : ''}${i === a.events.length - 1 && a._fresh ? ' new' : ''}"><span class="pt" aria-hidden="true"></span><span class="ev">${esc(ev)}</span><time datetime="${esc(at)}">${esc(RW.fmtShort(at))}</time></li>`).join('')}</ol>
+        <ol class="timeline">${a.events.map(([ev, at], i) => `<li class="${ev === 'Rejected' ? 'neg' : ''}${i === a.events.length - 1 && a._fresh ? ' new' : ''}"><span class="pt" aria-hidden="true"></span><span class="ev">${esc(ev)}</span>
+          ${at ? `<time class="event-time" datetime="${esc(at)}">${esc(RW.fmtShort(at))}</time>` : '<span class="event-time">Time unknown</span>'}</li>`).join('')}</ol>
       </div>
       <div class="ad-foot">
         <p>${ICON.lock}Their resume is private to them.</p>
