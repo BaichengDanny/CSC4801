@@ -1,4 +1,4 @@
-"""Application factory for Common Ground."""
+"""Application factory for Matchwork."""
 import os
 import secrets
 from datetime import datetime, timezone

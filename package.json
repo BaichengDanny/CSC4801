@@ -1,5 +1,5 @@
 {
-  "name": "csc4801-local-qa",
+  "name": "matchwork",
   "private": true,
   "scripts": {
     "test": "node --test tests/frontend/*.test.cjs",

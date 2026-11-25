@@ -1,161 +1,209 @@
-# Installation and local verification
+# Installation Guide
 
-## Prerequisites
+Run commands from the repository root. The Docker path includes the app and its test runtime. Use the local Python path to run the app from source.
 
-- Python **3.12** (verified locally with 3.12.11), or Docker Desktop / Docker Engine.
-- A current browser. The application runs with Python only; no cloud account,
-  paid API or external database is needed. The required unit suite also executes
-  shipped JavaScript renderers and needs Node.js 22 or later outside Docker.
-  Full frontend/browser QA uses Node.js 24, as configured in CI.
-- Internet is needed to install the pinned packages or build the image initially.
+## Prerequisites and Versions
 
-Run all commands from the repository root. The application does not load `.env`
-automatically; `.env.example` documents optional process environment settings.
+| Tool | Version | Use |
+|---|---|---|
+| Docker Desktop or Docker Engine | Docker 27.4 verified | Build and run the container |
+| Python | 3.12, with 3.12.11 verified | Local app and Python tests |
+| Node.js | 22 or newer for the Python suite's JavaScript checks. Use 24 for the combined suite and CI. | Tests outside Docker |
+| Browser | A current Chrome, Edge, Firefox, or Safari. Use Chromium for automated acceptance. | Open the app and run the browser checks |
 
-## Local setup
+The first build or dependency install downloads the pinned packages and images. The app runs with SQLite on the same machine. Web fonts are optional and the pages fall back to system fonts.
+
+## Dependency Installation
+
+For a local Python install, use a virtual environment. The lock file pins Flask 3.1.2, Waitress 3.0.2, pytest 8.4.2, and their dependencies.
+
+macOS or Linux
 
 ```sh
 python3.12 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m flask --app recruiting init-db
-python -m flask --app recruiting seed --yes
-python -m recruiting
 ```
 
-Open http://127.0.0.1:8080. That opens the Matchwork sign-in page. Old `/login`
-and `/register` addresses redirect there. The server is Waitress, not Flask's
-debug server.
-On Windows activate with `.venv\Scripts\activate` and use `py -3.12` for venv creation.
+Windows PowerShell
 
-### Environment
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `DATABASE` | `instance/recruiting.sqlite3` under the repository | SQLite file; parent directory is created |
-| `SECRET_KEY` | Random process key | Set a locally generated persistent secret to retain cookies across restarts |
-| `HOST` | `127.0.0.1` | Bind interface; Docker sets `0.0.0.0` internally |
-| `PORT` | `8080` | HTTP port |
-| `COOKIE_SECURE` | `0` | Set `1` when serving through HTTPS; keep `0` for local HTTP |
+The Docker build installs the same Python dependencies. The optional browser suite installs its own dependencies under [Running Unit Tests](#running-unit-tests).
 
-A restart with the default random secret signs out existing users. Server sessions
-expire after 12 hours and logout revokes them. Keep real secrets out of source
-control. Do not use the documented demo accounts in a public production service.
+## Environment Variables
 
-## Migrations, seed, and reset
+Set configuration in the process environment. [.env.example](.env.example) is a reference file. Flask reads these settings from the environment at startup.
 
-`python -m flask --app recruiting init-db` applies versioned migrations without
-resetting data. Run it after updating source before starting the app.
+| Variable | Local default | Docker default | Purpose |
+|---|---|---|---|
+| `DATABASE` | `instance/recruiting.sqlite3` | `/app/data/recruiting.sqlite3` | SQLite file. Use the same path for migrations, seed, and startup. |
+| `HOST` | `127.0.0.1` | `0.0.0.0` | Listen address. The Docker run command below restricts the host port to loopback. |
+| `PORT` | `8080` | `8080` | Waitress port |
+| `SECRET_KEY` | Random per process | Random per process | Signs session cookies. Set a persistent random value if sessions must survive restarts. |
+| `COOKIE_SECURE` | `0` | `0` | Keep `0` for the local HTTP demo. Set `1` for HTTPS. |
 
-The following single command resets **all data in the configured database** and
-creates the synthetic demo dataset. It is safe to run while the server is up
-(including via `docker exec`): the reset invalidates every existing session, so
-signed-in browsers must sign in again.
+The default configuration works for the local demo without supplying a secret. Changing the process secret invalidates existing cookies. Server-side sessions expire after 12 hours, and logout revokes the session immediately.
+
+## Database Setup and Migrations
+
+```sh
+python -m flask --app recruiting init-db
+```
+
+The command applies pending SQL files in `recruiting/migrations/` in filename order and records them in `schema_migrations`. It is safe to rerun on an existing database. Migration 005 adds application status history, timestamps for bookings and resume changes, and candidate work preferences. The Docker entry point applies migrations before starting Waitress.
+
+## Demo Data and Reset Command
+
+Run this against a disposable local database. It replaces the existing data with demo fixtures and invalidates existing sessions.
 
 ```sh
 python -m flask --app recruiting seed --yes
 ```
 
-It creates the course fixtures — three candidates, two employers, four jobs, all
-four application statuses, and two candidates eligible to race for the same
-future interview slot — then one demo employer and jobs for each company in
-`candidate/assets/jobs.json`. Every demo password is `DemoPass123!`; emails are
-listed in README.md. Seeding invalidates old sessions. Without `--yes`, the
-command refuses to reset data.
+The command requires `--yes`. It loads three candidates, two employers, four core jobs, and all four application statuses. Two candidates are eligible for the same slot. It then loads the 39 sample jobs in `candidate/assets/jobs.json`, with one demo employer per company. Account names, skills, statuses, and slot offsets repeat across resets. Password salts and session-generation values are random. [README.md](README.md#demo-accounts) lists the accounts and matching examples.
 
-IDs, skills, statuses, and slot offsets are deterministic. Password salts and
-session-generation secrets are intentionally random. By default the reference
-clock is now and slots begin tomorrow at 10:00 UTC. To reproduce a fixture exactly:
+The default clock places slots at 18:00, 19:00, or 20:00 UTC the next UTC day. The first slot shows as 10:00 AM Pacific in winter or 11:00 AM in summer. Pass an explicit offset to reproduce exact slot times. Use the default for a live demo so the slots are still in the future.
 
 ```sh
 python -m flask --app recruiting seed --yes --at 2030-01-01T00:00:00+00:00
 ```
 
-Fixed reference times can produce past slots when replayed later. For interactive
-review use the default seed command so booking eligibility remains demonstrable.
-Times are stored in UTC. The pages use Pacific Time (`America/Los_Angeles`),
-with PST or PDT shown for individual slots. Slot API timestamps require `Z` or an
-explicit offset.
+## Docker Build
 
-## Automated tests
+```sh
+docker build -t matchwork .
+```
+
+The root `Dockerfile` uses `python:3.12.11-slim-bookworm` and copies the Node.js binary from `node:22.23.5-bookworm-slim` for the renderer tests. SQLite runs inside the application container.
+
+## Docker Startup
+
+```sh
+docker volume create matchwork-data
+docker run -d --name matchwork -p 127.0.0.1:8080:8080 \
+  -v matchwork-data:/app/data matchwork
+```
+
+After [the health endpoint](http://127.0.0.1:8080/health) returns `{"status":"ok"}`, use these commands to verify migrations and populate a fresh demo volume.
+
+```sh
+docker exec matchwork python -m flask --app recruiting init-db
+docker exec matchwork python -m flask --app recruiting seed --yes
+docker exec matchwork python -m pytest tests/unit -q
+```
+
+Open [Matchwork](http://127.0.0.1:8080/sign-in) and sign in with a seeded account. Reuse the named volume to retain data across container restarts. For an existing volume, run `seed --yes` only when you intend to reset its data. The container runs as UID 10001, so a bind mount must be writable by that user.
+
+To open a database from an earlier installation, use `docker volume ls` to find its volume and substitute that name for `matchwork-data` in the mount argument.
+
+Stop and remove the container with these commands. The named volume stays available for the next run.
+
+```sh
+docker stop matchwork
+docker rm matchwork
+```
+
+## Local Development
+
+With the virtual environment active, initialize a local database, seed it for the first demo, and start Waitress.
+
+```sh
+python -m flask --app recruiting init-db
+python -m flask --app recruiting seed --yes
+python -m recruiting
+```
+
+Open [Matchwork](http://127.0.0.1:8080/sign-in). The legacy `/login` and `/register` paths redirect to the sign-in or registration view. Waitress is also the server used by Docker.
+
+### Browser smoke test
+
+Start with a fresh demo seed and use the password in [Demo Accounts](README.md#demo-accounts).
+
+1. Sign in on the candidate tab as `alex@example.test`. Check that the dashboard lists current jobs in score order. In My Profile, save a skill or replace the resume and reload. Check that the edit persists and the dashboard shows the updated score after a skill change.
+2. Open Interviews and book an open Northstar slot for Backend Engineer. The picker offers dates with open slots, and the confirmed booking shows its time in Pacific Time.
+3. Sign out and use the recruiter tab to sign in as `north@example.test`. Open Applicants and check Alex's status, skills, score, and booking. The resume is private. Change the status and confirm the booking remains visible.
+4. In recruiter Interviews, add a slot more than two weeks out. Delete the slot, reload, and confirm that the calendar still shows the selected date.
+5. Sign in as `blair@example.test`. Check that Northstar's remaining open slots appear and that Alex's booked slot is unavailable.
+6. Sign in as `field@example.test`. Check that My Jobs shows Fieldwork Labs postings. Northstar jobs belong to the other account.
+7. Sign out and use Create a free profile on the candidate tab to register a demo account. The new user lands on the candidate dashboard.
+
+## Running Unit Tests
 
 ```sh
 python -m pytest tests/unit -q
 ```
 
-This runs the entire required unit suite non-interactively and exits nonzero on
-failure. Tests use temporary, isolated databases and never call external services.
-The XSS unit test runs the shipped rendering functions in Node.js with no npm packages.
-Run the complete suite, including the optional synchronized concurrency test:
+The unit suite uses temporary SQLite databases and runs the shipped HTML renderer and calendar checks in Node.js. It exits with a nonzero status on failure. Node's built-in runner is enough for these checks.
+
+Run the full Python suite or the booking race by itself:
 
 ```sh
 python -m pytest -q
-```
-
-For the two-connection booking race alone:
-
-```sh
 python -m pytest tests/integration/test_concurrency.py -q
 ```
 
-## Frontend units, matching parity and CI
+The full Python suite can run in a disposable Docker container without network access:
 
-With Node.js **24** and the pinned Python requirements installed, one command
-runs all backend units, the real shared JavaScript escape/matching units, and
-the fixed-seed authenticated API-to-frontend contract:
+```sh
+docker run --rm --network none matchwork python -m pytest -q
+```
+
+### Frontend checks and matching parity
+
+With Node.js 24, run the Python and JavaScript units plus the authenticated API-to-frontend matching check. Add `--include-concurrency` to include the synchronized SQLite race.
 
 ```sh
 python tests/run_units.py
+python tests/run_units.py --include-concurrency
 ```
 
-Add `--include-concurrency` to run the synchronized database race in that command.
-The `pytest` suite includes the team's renderer/calendar subprocess checks,
-so Node.js is required even when invoking pytest directly. These are separate
-test layers; Python coverage does not include JavaScript execution.
-
-Individual frontend checks need only Node's built-in test runner:
+To run the JavaScript or matching checks separately:
 
 ```sh
-node --test tests/frontend/html.test.cjs tests/frontend/matching.test.cjs
+npm test
 python tests/acceptance/matching_parity.py
+python tests/acceptance/unicode_version_probe.py
 ```
 
-For browser acceptance install the locked QA dependency and Chromium:
+`unicode_version_probe.py` checks both known Unicode casing cases against the API and live frontend consumer. The `--browser` option uses the running local app. The `--legacy-functions` option on either Python script runs the offline calculator comparison. It can report Unicode differences between runtimes. Python coverage measures Python execution. The JavaScript checks run separately.
+
+### Browser acceptance
+
+Keep a local demo instance running and use a disposable database. The browser tests create synthetic accounts and records. Install the pinned Playwright dependency and Chromium, then run the suites against the local instance.
 
 ```sh
 npm ci
 npx playwright install chromium
+export QA_BASE_URL=http://127.0.0.1:8080
+npm run test:browser
+npm run test:normalization
+npm run test:authoritative
+node tests/browser/round2.cjs
 ```
 
-GitHub Actions uses `npx playwright install --with-deps chromium` on Ubuntu.
-The browser scripts use managed Chromium on Linux and installed Edge on Windows;
-`QA_BROWSER` can specify another executable. Set `QA_BASE_URL` to an explicitly
-local test instance and `QA_OUTPUT` to an ignored artifacts directory.
-Then run `npm run test:browser`, `npm run test:normalization`,
-`npm run test:authoritative` and `node tests/browser/round2.cjs`.
+CI installs Chromium with `npx playwright install --with-deps chromium` on Ubuntu. The scripts default to installed Edge on Windows and Playwright's Chromium on other platforms. Set `QA_BROWSER` to use another executable and `QA_OUTPUT` to give a run its own results directory under ignored `output/`. The HTTP smoke test runs one synchronized two-client race against the same local instance.
 
-The existing CI workflow now runs frontend units, authoritative API matching,
-Docker build/full pytest, seed/health, the browser business/DOM flow, normalization
-and employer-identity regressions, and HTTP concurrency. Failure artifacts are
-retained. Finite mutation checks and extra probes remain independent commands.
-Use the exact QA pull-request commit and its Checks for hosted Actions status.
+```sh
+python tests/acceptance/http_smoke.py --base-url http://127.0.0.1:8080
+```
 
-The independent `unicode_version_probe.py` remains an unsuppressed CI gate. Its default now verifies authenticated API scores/ranks consumed by the product frontend, including both QA3-04 counterexamples. `--browser` verifies the deployed pages (set QA_BASE_URL); `--legacy-functions` preserves the former raw offline calculator diagnostic, which can still exit 1 by design.
+The GitHub Actions workflow runs frontend units, matching parity and Unicode checks, Docker build and Python tests, seeded browser acceptance, and the HTTP booking race. It keeps browser and verification results as workflow artifacts. Use the run for the exact commit to check its status.
 
-## Optional deeper QA
+### Optional regression and persistence checks
 
-The required commands above need only the pinned project requirements.
-For the fixed-seed probes and isolated semantic mutation checks:
+Use these commands for fixed-seed probes and isolated mutation checks:
 
 ```sh
 python tests/acceptance/round2_probe.py --output output/qa-round2/probe-after.json
 python tests/acceptance/mutation_check.py
 ```
 
-The mutation runner copies files into hidden directories under ignored `output/`
-and verifies that product sources are unchanged. It never mutates the checkout.
-
-Optional branch coverage (development tool, not a product dependency):
+The mutation runner copies the sources under ignored `output/` and applies changes to those copies. It checks that the working files are intact. Branch coverage is a separate development check:
 
 ```sh
 python -m pip install coverage==7.10.7
@@ -163,82 +211,17 @@ python -m coverage run --branch --source=recruiting --data-file=output/qa-round2
 python -m coverage report --data-file=output/qa-round2/.coverage -m
 ```
 
-The optional `tests/acceptance/docker_persistence.py` script recreates an
-explicitly named local QA container and verifies its existing volume.
-It requires matching `--container`, `--image`, `--volume` and `--port` arguments;
-`--reset-after` explicitly opts into resetting only that QA instance.
-
-## Docker build and startup
-
-The root `Dockerfile` uses `python:3.12.11-slim-bookworm` for the application
-and copies the pinned Node.js runtime from `node:22.23.5-bookworm-slim` for the
-rendering test. SQLite runs inside the application container.
-The container runs as UID 10001. The named volume persists demo data across runs.
-
-```sh
-docker build -t common-ground .
-docker volume create common-ground-data
-docker run -d --name common-ground \
-  -p 127.0.0.1:8080:8080 \
-  -v common-ground-data:/app/data \
-  common-ground
-docker exec common-ground python -m flask --app recruiting init-db
-docker exec common-ground python -m flask --app recruiting seed --yes
-docker exec common-ground python -m pytest tests/unit -q
-```
-
-Open http://127.0.0.1:8080. Startup applies pending migrations automatically; the
-explicit migration command above is safe to repeat. Startup never resets/seeds data.
-The seed command must be run after startup; an image does not include a seeded DB.
-For an isolated full-suite run:
-
-```sh
-docker run --rm common-ground python -m pytest -q
-```
-
-Stop and remove the container while retaining its database:
-
-```sh
-docker stop common-ground
-docker rm common-ground
-```
-
-Recreate it with the same volume to retain data. To reset the configured demo DB,
-run the explicit seed command again; do not remove unrelated volumes. A bind mount
-instead of the named volume must be writable by UID 10001.
-
-## Browser smoke test
-
-Matchwork, at http://127.0.0.1:8080/sign-in:
-
-1. Choose the candidate tab and sign in as `alex@example.test` / `DemoPass123!`.
-   The dashboard lists seeded jobs and match scores.
-2. Open Profile, change skills or the private resume, and save. Reload and confirm
-   the change is still there.
-3. Open Interviews for an Interviewing application. Day choices appear only for
-   days that already have an open slot. Book one and confirm the reserved time.
-4. Sign out. On the recruiter tab, sign in as `north@example.test` with the same
-   password. Open Applicants and confirm Alex's booking. The resume stays private.
-   Change the status; the booking remains. On Interviews, use Add a specific time
-   to create a 30-minute slot more than two weeks out. Reload, find that date
-   in the calendar, and remove the slot. Check it no longer appears after reload.
-5. Sign out and sign in as `field@example.test`. Northstar jobs are not in that
-   account's job list.
-6. From the signed-out page, use Create a new profile, fill the candidate fields,
-   and confirm the new account lands on the candidate dashboard.
+`tests/acceptance/docker_persistence.py` verifies that demo data survives recreating a Docker container with its volume. Run it only on a dedicated local QA container. Supply its matching `--container`, `--image`, `--volume`, and explicitly published `--port`. `--reset-after` resets that QA database after the check.
 
 ## Troubleshooting
 
-- **Docker daemon unavailable:** start Docker Desktop/Engine before building.
-- **Port 8080 occupied:** stop the existing local preview or map Docker using
-  `-p 127.0.0.1:8081:8080`; for local Python use `PORT=8081 python -m recruiting`.
-- **No such table:** apply `init-db` against the same `DATABASE` used by the server.
-- **No demo accounts/jobs:** run the documented seed command; migrations alone
-  create an empty application.
-- **Login seems to loop:** unset `COOKIE_SECURE=1` for local HTTP, and ensure all
-  processes share a `SECRET_KEY` if running more than one app process.
-- **Database is busy (503):** close tools holding SQLite write transactions and
-  retry. The configured busy timeout is 10 seconds. Do not relabel unrelated
-  storage errors as slot conflicts.
-- **No available slots:** use fresh seed data, or create a future 30-minute slot.
-  Only unbooked Interviewing applications can reserve one.
+| Problem | What to check |
+|---|---|
+| Docker daemon unavailable | Start Docker Desktop or Docker Engine. |
+| Port 8080 occupied | Publish `-p 127.0.0.1:8081:8080` in Docker or run `PORT=8081 python -m recruiting` locally. Use the new port in the browser. |
+| `no such table` | Run `init-db` with the server's `DATABASE` value. |
+| Demo accounts missing | Run the seed command on the demo database after it starts. |
+| Sign-in loops on local HTTP | Check that `COOKIE_SECURE` is unset or `0`. Multiple server processes must share the same `SECRET_KEY`. |
+| Node.js missing during pytest | Put Node.js on `PATH` or run the suite in Docker. |
+| `503 Database is busy.` | Close the process or SQLite shell holding the write transaction, then retry. The busy timeout is 10 seconds. |
+| No times offered | Confirm the application is `Interviewing`, has no booking, and its employer has a future unbooked slot. |

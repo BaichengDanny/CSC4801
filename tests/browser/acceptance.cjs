@@ -1,6 +1,6 @@
 const { postWithCsrf } = require('./session.cjs');
 /* Local browser acceptance checks. Requires Playwright and an installed Chromium browser.
-   Run with QA_BASE_URL and NODE_PATH configured as described in docs/qa-2026-11-24.md. */
+   See Browser acceptance in INSTALL.md for setup and QA_BASE_URL. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');

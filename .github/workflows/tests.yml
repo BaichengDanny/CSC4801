@@ -29,11 +29,11 @@ jobs:
       - name: Authoritative API to frontend matching contract
         run: python tests/acceptance/matching_parity.py --output output/ci/matching-parity.json
       - name: Build the complete environment
-        run: docker build -t common-ground .
+        run: docker build -t matchwork .
       - name: Run all Python tests in an isolated container
-        run: docker run --rm common-ground python -m pytest -q
+        run: docker run --rm matchwork python -m pytest -q
       - name: Start local synthetic-data instance
-        run: docker run -d --name common-ground-smoke -p 127.0.0.1:8080:8080 common-ground
+        run: docker run -d --name matchwork-smoke -p 127.0.0.1:8080:8080 matchwork
       - name: Wait for application readiness
         run: |
           for attempt in $(seq 1 30); do
@@ -44,7 +44,7 @@ jobs:
           exit 1
       - name: Seed and smoke-test
         run: |
-          docker exec common-ground-smoke python -m flask --app recruiting seed --yes
+          docker exec matchwork-smoke python -m flask --app recruiting seed --yes
           curl --fail http://127.0.0.1:8080/sign-in
       - name: Browser business flow and rendered XSS
         env:
@@ -81,5 +81,5 @@ jobs:
       - name: Container logs and cleanup
         if: always()
         run: |
-          docker logs common-ground-smoke || true
-          docker rm -f common-ground-smoke || true
+          docker logs matchwork-smoke || true
+          docker rm -f matchwork-smoke || true

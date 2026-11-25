@@ -1,216 +1,178 @@
-# Common Ground — Project Specification
+# Project Specification
 
-## Scope and architecture
+The [course requirements](final_project_spec/REQUIREMENTS.md) define the graded behavior. [README.md](README.md#requirementtest-mapping) maps each requirement to its implementation and tests.
 
-A local recruiting platform for Candidates and Employers, implementing the
-normative [course requirements](final_project_spec/REQUIREMENTS.md). The browser
-UI is the static Matchwork pages under `candidate/`, `recruiter/`, `shared/`,
-and `login.html`, served by Flask and backed by the JSON API. The earlier Jinja
-screens have been removed. Python 3.12,
-SQLite through the standard `sqlite3` module, Werkzeug password hashing, pytest,
-and Waitress are the implementation choices. Optional AI and PDF extraction are
-out of scope for this version.
+## Product Scope
 
-`recruiting.create_app(config=None)` owns configuration, request security, and
-blueprint registration. JSON routes translate request bodies into service calls;
-services own validation, roles, ownership, and transactions. Database connections
-are scoped to the Flask application context and enable foreign keys and a busy timeout.
+Matchwork supports two roles, `Candidate` and `Employer`. Candidates maintain a profile with skills and a private plain-text resume, browse current jobs by match score, apply once per job, and book an interview when eligible. Employers maintain a company profile, publish jobs, review ranked applicants, change application status, and publish interview availability.
 
-## Data model
+## Architecture
 
-- `users`: ID, unique case-normalized email, password hash, role constrained to
-  Candidate/Employer, display name.
-- `candidate_profiles`: user FK, private raw resume. `candidate_skills`: candidate
-  FK plus normalized skill, composite primary key.
-- `companies`: employer FK, name, description. One company per employer. Matchwork
-  also stores industry, size, location, website, and an optional logo path.
-- `jobs`: employer FK, title, description, plus display fields used by Matchwork
-  (summary, location, type, categories, optional logo, Active/Closed label, created time). `job_skills`:
-  job FK and normalized skill. Closed jobs stay listed; new applications to them
-  are rejected.
-- `applications`: candidate FK, job FK, status constrained to Pending,
-  Interviewing, Rejected, Accepted; unique(candidate_id, job_id).
-- `slots`: job FK, UTC integer start/end timestamps; exactly 1800 seconds.
-  Owner is the job's employer. Slots are associated with a job for creation and
-  deletion dependencies, but are bookable by any eligible application to the
-  same employer, as required by FP-SCHED-2.
-- `bookings`: application FK (unique), slot FK (unique). Restrictive foreign keys
-  protect applications, slots, and jobs with dependents.
+| Component | Files | Responsibility |
+|---|---|---|
+| Browser | `login.html`, `candidate/`, `recruiter/`, `shared/` | Static HTML, CSS, and JavaScript render JSON from the API. |
+| Flask | `recruiting/__init__.py`, `recruiting/pages.py`, `recruiting/api.py`, `recruiting/auth.py`, `recruiting/present.py` | Serves pages, parses requests, authenticates sessions, and serializes responses. |
+| Services | `recruiting/accounts.py`, `recruiting/jobs.py`, `recruiting/scheduling.py`, `recruiting/matching.py` | Validate input, enforce permissions, score matches, and commit writes. |
+| Storage | `recruiting/db.py`, `recruiting/migrations/` | Manages SQLite connections, transactions, schema versions, and foreign keys. |
 
-Skills are trimmed, lowercased, deduplicated strings stored in child tables.
-Versioned SQL migrations live in `recruiting/migrations/`; applied versions are
-recorded in `schema_migrations`. There is no implicit destructive startup seed.
+Waitress serves the application. The Docker image contains the server and test runtime, with the database on a mounted volume. Flask opens a SQLite connection on demand for each application context through Python's `sqlite3` module. It enables foreign keys, sets a 10-second busy timeout, and closes the connection at teardown. Tests and seeding use the configurable `NOW` callable for UTC time.
 
-## Authentication and authorization
+`create_app(config=None)` loads settings, registers Flask blueprints, and turns application and HTTP errors into JSON. The API delegates writes to the service modules and uses `present.py` to shape the response. The entry point is `python -m recruiting`. Versioned SQL migrations and the demo seed have separate CLI commands. Starting the container applies migrations and leaves existing data in place.
 
-Registration creates exactly one role-specific profile. Emails are stripped and
-lowercased; passwords require at least eight characters and are stored using
-Werkzeug scrypt with random salts. Signed HttpOnly, SameSite=Lax cookies hold a
-random session token, generation value, and CSRF token, never password hashes or
-resume text. SHA-256 digests of random tokens are stored in `auth_sessions` with
-user IDs and 12-hour expiry; logout removes the corresponding server record. Login/logout clear
-session state. `SECRET_KEY` may be configured; otherwise a random process key
-means restarting invalidates existing sessions.
+The standalone files `matchwork-candidate.html` and `matchwork-recruiter.html` are offline design demos. They use browser storage and a local calculator. The Flask page routes serve the live portals under `candidate/` and `recruiter/`.
 
-All protected routes require login (401) and services enforce roles and object
-ownership (403). Missing accessible objects return 404. Candidate profile/resume
-routes are owner-only even for employers. Employer applicant lists expose only
-candidate identity, skills, score, status, and booking; never raw resumes or
-password hashes. Candidate application reads are owner-only; status writes are
-employer/job-owner-only. Rejected writes leave the database unchanged.
+## Data Model and Relationships
 
-## Routes and screens
+Migrations 001 through 005 create the schema. Timestamps use integer UTC epoch seconds.
 
-Mutations are JSON POSTs. Errors return `{ok: false, message}` with the actual
-HTTP status. GET `/login` and GET `/register` only redirect into the Matchwork
-sign-in page.
+| Table | Columns | Relationships and constraints |
+|---|---|---|
+| `users` | `id`, `email`, `password_hash`, `role`, `display_name` | Email is unique and case-insensitive. The role is `Candidate` or `Employer`. The display name must be non-empty. |
+| `candidate_profiles` | `user_id`, `resume`, `resume_updated_at`, `headline`, `location`, `pref_job_type`, `pref_remote` | One profile per candidate user. The job preference is `Full-time`, `Contract`, `Any`, or empty if unset. The remote preference is stored as 0 or 1. |
+| `candidate_skills` | `candidate_id`, `skill` | The candidate and skill form the primary key. |
+| `companies` | `employer_id`, `name`, `description`, `industry`, `size`, `location`, `website`, `logo`, `logo_w`, `logo_h` | One company profile per employer user. |
+| `jobs` | `id`, `employer_id`, `title`, `description`, `summary`, `location`, `job_type`, `posting_status`, `created_at`, `logo`, `logo_w`, `logo_h`, `categories` | Each job belongs to an employer's company. Title and description must be non-empty. |
+| `job_skills` | `job_id`, `skill` | Job and skill form the primary key. Job deletion removes its skill rows. |
+| `applications` | `id`, `candidate_id`, `job_id`, `status`, `created_at` | `UNIQUE(candidate_id, job_id)` permits one application per pair. The initial status is `Pending`. |
+| `application_events` | `id`, `application_id`, `status`, `created_at` | One row per recorded status change. |
+| `slots` | `id`, `job_id`, `starts_at`, `ends_at` | The job supplies the employer. `CHECK(ends_at - starts_at = 1800)` enforces the duration. |
+| `bookings` | `id`, `application_id`, `slot_id`, `created_at` | Both foreign keys are separately unique. Pre-005 bookings have `created_at = 0`. |
+| `auth_sessions` | `token_hash`, `user_id`, `expires_at` | Stores the token digest for each active sign-in. |
+| `metadata` | `key`, `value` | Stores `session_generation`, which changes on demo reset. |
+| `schema_migrations` | `version` | Tracks applied SQL filenames. |
 
-| Method/path | Behavior |
+Registration creates the account and its candidate profile or company in one transaction. Jobs require a non-empty title and description. An employer can delete a job only when it has no applications or slots. The service returns `409` for a dependent record, and the foreign keys enforce the same restriction. Application statuses are `Pending`, `Interviewing`, `Rejected`, and `Accepted`. An existing booking also blocks deletion of its slot or application at the database layer.
+
+The job service validates the types `Full-time`, `Part-time`, `Contract`, and `Internship`, plus the listing statuses `Active` and `Closed`. It validates listing metadata and core job fields together. Partial edits read the existing job inside the write transaction and preserve omitted fields. Nested service writes use SQLite savepoints.
+
+## Authentication and Authorization
+
+Registration trims and lowercases email addresses, checks their format, and returns `409` for a duplicate. Passwords must be 8 to 256 characters and a display name must contain 1 to 100. Werkzeug stores a salted scrypt hash through `generate_password_hash` and checks it with `check_password_hash`. An unknown email and a wrong password return the same `401`. Valid credentials submitted for the other role return `403`.
+
+At sign-in or registration, `auth.start_session` removes the previous browser session and any expired records. It stores a SHA-256 digest of a new random token with a 12-hour expiry. The signed Flask cookie holds the token, current session generation, and a fresh CSRF token. Cookies use `HttpOnly` and `SameSite=Lax`. Set `COOKIE_SECURE=1` for HTTPS. The default process-specific `SECRET_KEY` invalidates existing cookies on restart.
+
+`auth.load_user` checks the digest, expiry, and generation on each request. An invalid session is cleared. Logout removes the corresponding server record, and reseeding changes the generation and invalidates all sessions.
+
+| Request | Result |
 |---|---|
-| GET `/` | Redirect to sign-in, or to the signed-in role's dashboard |
-| GET `/login` | Redirect to `/sign-in` |
-| GET `/register` | Redirect to `/sign-in#signup` |
-| GET `/health` | Lightweight health endpoint |
-| GET `/sign-in` | Matchwork sign-in and account creation |
-| GET `/candidate/...`, GET `/recruiter/...`, GET `/shared/...` | Matchwork HTML, CSS, and scripts |
-| GET `/api/auth/csrf` | Issue or read the current session's CSRF token before sign-in or registration |
-| POST `/api/auth/register`, POST `/api/auth/login`, POST `/api/auth/logout`, GET `/api/auth/me` | JSON registration and session |
-| GET `/api/candidate/bootstrap`, POST `/api/candidate/profile`, POST `/api/candidate/matching-preview`, POST `/api/candidate/applications`, POST `/api/candidate/applications/<id>/book` | Candidate reads and writes |
-| GET and POST `/api/candidate/<candidate_id>/resume` | Read or replace the owning candidate's raw-text resume |
-| GET `/api/employer/bootstrap`, POST `/api/employer/jobs`, POST `/api/employer/jobs/<id>`, POST `/api/employer/jobs/<id>/delete`, POST `/api/employer/applications/<id>/status`, POST `/api/employer/slots`, POST `/api/employer/slots/<id>/delete`, POST `/api/employer/company` | Employer reads and writes |
+| Protected API route without a valid session | `401` |
+| Wrong role or owner | `403` |
+| Missing record the caller could otherwise access | `404` |
+| POST with the wrong or missing CSRF token after the session check | `403` |
 
-JSON routes that consume a request payload require a JSON object; malformed, empty, null and scalar bodies return 400. Explicit empty objects remain valid for partial updates. JSON resource IDs accept positive signed-64-bit integers or integer strings; booleans and floats are rejected as missing records (404) rather than coerced.
+Protected routes check the role with `as_role`. Service operations check role and record ownership with `require_role` and `require_owner`. Candidates manage their own profiles and resumes and see only their own applications. Employers manage their own jobs, applicants, and slots. Only the employer who owns a job can change the application status. The direct resume route checks ownership before reading the record or parsing a write body. An owner whose profile row is missing receives `404`.
 
-Job services validate core fields and page metadata together and save them in one transaction. Nested service transactions use SQLite savepoints, so a failed composed write rolls back the complete request.
+## API Routes or Server Actions
 
-JSON routes return `{ok, message}` with the same 401/403/404/409 contract.
-Every POST requires the session's CSRF token in `X-CSRF-Token`. Missing or
-mismatched tokens return 403. The sign-in page obtains the token from
-`/api/auth/csrf`. Successful login or registration rotates it. Signed-in
-pages use the token returned by `/api/auth/me`. Token responses use `no-store`.
-The direct resume route returns 403 for other candidates and employers before
-reading the profile or validating the write body. An owner whose profile row
-is missing receives 404. POST accepts a `resume` string and updates only that
-field. A profile edit that omits `resume` preserves the stored resume.
+| Page route | Behavior |
+|---|---|
+| GET `/` | Redirect to sign-in or the signed-in role's dashboard. |
+| GET `/sign-in` | Serve the sign-in and registration page. |
+| GET `/login`, `/register` | Redirect to `/sign-in` and `/sign-in#signup`, respectively. |
+| GET `/candidate/<page>`, `/recruiter/<page>`, `/shared/<file>` | Serve the portal pages and assets. Extensionless paths resolve to `.html`. |
+| GET `/health` | Return `{"status":"ok"}`. |
 
-Matchwork shows slot times in Pacific Time; values are stored as
-UTC. An employer's new slots are attached to that employer's oldest job so the
-existing slot-to-job rule still applies. Candidate job and slot cards carry the
-same employer ID. Candidate company profiles are keyed by this ID, and the
-booking picker uses it to identify eligible slots across that employer’s jobs.
-The candidate bootstrap returns the viewer's own bookings, including past
-bookings, and future unbooked slots for employers with an `Interviewing`
-application of the viewer that has yet to be booked.
+The public HTML pages check `/api/auth/me` before loading private data. API errors use `{"ok":false,"message":"..."}` and the corresponding HTTP status. Routes that read a body require a JSON object. Empty, malformed, non-object, or deeply nested JSON returns `400`. An explicit empty object is valid for partial updates. The request size limit is 1 MiB. The body IDs `jobId` and `slotId` accept a JSON integer or a string of up to 19 ASCII digits in the range `1` through `2^63 - 1`. Booleans, fractional values, and strings with whitespace return `404`. The same positive integer range applies to path IDs.
 
-Job create and edit validate and save the title, description, skills, summary,
-location, job type, and posting status in one database operation. Partial edits
-resolve omitted fields from the current record inside the write transaction.
+| Method and path | Access and behavior |
+|---|---|
+| GET `/api/auth/csrf` | Returns the CSRF token for the current browser session, including before login. |
+| POST `/api/auth/register` | Accept `email`, `password`, `role`, and `name`, with an optional `company` for employers. Create the account and session, rotate the CSRF token, and return `201`. |
+| POST `/api/auth/login` | Accept `email`, `password`, and `role`. Start the session and rotate the CSRF token. |
+| GET `/api/auth/me`, POST `/api/auth/logout` | Read `id`, `email`, `role`, `name`, and `csrfToken`, or end the current session. |
+| GET `/api/candidate/bootstrap` | Candidate's profile, ranked jobs with company records, own applications and timelines, and visible slots. |
+| POST `/api/candidate/profile` | Update supplied `name`, `skills`, `headline`, `location`, `resume`, or `prefs`. The API validates the fields before saving and returns the updated profile and candidate snapshot. Omitted fields, including the resume, keep their values. |
+| GET or POST `/api/candidate/<candidate_id>/resume` | Read or replace the owning candidate's raw resume in the `resume` field. This write changes the resume and its update timestamp. |
+| POST `/api/candidate/matching-preview` | Score draft skills against current jobs. Returns scores, ranks, and saved-profile baseline scores without writing the draft. |
+| POST `/api/candidate/applications` | Create a `Pending` application for `jobId` and return `201`. Duplicate applications and applications to a closed job return `409`. |
+| POST `/api/candidate/applications/<id>/book` | Book `slotId` with the candidate's own eligible application. |
+| GET `/api/employer/bootstrap` | Return the employer's company, jobs, ranked applicants, and slots. Applicant cards include name, headline, location, email, and skills. Applications carry score, rank, status, and the timeline. Resume text stays private. |
+| POST `/api/employer/company` | Update `name`, `about`, `industry`, `size`, `location`, or `website` on the employer's company. |
+| POST `/api/employer/jobs` | Create an owned job with `title`, `body` or `desc`, and `skills`. Optional fields include `location`, `type`, and `status`. Return `201`, the job, and the employer snapshot. |
+| POST `/api/employer/jobs/<id>` | Partially edit an owned job. Return the job and updated employer snapshot. |
+| POST `/api/employer/jobs/<id>/delete` | Delete an owned job and return an updated snapshot. Jobs with applications or slots return `409`. |
+| POST `/api/employer/applications/<id>/status` | Set `status` to one of the four allowed values. A real change records an event. Return the updated application and employer snapshot. |
+| POST `/api/employer/slots` | Create a 30-minute slot from `start` and `end`, and return `201`. |
+| POST `/api/employer/slots/<id>/delete` | Delete an owned unbooked slot. Booked slots return `409`. |
 
-## Interface design
+`prefs` contains a job `type` and a Boolean `remote` flag. Candidate job and slot cards carry the employer's ID. Job cards expose it as `owner` and `employerId`. Company records use that ID as the key, so identical company names still lead to the correct profiles and availability.
 
-The browser product is **Matchwork**. Pages use Plus Jakarta Sans from Google
-Fonts, a light card layout, and a sidebar on the dashboards. Sign-in and account
-creation share `login.html`; the candidate and employer roles are tabs on that
-page. Job cards, applicant rows, and interview slots are rendered by the page
-scripts from JSON. The page scripts escape text before inserting it into HTML. Live candidate and employer portals share `shared/html.js::escape`, which handles HTML text and quoted attributes and is called directly by Node unit tests. URL validation is a separate responsibility.
-Live job cards include the stable employer ID as `owner` and the compatible `employerId` alias. Candidate company records are keyed by that ID, and availability is matched against slot owner IDs; company names are display text and need not be unique. The standalone demo keeps its name-keyed catalog.
+## User Interface and Workflows
 
-Saved jobs are kept in `sessionStorage` under `mw.saved`. Mobile layouts stack
-the columns. The repository and Docker image name remain Common Ground.
+The sign-in page has candidate and recruiter tabs and a registration form. Employers can supply a company name at sign-up. The account's display name is the fallback. The hosted pages use a sidebar and card layout, with stacked columns on small screens and a system-font fallback for Plus Jakarta Sans.
 
-## Matching
+| Portal and page | What the page shows or does |
+|---|---|
+| Candidate dashboard | Counts by application status, the next interview, and current jobs ranked by score. Each job has a title, company, location, required skills, and an apply action or state. |
+| Find Jobs and Saved Jobs | Search and filter job listings, open full descriptions, and revisit jobs saved in the current browser tab. |
+| My Profile | Edit the display name, headline, location, skills, work preferences, and plain-text resume. Show the resume's last saved date when available and preview score changes for unsaved skills. |
+| My Applications | Show each job, company, status, booking, and the timeline of submission, status changes, and booking. |
+| Candidate Interviews | Show reserved times and a picker for each unbooked `Interviewing` application. Date labels such as Today and Tomorrow use the Pacific calendar day. |
+| Employer dashboard | Show job and application counts, recent applicants, and upcoming interviews. |
+| My Jobs | Create, edit, close, reopen, and delete postings. An empty location displays as `Not listed`. The `locationSet` flag keeps that label out of saved data. When deletion is blocked, explain which dependent records exist. |
+| Applicants | Select a job to see ranked applicants with identity, skills, score, status, and any booking. Status controls use the four application statuses. |
+| Employer Interviews | Show a calendar, a 30-minute slot grid, a form for a specific time, and booked interviews. |
+| Company Profile | Edit company name, description, industry, size, location, and website. |
 
-`recruiting.matching.score(candidate_skills, required_skills)` is the authority
-for both live roles. It normalizes inputs, returns 100 for an empty required set,
-otherwise `100 * len(C & R) // len(R)`. Resume text is not consulted.
-The existing Python 3.12 lowercase behavior is retained; no character-specific
-patch, NFC/NFKC, casefold, or schema migration is introduced.
+A candidate adds skills and applies to a job. The application starts as `Pending`. The employer reviews the applicant and moves it to `Interviewing`. The candidate selects a future open time offered by that employer. Both sides see the booking after confirmation, even if the employer later accepts or rejects the application.
 
-The explicit edge-whitespace set is U+0009–000D, U+001C–0020, U+0085, U+00A0,
-U+1680, U+2000–200A, U+2028/2029, U+202F, U+205F, U+3000, U+FEFF.
-Internal whitespace and U+200B/U+180E remain data. Stored skills are normalized
-again when scored/presented, so legacy values do not require destructive reset.
+Profile edits, job writes, and status changes return a refreshed API snapshot. The portals apply it immediately. Navigation, focus, and becoming visible also trigger refreshes. Visible pages poll every five seconds, and unsaved skill drafts or job edits delay automatic refresh. A failed save shows the server's message without clearing the draft. If the session ends, a protected API's `401` returns the user to the sign-in tab for their role.
 
-Candidate API job cards include integer `score` (0–100) and `rank`. They include
-every non-deleted job and order by (-score, title.lower(), job_id).
-Employer application cards use the same score function and rank by
-(-score, display_name.lower(), candidate_id); a final application-ID key makes
-the optional all-jobs view deterministic when the same candidate has multiple
-applications. Filtering that global list by job preserves the required per-job order.
+Saved jobs use `sessionStorage` under `mw.saved.<id>` and are cleared at logout. The candidate and recruiter notification-read keys are `mw.notifSeen.<id>` and `rw.notifSeen.<id>` in `localStorage`. Snapshots preserve this browser state. Reminders are reconstructed from application and booking data during refresh.
 
-The live candidate/employer pages consume these facts through
-`shared/match.js::fromServer` and `byServerRank`. They do not recalculate scores,
-Unicode case normalization, or match ordering in JavaScript. IDs remain strings.
-Skills sent to live editors are canonicalized by the backend, and the browser
-compares already canonical skill values without applying a second lowercase.
+## Matching Algorithm and Skill Storage
 
-POST `/api/candidate/matching-preview` requires Candidate authorization and a
-validated skills list. It is read-only and uses the same recommendation service,
-returning sorted draft cards with `score`/`rank` plus `baselineScore` for the
-currently saved profile. This preserves the existing before/after skill preview,
-including when job requirements change while a draft is open.
+`recruiting.matching.normalize_skills` trims the edges of each value, applies Python's lowercase conversion, removes blanks, and deduplicates. It accepts up to 100 normalized skills of at most 80 characters each. Surrounding whitespace covers U+0009 through U+000D, U+001C through U+0020, U+0085, U+00A0, U+1680, U+2000 through U+200A, U+2028, U+2029, U+202F, U+205F, U+3000, and the U+FEFF byte-order mark. Internal whitespace, U+200B, and U+180E remain part of the skill. The service uses lowercase conversion without case folding or Unicode composition.
 
-Profile and job mutations return a fresh `snapshot`; status changes do too.
-Live state accepts it immediately, preserving saved jobs and notification-read
-state. Navigation, window focus, and becoming visible also refresh from the API.
-Visible pages attempt a refresh every five seconds, applying changed results to
-the current DOM. Existing unsaved-form guards pause background adoption until the
-draft is saved or discarded. This is polling/focus refresh, not push delivery.
+Candidate and employer edits store one normalized skill per row in `candidate_skills` or `job_skills`. Sample catalog rows can keep the capitalization from `candidate/assets/jobs.json`. `score` normalizes both skill lists when it calculates a result, and the live API emits canonical skill values. An existing database can keep its old skill rows.
 
-The standalone file/demo retains its local calculator for offline behavior.
-The original raw Python/JS comparison remains available as
-`matching_parity.py --legacy-functions` and
-`unicode_version_probe.py --legacy-functions`. Its runtime casing differences
-are diagnostic facts about that unused online calculator; the live regression
-now verifies authenticated API -> actual frontend consumption and real pages.
+For candidate skills `C` and required skills `R`, the score is `100` when `R` is empty. Otherwise it is `100 * len(C & R) // len(R)`, an integer from 0 through 100. Only skills enter the calculation. The score is computed from the current profile and job requirements when the service reads them.
 
-## Scheduling and concurrency
+`jobs.recommendations` orders every non-deleted job by descending score, then case-insensitive title, then numeric job ID. `jobs.applicants` orders each job's applicants by descending score, then case-insensitive display name, then numeric candidate ID. `jobs.ranked_applications` adds the application ID as a final tie-breaker for the employer's all-jobs list. Filtering that list to one job preserves the per-job order.
 
-The slot API accepts ISO timestamps with explicit offsets or `Z`, at whole-second
-precision. It stores UTC epoch seconds. Matchwork uses `America/Los_Angeles`
-(Pacific Time, PST in winter and PDT in summer). Manual entry rejects skipped
-and repeated wall times during clock changes. Times spanning midnight end on
-the following date when the start is in the 23:00 hour and the end is in the
-00:00 hour. The employer calendar shows the next 14 days plus any farther future
-date with a slot. It also includes the date selected by a valid `day` URL
-parameter for today or later, even after the last slot on that day is removed.
-A configurable `NOW` callable supplies the current UTC time for testing and seeding.
+Both services call the same Python scorer. The API returns integer `score` and zero-based `rank` fields and serializes record IDs as strings in the ranked cards. The live portals use `shared/match.js` through `fromServer` and `byServerRank`, keeping the server's order and comparing the canonical skill values it supplies. The draft preview calls the same scorer on the server and compares the draft result to the saved-profile `baselineScore`. Draft skills remain unsaved until the candidate confirms. The offline demo uses the JavaScript calculator. See [INSTALL.md](INSTALL.md#frontend-checks-and-matching-parity) for the live parity suite and offline diagnostic.
 
-Slot creation validates a future start and exactly 30 minutes. It checks for
-overlap with the same employer’s slots inside the write transaction.
-Booking uses `BEGIN IMMEDIATE` to serialize competing writers. Inside the same
-transaction it verifies application ownership, `Interviewing` status, and the
-absence of a previous booking before looking up the slot. It checks the slot's
-employer and future start before reporting its booking state. Unique constraints
-on slot and application IDs provide a second database guard. The loser of an
-eligible same-slot race gets 409 with exactly `Slot already booked`. SQLite waits
-up to 10 seconds for a writer. Unrelated lock exhaustion returns 503.
-Status changes, deletion, and booking use write transactions so validations and
-mutations see consistent state. A booking survives later status changes.
+## Interview Scheduling and Booking Transaction
 
-## Security and limits
+A slot must start in the future and last exactly 30 minutes. The API accepts ISO 8601 timestamps with `Z` or an explicit offset and uses whole seconds. Invalid timestamps or durations return `400`. SQLite stores UTC timestamps and the interface converts them to Pacific Time (`America/Los_Angeles`). The manual form rejects nonexistent or ambiguous wall times when clocks change. A start in the `23:00` hour and end in the `00:00` hour place the end on the next date.
 
-Parameterized SQL only; dynamic identifiers are internal constants. API
-responses are JSON, so user text is data rather than an HTML document. The
-Matchwork pages escape user text before inserting it. Protected routes authenticate
-with the SameSite session cookie. The request hook verifies the session-bound
-CSRF token for every POST, including those with empty bodies. Limit request
-bodies to 1 MiB, passwords to 256 characters,
-resumes/descriptions to documented service limits. Security headers include a
-same-origin content policy that allows the Google font stylesheets used by the
-pages, plus frame denial. HTTPS deployments set `COOKIE_SECURE=1`; local HTTP
-uses the default false setting.
+The employer calendar shows the next 14 days and later dates with slots. A valid `day` URL parameter for today or a future date stays selected on reload, even after the final slot on that date is removed. The candidate picker shows only dates with eligible open times.
 
-No real secrets, personal data, cloud services, or paid credentials are needed.
-Tests create isolated temporary SQLite databases. The seed command is explicitly
-destructive and requires `--yes`; it preserves deterministic identities and
-relative ordering, then loads the Matchwork catalog in `candidate/assets/jobs.json`
-as one demo employer per company. By default slots start on the next UTC day; `--at` accepts a
-fixed ISO reference clock for exact fixture reproduction. Reset is for local demo
-use only. Existing signed sessions are invalidated on reset through a database
-session-generation value, avoiding reuse of seeded user IDs.
+`scheduling.create_slot` returns `400` when the employer has no job. It checks for overlap with that employer's slots inside the write transaction and returns `409` for a conflict. The API attaches new slots to the employer's oldest job by ID so job deletion can enforce the slot dependency. An eligible candidate can book any of that employer's slots, including one attached to a different job. A booked slot stays reserved and cannot be deleted.
 
-SQLite is intended for local/course-scale use. There are no email verification,
-password recovery, file uploads, chat, calendar integration, or booking cancellation
-flows in this scope. Unit tests and a synchronized two-client test verify behavior;
-Docker verification and manual browser results are recorded separately.
+Candidate bootstrap returns the caller's booked slots, including past ones, and future unbooked slots at employers where the caller has an `Interviewing` application without a booking. The employer API returns that employer's own slots and bookings.
+
+`scheduling.book` starts a SQLite `BEGIN IMMEDIATE` transaction before reading eligibility. It checks the application first, then the slot.
+
+| Check in transaction order | If the check fails |
+|---|---|
+| The application exists and belongs to the candidate. | `404` if missing, `403` if owned by another candidate |
+| The application has no booking and is `Interviewing`. | `409` with the reason |
+| The slot exists and belongs to the application's employer. | `404` if missing, `403` for another employer |
+| The slot starts in the future. | `409` because the time has passed |
+| The slot is unbooked. | `409` with `Slot already booked` |
+
+The service inserts the booking and its creation timestamp before committing. A rejected request rolls back the transaction without changing the data.
+
+For two eligible candidates requesting the same future slot, the next writer reads the first committed booking and receives `409` with exactly `Slot already booked`. The unique slot and application constraints enforce one booking at the database layer. The transaction uses SQLite's write lock because SQLite allows one writer at a time. Lock contention that outlasts the 10-second wait returns `503` with `Database is busy. Please try again.` Status changes and deletions also use write transactions. Later status changes preserve the booking and leave the slot unavailable.
+
+## Security Controls
+
+- Service queries bind user-provided values with SQLite parameters. The seed command formats SQL with a fixed internal list of table names.
+- Browser renderers use text nodes or call `shared/html.js` to escape values before inserting text or quoted attributes into HTML. The company profile renders website links with an HTTPS prefix. The renderer tests exercise the shipped escape function.
+- The server sends a same-origin Content Security Policy with exceptions for inline page scripts and Google Fonts. It also sends `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: same-origin`. Authenticated responses and HTML use `Cache-Control: no-store`, as does the CSRF token endpoint.
+- Each POST, including one with no body, requires the current session's `X-CSRF-Token`. Login and registration get it from `/api/auth/csrf`. The portals get the current token from `/api/auth/me` when they open.
+- The server limits email to 254 characters, display and company names to 100, job titles to 150, and job and company descriptions to 10,000. The resume limit is 50,000. Text fields checked by the shared service validator reject NUL characters. See the API section for the request-size limit.
+- Static files resolve within the portal and shared asset directories. A path outside these directories returns `404`.
+- Demo credentials are synthetic. `.env.example` contains placeholders. Local databases and secrets stay out of Git. The test fixture uses a temporary SQLite database and a fixed clock, and unit tests run without external services.
+
+## Optional AI Features and Data Flow
+
+FP-MATCH-2 is N/A. The live site computes scores locally in Python and keeps resumes and skills in SQLite.
+
+## Design Decisions and Limitations
+
+- SQLite serializes writers and suits a local course demo. Booking state is enforced by the database and survives a restart when the volume is kept.
+- Migration 005 starts recording status changes, booking actions, and resume updates. A pre-005 booking action or a current non-Pending status with no recorded history uses `null` in the timeline response and `Time unknown` in the interface. The booked interview keeps its scheduled start and end.
+- Closed postings stay visible and reject new applications. Existing bookings remain valid after an application status change.
+- The resume field accepts plain text. Account recovery, email verification, file uploads, booking cancellation, and external notification delivery are outside the current scope.
