@@ -19,8 +19,6 @@ Waitress serves the application. The Docker image contains the server and test r
 
 `create_app(config=None)` loads settings, registers Flask blueprints, and turns application and HTTP errors into JSON. The API delegates writes to the service modules and uses `present.py` to shape the response. The entry point is `python -m recruiting`. Versioned SQL migrations and the demo seed have separate CLI commands. Starting the container applies migrations and leaves existing data in place.
 
-The standalone files `matchwork-candidate.html` and `matchwork-recruiter.html` are offline design demos. They use browser storage and a local calculator. The Flask page routes serve the live portals under `candidate/` and `recruiter/`.
-
 ## Data Model and Relationships
 
 Migrations 001 through 005 create the schema. Timestamps use integer UTC epoch seconds.
@@ -130,7 +128,7 @@ For candidate skills `C` and required skills `R`, the score is `100` when `R` is
 
 `jobs.recommendations` orders every non-deleted job by descending score, then case-insensitive title, then numeric job ID. `jobs.applicants` orders each job's applicants by descending score, then case-insensitive display name, then numeric candidate ID. `jobs.ranked_applications` adds the application ID as a final tie-breaker for the employer's all-jobs list. Filtering that list to one job preserves the per-job order.
 
-Both services call the same Python scorer. The API returns integer `score` and zero-based `rank` fields and serializes record IDs as strings in the ranked cards. The live portals use `shared/match.js` through `fromServer` and `byServerRank`, keeping the server's order and comparing the canonical skill values it supplies. The draft preview calls the same scorer on the server and compares the draft result to the saved-profile `baselineScore`. Draft skills remain unsaved until the candidate confirms. The offline demo uses the JavaScript calculator. See [INSTALL.md](INSTALL.md#frontend-checks-and-matching-parity) for the live parity suite and offline diagnostic.
+Both services call the same Python scorer. The API returns integer `score` and zero-based `rank` fields and serializes record IDs as strings in the ranked cards. The live portals use `shared/match.js` through `fromServer` and `byServerRank`, keeping the server's order and comparing the canonical skill values it supplies. The draft preview calls the same scorer on the server and compares the draft result to the saved-profile `baselineScore`. Draft skills remain unsaved until the candidate confirms. See [INSTALL.md](INSTALL.md#frontend-checks-and-matching-parity) for the live parity suite and the JavaScript calculator diagnostic.
 
 ## Interview Scheduling and Booking Transaction
 

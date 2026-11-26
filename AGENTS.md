@@ -101,7 +101,7 @@ Use Python 3.12 and the pinned `requirements.txt` / `requirements.lock`. The ren
 
 Tests passed locally and inside the image. Keep reset operations restricted to explicit demo/test databases; never seed a user database just to run tests.
 
-Online matching is authoritative in the backend; portal snapshots, draft preview and guarded focus/poll refresh use its results. Original offline diagnostics remain available in the acceptance scripts. The hosted [PR verification](https://github.com/BaichengDanny/CSC4801/actions/runs/45630416506) passed for `0ac3d34`. Attribute later CI results to their exact commits.
+Online matching is authoritative in the backend; portal snapshots, draft preview and guarded focus/poll refresh use its results. The standalone candidate and recruiter prototypes were removed from the repository. The acceptance scripts retain the JavaScript calculator diagnostics. The hosted [PR verification](https://github.com/BaichengDanny/CSC4801/actions/runs/45630416506) passed for `0ac3d34`. Attribute later CI results to their exact commits.
 
 Per the user request, private QA summaries and round reports remain local and are excluded from Git and Docker contexts. Teacher resume-permission clarification and related adjustments remain deferred; preserve the existing owner-only policy and tests.
 

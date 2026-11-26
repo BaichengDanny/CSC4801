@@ -8,7 +8,7 @@
   /* ---------- Demo session ----------
      login.html stores { role } on sign-in. Employer pages need role "recruiter" when served over
      http(s); file:// previews skip the check. Log Out clears the flag. */
-  /* Single-file build (matchwork-recruiter.html): every page lives in window.__RW_PAGES. */
+  /* In a bundled preview, pages are supplied in window.__RW_PAGES. */
   const BUNDLE = !!window.__RW_PAGES;
   let csrfToken;
   function api(method, path, payload) {
