@@ -4,46 +4,82 @@
 (function () {
   'use strict';
 
-  /* ---------- Demo session ----------
-     login.html stores a flag on sign-in (localStorage with "Keep me signed in", else sessionStorage).
-     Candidate pages need it on the deployed site; Log Out clears it. The single-file build and
-     file:// previews have no login page, so they skip the check. */
-  const SESSION_KEY = 'mw-session';
-  if (!window.__MW_PAGES && /^https?:$/.test(location.protocol)) {
-    let signedIn = true;
-    try {
-      const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-      let role = null; try { role = raw && JSON.parse(raw).role; } catch (e) { /* malformed flag */ }
-      signedIn = role === 'candidate';
-    } catch (e) { /* storage blocked: let them in */ }
-    if (!signedIn) location.replace('/login#candidate'); /* keep running so inline page scripts don't throw while the redirect lands */
+  /* Served by Flask, the page loads its data from the JSON API. file:// and the
+     single-file build keep the local demo store. */
+  const HOSTED = !window.__MW_PAGES && /^https?:$/.test(location.protocol);
+  let csrfToken;
+  function api(method, path, payload) {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, path, false);
+    xhr.withCredentials = true;
+    if (payload !== undefined) xhr.setRequestHeader('Content-Type', 'application/json');
+    if (method === 'POST' && csrfToken) xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+    xhr.send(payload === undefined ? null : JSON.stringify(payload));
+    let data = null;
+    try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { data = { message: 'Unexpected response' }; }
+    /* The session ended (signed out in another tab, expired, or the demo data was reset). */
+    if (xhr.status === 401 && !path.startsWith('/api/auth/')) location.replace('/sign-in#candidate');
+    return { status: xhr.status, data };
+  }
+  let boot = null;
+  let userId = '';
+  if (HOSTED) {
+    const me = api('GET', '/api/auth/me');
+    if (!(me.status === 200 && me.data && me.data.role === 'Candidate')) location.replace('/sign-in#candidate');
+    else {
+      csrfToken = me.data.csrfToken;
+      userId = String(me.data.id);
+      const loaded = api('GET', '/api/candidate/bootstrap');
+      if (loaded.status === 200) boot = loaded.data;
+      else location.replace('/sign-in#candidate');
+    }
     document.addEventListener('click', (e) => {
-      const a = e.target.closest && e.target.closest('a[href^="/login"]');
+      const a = e.target.closest && e.target.closest('a[href^="/sign-in"]');
       if (!a) return;
-      try { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); } catch (err) { /* nothing stored */ }
+      e.preventDefault();
+      api('POST', '/api/auth/logout');
+      /* Browser-only data belongs to this account; a shared computer must not show it to the next one. */
+      try { sessionStorage.removeItem(SAVED_KEY); } catch (err) { /* storage unavailable */ }
+      location.href = a.getAttribute('href');
     }, true);
   }
+
+  /* Saved jobs and read notifications are kept in the browser per account. */
+  const SAVED_KEY = 'mw.saved.' + userId;
+  const NOTIF_KEY = 'mw.notifSeen.' + userId;
 
   /* ---------- Utilities ---------- */
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = window.MWHTML.escape;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* All times are stored in UTC and shown in Pacific Time. */
   const TZ = 'America/Los_Angeles';
   const TZ_LABEL = 'Pacific Time (PT)';
-  /* The demo clock: Monday, Nov 16 2026, 9:00 AM PT. */
-  const NOW = new Date('2026-11-16T17:00:00Z');
+  /* The demo clock: Monday, Nov 16 2026, 9:00 AM PT. The server clock replaces it when signed in. */
+  let NOW = new Date(boot && boot.now ? boot.now : '2026-11-16T17:00:00Z');
   const fmt = (d, opts) => new Intl.DateTimeFormat('en-US', { timeZone: TZ, ...opts }).format(new Date(d));
   const fmtDate = (d) => fmt(d, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const fmtShort = (d) => fmt(d, { month: 'short', day: 'numeric' });
   const fmtTime = (d) => fmt(d, { hour: 'numeric', minute: '2-digit' });
+  const fmtSlotTime = (d) => fmt(d, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   function fmtRange(s, e) {
+    const from = fmtSlotTime(s), to = fmtSlotTime(e);
+    if (from.split(' ').at(-1) !== to.split(' ').at(-1)) return `${from}–${to}`;
     const a = fmtTime(s), b = fmtTime(e);
     return `${a.slice(-2) === b.slice(-2) ? a.slice(0, -3) : a}–${b} PT`;
   }
   const dayKey = (d) => fmt(d, { year: 'numeric', month: '2-digit', day: '2-digit' });
+  /* Whole Pacific calendar days from NOW to d: 0 today, 1 tomorrow. */
+  function daysFromToday(d) {
+    const utcDay = (x) => { const [m, dd, y] = dayKey(x).split('/').map(Number); return Date.UTC(y, m - 1, dd); };
+    return Math.round((utcDay(d) - utcDay(NOW)) / 864e5);
+  }
+  function relativeDay(d) {
+    const n = daysFromToday(d);
+    return n <= 0 ? 'Today' : n === 1 ? 'Tomorrow' : `In ${n} days`;
+  }
   function ago(d) {
     const days = Math.round((NOW - new Date(d)) / 864e5);
     if (days <= 0) return 'Today';
@@ -56,8 +92,16 @@
   }
 
   /* ---------- Matching (FP-MATCH-1) ----------
-     One implementation for both portals: /shared/match.js (window.MWMatch). */
-  const { normalizeSkills, matchScore, hasSkill, compareJobs: byMatch } = window.MWMatch;
+     Live score/rank comes from the backend. Shared JS only projects it; the calculator serves offline demos. */
+  const legacyMatch = window.MWMatch; // Local file/demo behavior only.
+  const { matchScore } = legacyMatch;
+  const normalizeSkills = (list) => live ? new Set(list || []) : legacyMatch.normalizeSkills(list);
+  const hasSkill = (list, skill) => live ? new Set(list || []).has(skill) : legacyMatch.hasSkill(list, skill);
+  const byMatch = (a, b) => live ? legacyMatch.byServerRank(a, b) : legacyMatch.compareJobs(a, b);
+  const skillKey = (value) => live ? String(value).trim() : String(value).trim().toLowerCase();
+  const sameSkills = (a, b) => live
+    ? JSON.stringify([...a].sort()) === JSON.stringify([...b].sort())
+    : (() => { const A = normalizeSkills(a), B = normalizeSkills(b); return A.size === B.size && [...A].every(x => B.has(x)); })();
 
   /* ---------- Companies + jobs ----------
      Read-only job data lives in assets/jobs.json: { companies: { name: {...} }, jobs: [...] }.
@@ -80,12 +124,13 @@
     }
     return { companies: {}, jobs: [] };
   }
-  const DATA = loadData();
+  const DATA = boot ? { companies: boot.companies, jobs: boot.jobs } : (HOSTED ? { companies: {}, jobs: [] } : loadData());
   const COMPANIES = DATA.companies || {};
+  const companyFor = (job) => COMPANIES[job.owner ?? job.company];
   /* Logos live on the company (tools/fetch-logos.mjs fills companies[name].logo/w/h), so every
      posting from a company shares one file. A logo set on the job itself still wins. */
   const JOBS = (DATA.jobs || []).map((j) => {
-    const c = COMPANIES[j.company];
+    const c = companyFor(j);
     return !j.logo && c && c.logo ? { ...j, logo: c.logo, w: c.w, h: c.h } : j;
   });
 
@@ -154,24 +199,92 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     notifRead: false,
   });
 
-  /* ---------- Store (localStorage, per browser; demo only) ---------- */
+  /* ---------- Store ---------- */
   const KEY = 'matchwork.candidate.v1';
+  const live = !!boot;
   let state;
-  try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
-  if (!state || state.v !== 2) state = DEFAULT_STATE();
+  if (live) {
+    state = boot.state;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(SAVED_KEY) || '{}');
+      if (saved && typeof saved === 'object') state.saved = saved;
+    } catch (e) { /* keep the empty server list */ }
+  } else if (!HOSTED) {
+    try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
+    if (!state || state.v !== 2) state = DEFAULT_STATE();
+  } else {
+    state = { v: 2, profile: { name: '', skills: [], resume: '', headline: '', location: '', email: '', extras: false }, saved: {}, applications: [], slots: [], notifRead: false };
+  }
   const listeners = new Set();
   const REV_KEY = KEY + '.rev';
   const readRev = () => { try { return localStorage.getItem(REV_KEY) || ''; } catch (e) { return ''; } };
   let loadedRev = readRev();
   function persist() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); loadedRev = String(Date.now()); localStorage.setItem(REV_KEY, loadedRev); } catch (e) { /* storage unavailable: keep in memory */ }
+    if (!live) {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); loadedRev = String(Date.now()); localStorage.setItem(REV_KEY, loadedRev); } catch (e) { /* storage unavailable: keep in memory */ }
+    }
     listeners.forEach((fn) => fn(state));
   }
-  function resetDemo() { state = DEFAULT_STATE(); persist(); }
+  function snapshotKey(data) {
+    return JSON.stringify([data.jobs, data.companies, {
+      ...data.state,
+      saved: {}, notifRead: false
+    }]);
+  }
+  let lastSnapshot = live ? snapshotKey(boot) : '';
+  function acceptSnapshot(data) {
+    lastSnapshot = snapshotKey(data);
+    const saved = state.saved, notifRead = state.notifRead;
+    Object.assign(state, data.state, { saved, notifRead });
+    Object.keys(COMPANIES).forEach(key => delete COMPANIES[key]);
+    Object.assign(COMPANIES, data.companies);
+    JOBS.splice(0, JOBS.length, ...data.jobs);
+    NOW.setTime(new Date(data.now).getTime());
+    persist();
+  }
+  function refresh(force = false) {
+    if (!live) return false;
+    if (!force) {
+      const leave = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(leave);
+      if (leave.defaultPrevented) return false; // Keep unsaved forms intact.
+    }
+    const res = api('GET', '/api/candidate/bootstrap');
+    if (res.status === 401 || res.status === 403) { location.replace('/sign-in#candidate'); return false; }
+    const error = apiResult(res, 'Could not refresh matching results');
+    if (error) throw new Error(error.message);
+    const previousTime = NOW.getTime();
+    NOW.setTime(new Date(res.data.now).getTime());
+    if (lastSnapshot === snapshotKey(res.data)) {
+      const expired = state.slots.some(slot => new Date(slot.start).getTime() > previousTime && new Date(slot.start) <= NOW);
+      if (expired) persist();
+      return expired;
+    }
+    acceptSnapshot(res.data);
+    return true;
+  }
+  function previewSkills(skills) {
+    if (!live) return jobs().map(j => ({ ...j, baselineScore: j.match, match: matchScore(skills, j.skills) }));
+    const res = api('POST', '/api/candidate/matching-preview', { skills });
+    const error = apiResult(res, 'Could not preview matching results');
+    if (error) throw new Error(error.message);
+    return legacyMatch.fromServer(res.data.jobs);
+  }
+  function resetDemo() {
+    if (live) { try { sessionStorage.removeItem(SAVED_KEY); } catch (e) { /* ignore */ } location.reload(); return; }
+    state = DEFAULT_STATE(); persist();
+  }
+  function apiResult(res, fallback) {
+    if (res.status >= 400 || !res.data || res.data.ok === false) return { ok: false, code: res.status || 400, message: (res.data && res.data.message) || fallback };
+    return null;
+  }
 
+  /* FP-MATCH-1: the server's score (recruiting/matching.py) is the one shown. The local
+     formula is only for the offline demo build, which has no server. */
   function jobs() {
+    if (live) return legacyMatch.fromServer(JOBS).map(j => ({ ...j, tags: j.skills }));
     const skills = state.profile.skills;
-    return JOBS.map((j) => ({ ...j, tags: j.skills, match: matchScore(skills, j.skills) })).sort(byMatch);
+    return JOBS.map((j) => ({ ...j, tags: j.skills, match: Number.isInteger(j.score) ? j.score : matchScore(skills, j.skills) })).sort(byMatch);
   }
   const job = (id) => jobs().find((j) => j.id === id);
   const appForJob = (jobId) => state.applications.find((a) => a.jobId === jobId);
@@ -180,6 +293,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
 
   function toggleSave(jobId) {
     if (isSaved(jobId)) delete state.saved[jobId]; else state.saved[jobId] = new Date(NOW.getTime() + 60e3).toISOString();
+    if (live) { try { sessionStorage.setItem(SAVED_KEY, JSON.stringify(state.saved)); } catch (e) { /* ignore */ } }
     persist();
     return isSaved(jobId);
   }
@@ -187,6 +301,14 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
   function apply(jobId) {
     if (!job(jobId)) return { ok: false, code: 404, message: 'This job is no longer available' };
     if (appForJob(jobId)) return { ok: false, code: 409, message: 'You already applied to this job' };
+    if (live) {
+      const res = api('POST', '/api/candidate/applications', { jobId });
+      const failed = apiResult(res, 'Could not apply');
+      if (failed) return failed;
+      state.applications.push(res.data.application);
+      persist();
+      return { ok: true, app: res.data.application };
+    }
     const at = new Date(NOW.getTime() + 5 * 60e3).toISOString();
     const app = { id: 'a' + Date.now().toString(36), jobId, status: 'Pending', appliedAt: at, slotId: null, events: [['Applied', at]] };
     state.applications.push(app);
@@ -196,9 +318,27 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
   /* FP-SCHED-1/2: slots a given application may book. */
   function openSlotsFor(app) {
     const j = job(app.jobId);
-    return state.slots.filter((x) => x.company === j.company && !x.bookedBy && new Date(x.start) > NOW).sort((a, b) => new Date(a.start) - new Date(b.start));
+    if (!j || app.status !== 'Interviewing' || app.slotId) return [];
+    return state.slots.filter((x) => {
+      const sameEmployer = live ? x.owner === j.owner : x.company === j.company;
+      return sameEmployer && !x.bookedBy && new Date(x.start) > NOW;
+    }).sort((a, b) => new Date(a.start) - new Date(b.start));
   }
   function book(appId, slotId) {
+    if (live) {
+      const res = api('POST', '/api/candidate/applications/' + encodeURIComponent(appId) + '/book', { slotId });
+      const failed = apiResult(res, 'Could not book that time');
+      if (failed) {
+        if (failed.message === 'Slot already booked') { const taken = slot(slotId); if (taken) taken.bookedBy = 'other'; persist(); }
+        return failed;
+      }
+      const app = state.applications.find((a) => a.id === appId);
+      const sl = slot(slotId);
+      if (app) Object.assign(app, res.data.application);
+      if (sl) sl.bookedBy = appId;
+      persist();
+      return { ok: true, app, slot: sl };
+    }
     const app = state.applications.find((a) => a.id === appId);
     const sl = slot(slotId);
     if (!app) return { ok: false, code: 403, message: 'You can only book interviews for your own applications' };
@@ -218,7 +358,19 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     persist();
     return { ok: true, app, slot: sl };
   }
-  function updateProfile(patch) { Object.assign(state.profile, patch); persist(); }
+  /* Returns { ok: true } or { ok: false, message } so the page can say what went wrong. */
+  function updateProfile(patch) {
+    if (!live) {
+      /* Offline demo only: the server sets these when signed in. */
+      const derived = { ...('resume' in patch ? { resumeUpdated: new Date(NOW.getTime() + 15 * 60e3).toISOString() } : {}), ...('prefs' in patch ? { extras: true } : {}) };
+      Object.assign(state.profile, patch, derived); persist(); return { ok: true };
+    }
+    const res = api('POST', '/api/candidate/profile', patch);
+    const failed = apiResult(res, 'Could not save your profile');
+    if (failed) return failed;
+    acceptSnapshot(res.data.snapshot);
+    return { ok: true };
+  }
   function profileCompletion() {
     const p = state.profile;
     const items = [
@@ -289,7 +441,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     const missing = j.skills.filter((t) => !hasSkill(mine, t));
     const app = appForJob(j.id);
     const saved = isSaved(j.id);
-    const co = COMPANIES[j.company] || {};
+    const co = companyFor(j) || {};
     const summary = j.skills.length
       ? `You have <b class="num">${have.length}</b> of <b class="num">${j.skills.length}</b> required skills`
       : 'This job lists no required skills, so everyone matches';
@@ -452,7 +604,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
         </a>`).join('')}
       </nav>
       <div class="divider"></div>
-      <a href="/login#candidate" class="nav-item logout">
+      <a href="/sign-in#candidate" class="nav-item logout">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4"/><path d="M18 12H9"/></svg>
         <span class="label">Log Out</span>
       </a>
@@ -490,9 +642,9 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
           </button>
           <div class="popover" id="accountMenu" role="menu" aria-label="Account">
             <a href="profile" class="menu-item" role="menuitem">My Profile</a>
-            <button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>
+            ${live ? '' : '<button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>'}
             <div class="menu-sep" role="separator"></div>
-            <a href="/login#candidate" class="menu-item danger" role="menuitem">Log Out</a>
+            <a href="/sign-in#candidate" class="menu-item danger" role="menuitem">Log Out</a>
           </div>
         </div>
       </div>`;
@@ -521,7 +673,8 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
 
     setupPopover($('#bellBtn'), $('#notifPop'));
     setupPopover($('#accountBtn'), $('#accountMenu'), () => $('#accountMenu .menu-item').focus());
-    $('#resetDemo').addEventListener('click', () => { resetDemo(); location.reload(); });
+    const reset = $('#resetDemo');
+    if (reset) reset.addEventListener('click', () => { resetDemo(); location.reload(); });
 
     const syncNav = () => moveIndicator($('.nav-indicator'), $('.nav [aria-current="page"]'));
     fillChrome();
@@ -557,14 +710,21 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
       const j = job(a.jobId), sl = slot(a.slotId);
       items.push({ href: 'interviews', icon: 'cal', title: 'Interview scheduled', text: `${j.title} at ${j.company}`, when: null, sub: `${fmtDate(sl.start)}, ${fmtTime(sl.start)} PT` });
     });
+    /* On the served site, "Mark all read" remembers exactly which reminders were seen, so a
+       new reminder shows as unread again. The server always sends notifRead: false. */
+    const fingerprint = items.map((n) => `${n.title}|${n.text}|${n.sub || n.when}`).join('\n');
+    if (live) { try { state.notifRead = !!items.length && localStorage.getItem(NOTIF_KEY) === fingerprint; } catch (e) { /* keep in memory */ } }
     const pop = $('#notifPop');
     pop.innerHTML = `<div class="notif-head">Notifications <button type="button" id="markRead"${state.notifRead ? ' disabled' : ''}>${state.notifRead ? 'All caught up' : 'Mark all read'}</button></div>` +
       (items.length ? items.map((n) => `<a class="notif-item" href="${n.href}"><span class="notif-icon"${n.icon === 'book' ? ' style="background:#FFF7DF"' : ''}>${n.icon === 'book'
         ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C6A12" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
         : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6A4FC9" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>'}</span>
-        <div><strong>${esc(n.title)}</strong>, ${esc(n.text)}<time>${n.sub ? esc(n.sub) : esc(ago(n.when))}</time></div></a>`).join('')
+        <div><strong>${esc(n.title)}</strong>, ${esc(n.text)}${n.sub || n.when ? `<time>${esc(n.sub || ago(n.when))}</time>` : ''}</div></a>`).join('')
         : '<div class="notif-item">No notifications yet.</div>');
-    $('#markRead').addEventListener('click', () => { state.notifRead = true; persist(); });
+    $('#markRead').addEventListener('click', () => {
+      if (live) { try { localStorage.setItem(NOTIF_KEY, fingerprint); } catch (e) { /* keep in memory */ } }
+      state.notifRead = true; persist();
+    });
     $('#bellDot').classList.toggle('hide', state.notifRead || !items.length);
     $('#bellBtn').setAttribute('aria-label', `Notifications${state.notifRead || !items.length ? ', none new' : `, ${items.length} new`}`);
   }
@@ -770,6 +930,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
     let doc, base;
     try {
       doc = await source(key);
+      if (live) refresh(true);
       if (seq !== navSeq) return;
       base = BUNDLE ? location.href : new URL(url, location.href).href;
       await prepareStyles(doc, base);
@@ -799,7 +960,7 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
       if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
       const href = a.getAttribute('href');
       if (!href || href.startsWith('#')) return;
-      if (BUNDLE && /^\/login/.test(href)) { e.preventDefault(); toast('The login page is not part of this file'); return; }
+      if (BUNDLE && /^\/(login|sign-in)/.test(href)) { e.preventDefault(); toast('The login page is not part of this file'); return; }
       const r = resolve(href);
       if (!r) return;
       e.preventDefault();
@@ -846,9 +1007,17 @@ Python, Java, SQL, distributed systems, React, PostgreSQL, Docker`;
   /* Dead "#" links never jump. */
   document.addEventListener('click', (e) => { const a = e.target.closest('a[href="#"]'); if (a) e.preventDefault(); });
 
+  if (live) {
+    const update = () => { try { refresh(); } catch (error) { console.warn('Matching refresh failed', error); } };
+    window.addEventListener('focus', update);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
+    setInterval(() => { if (!document.hidden) update(); }, 5000);
+  }
+
   window.MW = {
-    $, $$, esc, reduceMotion, NOW, TZ, TZ_LABEL, fmt, fmtDate, fmtShort, fmtTime, fmtRange, dayKey, ago,
-    matchScore, normalizeSkills, hasSkill, byMatch, COMPANIES,
+    $, $$, esc, reduceMotion, NOW, TZ, TZ_LABEL, fmt, fmtDate, fmtShort, fmtTime, fmtSlotTime, fmtRange, dayKey, ago,
+    relativeDay,
+    matchScore, normalizeSkills, hasSkill, byMatch, COMPANIES, skillKey, sameSkills, previewSkills, refresh, live,
     get state() { return state; }, persist, resetDemo, onChange: (fn) => listeners.add(fn),
     jobs, job, appForJob, slot, isSaved, toggleSave, apply, openSlotsFor, book, updateProfile, profileCompletion, needsBooking,
     ICON, logoHTML, scoreHTML, tagsHTML, statusHTML, applyInner, bodyHTML, initials, jobDetailHTML, wireJobActions,

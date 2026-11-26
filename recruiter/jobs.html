@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../candidate/assets/shell.css">
 <link rel="stylesheet" href="assets/recruiter.css">
 <link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/html.js"></script>
 <script src="../shared/match.js"></script>
 <script src="assets/recruiter.js"></script>
 <style>
@@ -155,7 +156,9 @@
       listEl.innerHTML = st.filter === 'All'
         ? `<div class="empty"><strong>No jobs yet</strong>Post your first job and matched candidates can apply.<br><a class="btn btn-primary" href="jobs?new=1">Post a job</a></div>`
         : `<div class="empty"><strong>No ${esc(st.filter.toLowerCase())} jobs</strong>${st.filter === 'Closed' ? 'Jobs you close stop taking applications and show up here.' : 'Reopen a closed job or post a new one.'}</div>`;
-      if (st.mode === 'view') { st.sel = null; renderRail(); }
+      /* With no jobs, still draw the side panel: ?new=1 must open the editor for a first posting. */
+      if (st.mode === 'view') st.sel = null;
+      renderRail();
       return;
     }
     if (st.mode !== 'new' && !list.some((j) => j.id === st.sel)) { st.sel = list[0].id; if (st.mode === 'edit') st.mode = 'view'; }
@@ -193,7 +196,7 @@
     const b = RW.deleteBlockers(j.id);
     if (b.blocked) {
       return `<div class="note honey enter" role="alert"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>
-        <div><b>This job can't be deleted.</b> It has ${b.apps} application${b.apps === 1 ? '' : 's'}, and their status and interview history stay with it. Close the posting to stop new applications.
+        <div><b>This job can't be deleted.</b> ${esc(RW.deleteBlockedText(b))}
         <div class="btns">${j.status === 'Active' ? '<button type="button" class="btn btn-secondary" data-act="close-instead">Close posting</button>' : ''}<button type="button" class="btn btn-quiet" data-act="cancel">Keep it</button></div></div></div>`;
     }
     return `<div class="note danger enter" role="alert"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
@@ -213,7 +216,7 @@
           <input class="input" id="fTitle" name="title" maxlength="90" value="${esc(v.title)}" placeholder="e.g. Backend Engineer, Catalog API" aria-describedby="eTitle" required>
           <span class="err" id="eTitle"></span></div>
         <div class="field"><label for="fLoc">Location</label>
-          <input class="input" id="fLoc" name="location" maxlength="60" value="${esc(v.location)}" placeholder="City, state, or Remote"></div>
+          <input class="input" id="fLoc" name="location" maxlength="60" value="${esc(v.locationSet === false ? '' : v.location)}" placeholder="City, state, or Remote"></div>
         <div class="field"><span class="lbl" id="lType">Job type</span>${seg('Job type', RW.JOB_TYPES, v.type)}</div>
         <div class="field"><label for="fDesc">Summary <i aria-hidden="true">*</i></label>
           <input class="input" id="fDesc" name="desc" maxlength="160" value="${esc(v.desc)}" placeholder="One line on what this person will do" aria-describedby="eDesc hDesc" required>
@@ -251,7 +254,7 @@
       const parts = input.value.split(',').map((s) => s.trim()).filter(Boolean);
       if (!parts.length) return false;
       let last = null;
-      parts.forEach((p) => { if (!draftSkills.some((x) => x.toLowerCase() === p.toLowerCase())) { draftSkills.push(p); last = p; } });
+      parts.forEach((p) => { if (!draftSkills.some((x) => RW.skillKey(x) === RW.skillKey(p))) { draftSkills.push(p); last = p; } });
       input.value = ''; st.dirty = true; drawSkills(last);
       return true;
     };
@@ -393,6 +396,7 @@
 
   renderTabs();
   renderList(false);
+  RW.onChange(() => { if (!st.dirty) { renderTabs(); renderList(false); renderRail(false); } });
 })();
 </script>
 <span id="mw-ready" hidden></span>

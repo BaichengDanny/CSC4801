@@ -1,16 +1,29 @@
 /* Matchwork employer portal: demo store, business rules and app shell.
    Front-end only. Every mutating call returns { ok, code, message } with the HTTP status the
    full-stack API must return (400 / 403 / 404 / 409), so the UI already handles the real contract.
-   Matching comes from /shared/match.js, the same implementation the candidate portal calls. */
+   Live matching comes from the backend; shared/match.js projects API facts and keeps the offline demo calculator. */
 (function () {
   'use strict';
 
   /* ---------- Demo session ----------
      login.html stores { role } on sign-in. Employer pages need role "recruiter" when served over
      http(s); file:// previews skip the check. Log Out clears the flag. */
-  const SESSION_KEY = 'mw-session';
-  /* Single-file build (matchwork-recruiter.html): every page lives in window.__RW_PAGES. */
+  /* In a bundled preview, pages are supplied in window.__RW_PAGES. */
   const BUNDLE = !!window.__RW_PAGES;
+  let csrfToken;
+  function api(method, path, payload) {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, path, false);
+    xhr.withCredentials = true;
+    if (payload !== undefined) xhr.setRequestHeader('Content-Type', 'application/json');
+    if (method === 'POST' && csrfToken) xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+    xhr.send(payload === undefined ? null : JSON.stringify(payload));
+    let data = null;
+    try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { data = { message: 'Unexpected response' }; }
+    /* The session ended (signed out in another tab, expired, or the demo data was reset). */
+    if (xhr.status === 401 && !path.startsWith('/api/auth/')) location.replace('/sign-in#recruiter');
+    return { status: xhr.status, data };
+  }
   /* Where pages read their query and hash. In the bundle, if the browser refused to change the URL
      (file:// in some browsers, sandboxed previews) the router keeps the intended one in __rwLoc. */
   const loc = () => (BUNDLE && window.__rwLoc) || { search: location.search, hash: location.hash };
@@ -18,45 +31,56 @@
   const hash = () => loc().hash.slice(1);
   /* The page's current URL, to edit and hand to history.replaceState. */
   const url = () => { const l = loc(); return new URL(location.pathname + l.search + l.hash, location.href); };
-  function hasRecruiterSession() {
-    let ok = true;
-    try {
-      const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-      let role = null; try { role = raw && JSON.parse(raw).role; } catch (e) { /* malformed */ }
-      ok = role === 'recruiter';
-    } catch (e) { /* storage blocked: let them in */ }
-    return ok;
-  }
   const hosted = !BUNDLE && /^https?:$/.test(location.protocol);
+  let boot = null;
+  let authed = !hosted;
   if (hosted) {
-    if (!hasRecruiterSession()) location.replace('/login#recruiter');
+    const me = api('GET', '/api/auth/me');
+    authed = me.status === 200 && me.data && me.data.role === 'Employer';
+    if (!authed) location.replace('/sign-in#recruiter');
+    else {
+      csrfToken = me.data.csrfToken;
+      const loaded = api('GET', '/api/employer/bootstrap');
+      if (loaded.status === 200) boot = loaded.data;
+      else authed = false;
+    }
     document.addEventListener('click', (e) => {
-      const a = e.target.closest && e.target.closest('a[href^="/login"]');
+      const a = e.target.closest && e.target.closest('a[href^="/sign-in"]');
       if (!a) return;
-      try { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); } catch (err) { /* nothing stored */ }
+      e.preventDefault();
+      api('POST', '/api/auth/logout');
+      location.href = a.getAttribute('href');
     }, true);
   }
+  function hasRecruiterSession() { return authed; }
 
-  const { normalizeSkills, matchScore, hasSkill, compareApplicants } = window.MWMatch;
+  const legacyMatch = window.MWMatch;
+  const { matchScore } = legacyMatch; // Local file/demo behavior only.
+  const normalizeSkills = (list) => live ? new Set(list || []) : legacyMatch.normalizeSkills(list);
+  const hasSkill = (list, skill) => live ? new Set(list || []).has(skill) : legacyMatch.hasSkill(list, skill);
+  const compareApplicants = (a, b) => live ? legacyMatch.byServerRank(a, b) : legacyMatch.compareApplicants(a, b);
+  const skillKey = (value) => live ? String(value).trim() : String(value).trim().toLowerCase();
 
   /* ---------- Utilities ---------- */
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = window.MWHTML.escape;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* All times are stored in UTC and shown in Pacific Time, like the candidate portal. */
   const TZ = 'America/Los_Angeles';
   const TZ_LABEL = 'Pacific Time (PT)';
-  /* The demo clock, shared with the candidate portal: Monday, Nov 16 2026, 9:00 AM PT. */
-  const NOW = new Date('2026-11-16T17:00:00Z');
+  /* The demo clock, shared with the candidate portal. The server clock replaces it when signed in. */
+  let NOW = new Date(boot && boot.now ? boot.now : '2026-11-16T17:00:00Z');
   const SLOT_MIN = 30;
   const fmt = (d, opts) => new Intl.DateTimeFormat('en-US', { timeZone: TZ, ...opts }).format(new Date(d));
   const fmtDate = (d) => fmt(d, { weekday: 'short', month: 'short', day: 'numeric' });
   const fmtLong = (d) => fmt(d, { weekday: 'long', month: 'long', day: 'numeric' });
   const fmtShort = (d) => fmt(d, { month: 'short', day: 'numeric' });
   const fmtTime = (d) => fmt(d, { hour: 'numeric', minute: '2-digit' });
+  const fmtSlotTime = (d) => fmt(d, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   function fmtRange(s, e) {
+    if (ptOffset(new Date(s)) !== ptOffset(new Date(e))) return `${fmtSlotTime(s)} – ${fmtSlotTime(e)}`;
     const a = fmtTime(s), b = fmtTime(e);
     return `${a.slice(-2) === b.slice(-2) ? a.slice(0, -3) : a} – ${b}`;
   }
@@ -73,18 +97,22 @@
     if (days < 31) return `${Math.floor(days / 7)} weeks ago`;
     return `${Math.floor(days / 30)} months ago`;
   }
+  const offsetFormat = new Intl.DateTimeFormat('en-US', { timeZone: TZ, timeZoneName: 'shortOffset' });
   /* PT offset for a UTC instant, in minutes (PST -480, PDT -420). */
   function ptOffset(date) {
-    const p = new Intl.DateTimeFormat('en-US', { timeZone: TZ, timeZoneName: 'shortOffset' }).formatToParts(date).find((x) => x.type === 'timeZoneName').value;
+    const p = offsetFormat.formatToParts(date).find((x) => x.type === 'timeZoneName').value;
     const m = /GMT([+-])(\d+)(?::(\d+))?/.exec(p);
     return m ? (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] || 0)) : 0;
   }
-  /* A wall-clock time in PT ("2026-11-18", 9, 30) to a UTC ISO string. */
+  /* Return one exact instant, or null for a missing or repeated DST wall time. */
   function ptToUtc(ymd, h, min) {
     const [y, mo, d] = ymd.split('-').map(Number);
     const guess = Date.UTC(y, mo - 1, d, h, min);
-    const off = ptOffset(new Date(guess));
-    return new Date(guess - off * 6e4).toISOString();
+    if (!Number.isFinite(guess) || y < 100 || y > 9999) return null;
+    const offsets = new Set([-864e5, 864e5].map((delta) => ptOffset(new Date(guess + delta))));
+    const matches = [...offsets].map((offset) => new Date(guess - offset * 6e4))
+      .filter((date) => date.getTime() + ptOffset(date) * 6e4 === guess);
+    return matches.length === 1 ? matches[0].toISOString() : null;
   }
   /* "MM/DD/YYYY" (dayKey) to "YYYY-MM-DD". */
   const ymdOf = (d) => { const [m, dd, y] = dayKey(d).split('/'); return `${y}-${m}-${dd}`; };
@@ -92,7 +120,7 @@
   /* ---------- Seed data ----------
      The signed-in employer is Tidewater Labs. One posting from another employer is kept in the
      store so ownership checks (403) have something to refuse; the UI never lists it. */
-  const ME = 'tidewater';
+  let ME = boot ? boot.me : 'tidewater';
   const COMPANY_SEED = {
     id: ME, name: 'Tidewater Labs',
     about: 'Makes search and discovery tools for public libraries and university archives. Our small team works closely with librarians, so the people who use what we build are never far away.',
@@ -178,17 +206,57 @@
     notifRead: false, clock: 0,
   }));
 
-  /* ---------- Store (localStorage, per browser; demo only) ---------- */
+  /* ---------- Store ---------- */
   const KEY = 'matchwork.recruiter.v1';
+  const live = !!boot;
   let state;
-  try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
-  if (!state || state.v !== 1) state = DEFAULT_STATE();
+  if (live) state = boot.state;
+  else if (!hosted) {
+    try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
+    if (!state || state.v !== 1) state = DEFAULT_STATE();
+  } else {
+    state = { v: 1, company: { id: '', name: '', about: '', industry: '', size: '', location: '', website: '', mono: '?', tint: '#1F5FA8', tileBg: '#EAF1FA' }, candidates: [], jobs: [], applications: [], slots: [], notifRead: false, clock: 0 };
+  }
   const listeners = new Set();
   function persist() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable: keep in memory */ }
+    if (!live) { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable: keep in memory */ } }
     listeners.forEach((fn) => { try { fn(state); } catch (err) { console.error(err); } });
   }
-  function resetDemo() { state = DEFAULT_STATE(); persist(); }
+  let lastSnapshot = live ? JSON.stringify(boot.state) : '';
+  function acceptSnapshot(data) {
+    lastSnapshot = JSON.stringify(data.state);
+    const notifRead = state.notifRead;
+    Object.assign(state, data.state, { notifRead });
+    NOW.setTime(new Date(data.now).getTime());
+    persist();
+  }
+  function refresh(force = false) {
+    if (!live) return false;
+    if (!force) {
+      const leave = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(leave);
+      if (leave.defaultPrevented) return false;
+    }
+    const res = api('GET', '/api/employer/bootstrap');
+    if (res.status === 401 || res.status === 403) { location.replace('/sign-in#recruiter'); return false; }
+    const error = failed(res, 'Could not refresh applicant results');
+    if (error) throw new Error(error.message);
+    const previousTime = NOW.getTime();
+    NOW.setTime(new Date(res.data.now).getTime());
+    if (lastSnapshot === JSON.stringify(res.data.state)) {
+      const expired = state.slots.some(slot => new Date(slot.start).getTime() > previousTime && new Date(slot.start) <= NOW);
+      if (expired) persist();
+      return expired;
+    }
+    acceptSnapshot(res.data);
+    return true;
+  }
+  function resetDemo() {
+    if (live) { location.reload(); return; }
+    state = DEFAULT_STATE(); persist();
+  }
+  const failed = (res, fallback) => (res.status >= 400 || !res.data || res.data.ok === false)
+    ? fail(res.status || 400, (res.data && res.data.message) || fallback, res.data || {}) : null;
   /* The demo clock stands still, so each change gets the next minute after NOW to keep histories in order. */
   const stamp = () => new Date(NOW.getTime() + (++state.clock) * 6e4).toISOString();
 
@@ -215,7 +283,7 @@
   /* An application with its candidate, job, booked slot and score: the row the applicant views show. */
   function view(a) {
     const j = findJob(a.jobId), c = candidate(a.candidateId);
-    return { ...a, job: j, cand: c, name: c.name, match: matchScore(c.skills, j.skills), slot: a.slotId ? slot(a.slotId) : null };
+    return { ...a, job: j, cand: c, name: c.name, match: live ? legacyMatch.fromServer([a])[0].match : matchScore(c.skills, j.skills), slot: a.slotId ? slot(a.slotId) : null };
   }
   /* FP-EMP-3: applicants for one owned job, highest score first, ties by name then candidate id. */
   function applicants(jobId) {
@@ -233,6 +301,7 @@
   const JOB_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship'];
   /* Required skills keep the employer's spelling, minus blanks and case-insensitive duplicates. */
   function cleanSkills(list) {
+    if (live) return (list || []).map(s => String(s).trim()).filter(Boolean);
     const seen = new Set(), out = [];
     (list || []).forEach((s) => { const t = String(s == null ? '' : s).trim().replace(/\s+/g, ' '); const k = t.toLowerCase(); if (t && !seen.has(k)) { seen.add(k); out.push(t); } });
     return out;
@@ -246,14 +315,24 @@
     if (d.status && !['Active', 'Closed'].includes(d.status)) errors.status = 'Choose Active or Closed.';
     return errors;
   }
+  /* A blank location stays blank. Cards from the server show "Not listed" for it, with
+     locationSet: false, and that placeholder must not be saved back as a real place. */
+  const placeOf = (d) => (d.locationSet === false && d.location === 'Not listed' ? '' : String(d.location || '').trim());
   const pickJob = (d) => ({
-    title: String(d.title || '').trim(), location: String(d.location || '').trim() || 'Remote', type: d.type || 'Full-time',
+    title: String(d.title || '').trim(), location: placeOf(d), type: d.type || 'Full-time',
     desc: String(d.desc || '').trim(), body: String(d.body || '').replace(/\s+$/, ''), skills: cleanSkills(d.skills), status: d.status || 'Active',
   });
   /* FP-EMP-2 */
   function createJob(d) {
     const errors = validateJob(d);
     if (Object.keys(errors).length) return fail(400, 'Fix the highlighted fields', { errors });
+    if (live) {
+      const res = api('POST', '/api/employer/jobs', pickJob(d));
+      const error = failed(res, 'Could not create the job');
+      if (error) return error;
+      acceptSnapshot(res.data.snapshot);
+      return { ok: true, job: res.data.job };
+    }
     const seq = Math.max(0, ...state.jobs.map((j) => j.seq || 0)) + 1;
     const j = { id: 'j' + Date.now().toString(36), seq, owner: ME, posted: stamp(), ...pickJob(d) };
     state.jobs.push(j); persist();
@@ -264,6 +343,15 @@
     if (!j) return fail(404, 'That job no longer exists');
     if (j.owner !== ME) return fail(403, 'You can only edit your own jobs');
     const merged = { ...j, ...d };
+    if (live) {
+      const errors = validateJob(merged);
+      if (Object.keys(errors).length) return fail(400, 'Fix the highlighted fields', { errors });
+      const res = api('POST', '/api/employer/jobs/' + encodeURIComponent(id), pickJob(merged));
+      const error = failed(res, 'Could not update the job');
+      if (error) return error;
+      acceptSnapshot(res.data.snapshot);
+      return { ok: true, job: res.data.job };
+    }
     const errors = validateJob(merged);
     if (Object.keys(errors).length) return fail(400, 'Fix the highlighted fields', { errors });
     Object.assign(j, pickJob(merged)); persist();
@@ -274,12 +362,28 @@
     const apps = appsFor(id).length, slots = state.slots.filter((s) => s.jobId === id).length;
     return { apps, slots, blocked: apps > 0 || slots > 0 };
   }
+  /* Name what actually blocks deletion. New interview slots attach to the oldest job. */
+  function deleteBlockedText(b) {
+    const parts = [];
+    if (b.apps) parts.push(`${b.apps} application${b.apps === 1 ? '' : 's'}`);
+    if (b.slots) parts.push(`${b.slots} interview slot${b.slots === 1 ? '' : 's'}`);
+    return `It still has ${parts.join(' and ')}. `
+      + (b.slots ? 'Interview slots you add are kept on your oldest job. ' : '')
+      + 'Close the posting to stop new applications.';
+  }
   function deleteJob(id) {
     const j = findJob(id);
     if (!j) return fail(404, 'That job no longer exists');
     if (j.owner !== ME) return fail(403, 'You can only delete your own jobs');
+    if (live) {
+      const res = api('POST', '/api/employer/jobs/' + encodeURIComponent(id) + '/delete');
+      const error = failed(res, 'Could not delete the job');
+      if (error) return error;
+      acceptSnapshot(res.data.snapshot);
+      return { ok: true, job: j };
+    }
     const b = deleteBlockers(id);
-    if (b.blocked) return fail(409, `“${j.title}” has ${b.apps} application${b.apps === 1 ? '' : 's'}, so it can't be deleted. Close it instead.`);
+    if (b.blocked) return fail(409, `“${j.title}” can't be deleted. ${deleteBlockedText(b)}`);
     state.jobs = state.jobs.filter((x) => x.id !== id); persist();
     return { ok: true, job: j };
   }
@@ -292,6 +396,14 @@
     if (findJob(a.jobId).owner !== ME) return fail(403, 'Only the employer who owns this job can change its status');
     if (!STATUSES.includes(status)) return fail(400, 'Status must be Pending, Interviewing, Rejected or Accepted');
     if (a.status === status) return { ok: true, app: view(a), unchanged: true };
+    if (live) {
+      const res = api('POST', '/api/employer/applications/' + encodeURIComponent(appId) + '/status', { status });
+      const error = failed(res, 'Could not update the status');
+      if (error) return error;
+      const prev = a.status;
+      acceptSnapshot(res.data.snapshot);
+      return { ok: true, app: application(appId), prev };
+    }
     const prev = a.status;
     a.status = status;
     a.events.push([status === 'Interviewing' ? 'Moved to Interviewing' : status === 'Pending' ? 'Moved back to Pending' : status, stamp()]);
@@ -301,6 +413,7 @@
 
   /* FP-SCHED-1: future, exactly 30 minutes, one owner, no overlap with the owner's other slots. */
   function createSlot(startIso, endIso) {
+    if (!startIso || !endIso) return fail(400, 'Choose a time that occurs once in Pacific Time');
     const s = new Date(startIso), e = new Date(endIso);
     if (isNaN(s) || isNaN(e)) return fail(400, 'Enter a valid start and end time');
     if (e <= s) return fail(400, 'The end time must be after the start time');
@@ -308,6 +421,13 @@
     if (s <= NOW) return fail(400, 'Slots must start in the future');
     const clash = ownSlots().find((x) => new Date(x.start) < e && new Date(x.end) > s);
     if (clash) return fail(409, `That overlaps your ${fmtTime(clash.start)} slot`);
+    if (live) {
+      const res = api('POST', '/api/employer/slots', { start: s.toISOString(), end: e.toISOString() });
+      const error = failed(res, 'Could not add that time');
+      if (error) return error;
+      state.slots.push(res.data.slot); persist();
+      return { ok: true, slot: res.data.slot };
+    }
     const sl = { id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), owner: ME, start: s.toISOString(), end: e.toISOString(), bookedBy: null };
     state.slots.push(sl); persist();
     return { ok: true, slot: sl };
@@ -316,6 +436,14 @@
     const sl = slot(id);
     if (!sl) return fail(404, 'That slot no longer exists');
     if (sl.owner !== ME) return fail(403, 'You can only delete your own slots');
+    if (live && !sl.bookedBy) {
+      const res = api('POST', '/api/employer/slots/' + encodeURIComponent(id) + '/delete');
+      const error = failed(res, 'Could not delete that time');
+      if (error) return error;
+      state.slots = state.slots.filter((item) => item.id !== id);
+      persist();
+      return { ok: true, slot: sl };
+    }
     if (sl.bookedBy) {
       const a = application(sl.bookedBy);
       return fail(409, `${a ? a.name + ' booked' : 'A candidate booked'} this time, so it can't be deleted`);
@@ -335,6 +463,14 @@
     if (!about) errors.about = 'Enter a short description of your company.';
     else if (about.length > 800) errors.about = 'Keep the description under 800 characters.';
     if (Object.keys(errors).length) return fail(400, 'Fix the highlighted fields', { errors });
+    if (live) {
+      const res = api('POST', '/api/employer/company', { ...d, name, about });
+      const error = failed(res, 'Could not save the company');
+      if (error) return error;
+      state.company = res.data.company;
+      persist();
+      return { ok: true, company: state.company };
+    }
     const next = { ...state.company, ...d, name, about };
     ['industry', 'location', 'website'].forEach((k) => { next[k] = String(next[k] || '').trim(); });
     next.mono = (name.match(/[A-Za-z0-9]/) || ['?'])[0].toUpperCase();
@@ -377,9 +513,9 @@
   function candTagsHTML(c, j, max) {
     const req = normalizeSkills(j.skills);
     const list = cleanSkills(c.skills);
-    list.sort((a, b) => Number(req.has(b.toLowerCase())) - Number(req.has(a.toLowerCase())));
+    list.sort((a, b) => Number(req.has(live ? b : b.toLowerCase())) - Number(req.has(live ? a : a.toLowerCase())));
     const shown = max ? list.slice(0, max) : list, extra = list.length - shown.length;
-    return shown.map((s) => req.has(s.toLowerCase())
+    return shown.map((s) => req.has(live ? s : s.toLowerCase())
       ? `<span class="tag match">${ICON.checkSm}${esc(s)}<span class="sr"> (required)</span></span>`
       : `<span class="tag">${esc(s)}</span>`).join('') + (extra > 0 ? `<span class="tag" title="${esc(list.slice(max).join(', '))}">+${extra}</span>` : '');
   }
@@ -397,9 +533,9 @@
   /* "Today, 10:00 AM" / "Wed, 11:00 AM" this week / "Nov 4" further out: short enough for a table cell. */
   function whenShort(iso) {
     const days = Math.round((new Date(ymdOf(iso)) - new Date(ymdOf(NOW))) / 864e5);
-    if (days === 0) return `Today, ${fmtTime(iso)}`;
-    if (days === 1) return `Tomorrow, ${fmtTime(iso)}`;
-    if (days > 1 && days < 7) return `${fmt(iso, { weekday: 'short' })}, ${fmtTime(iso)}`;
+    if (days === 0) return `Today, ${fmtTime(iso)} PT`;
+    if (days === 1) return `Tomorrow, ${fmtTime(iso)} PT`;
+    if (days > 1 && days < 7) return `${fmt(iso, { weekday: 'short' })}, ${fmtTime(iso)} PT`;
     return fmtShort(iso);
   }
   function ivCellHTML(a) {
@@ -494,7 +630,7 @@
         </a>`).join('')}
       </nav>
       <div class="divider"></div>
-      <a href="/login#recruiter" class="nav-item logout">
+      <a href="/sign-in#recruiter" class="nav-item logout">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4"/><path d="M18 12H9"/></svg>
         <span class="label">Log Out</span>
       </a>
@@ -526,9 +662,9 @@
           </button>
           <div class="popover" id="accountMenu" role="menu" aria-label="Account">
             <a href="company" class="menu-item" role="menuitem">Company Profile</a>
-            <button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>
+            ${live ? '' : '<button type="button" class="menu-item" role="menuitem" id="resetDemo">Reset demo data</button>'}
             <div class="menu-sep" role="separator"></div>
-            <a href="/login#recruiter" class="menu-item danger" role="menuitem">Log Out</a>
+            <a href="/sign-in#recruiter" class="menu-item danger" role="menuitem">Log Out</a>
           </div>
         </div>
       </div>`;
@@ -569,6 +705,11 @@
     const pop = $('#notifPop');
     if (!pop) return;
     const items = notifications();
+    /* On the served site, "Mark all read" remembers which notifications were seen, so a new
+       one shows as unread again. The server always sends notifRead: false. */
+    const fingerprint = items.map((n) => `${n.title}|${n.text}|${n.when}`).join('\n');
+    const NOTIF_KEY = 'rw.notifSeen.' + ME;
+    if (live) { try { state.notifRead = !!items.length && localStorage.getItem(NOTIF_KEY) === fingerprint; } catch (e) { /* keep in memory */ } }
     pop.innerHTML = `<div class="notif-head">Notifications <button type="button" id="markRead"${state.notifRead || !items.length ? ' disabled' : ''}>${state.notifRead || !items.length ? 'All caught up' : 'Mark all read'}</button></div>` +
       (items.length ? items.slice(0, 6).map((n) => `<a href="${esc(n.href)}" class="notif-item">
         ${n.kind === 'app'
@@ -576,7 +717,11 @@
           : '<span class="notif-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B3FC4" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg></span>'}
         <div><strong>${esc(n.title)}</strong>, ${esc(n.text)}<time>${esc(n.when)}</time></div></a>`).join('')
         : '<div class="notif-item">No notifications yet.</div>');
-    $('#markRead').addEventListener('click', (e) => { e.stopPropagation(); state.notifRead = true; persist(); });
+    $('#markRead').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (live) { try { localStorage.setItem(NOTIF_KEY, fingerprint); } catch (err) { /* keep in memory */ } }
+      state.notifRead = true; persist();
+    });
     $('#bellDot').classList.toggle('hide', state.notifRead || !items.length);
     $('#bellBtn').setAttribute('aria-label', `Notifications${state.notifRead || !items.length ? ', none new' : `, ${items.length} new`}`);
   }
@@ -631,7 +776,8 @@
     }
     setupPopover($('#bellBtn'), $('#notifPop'));
     setupPopover($('#accountBtn'), $('#accountMenu'), () => $('#accountMenu .menu-item').focus());
-    $('#resetDemo').addEventListener('click', () => { resetDemo(); location.reload(); });
+    const reset = $('#resetDemo');
+    if (reset) reset.addEventListener('click', () => { resetDemo(); location.reload(); });
     listeners.add(fillChrome);
     const fit = () => { moveIndicator($('.nav-indicator'), $('.nav [aria-current="page"]')); if (opts.onLayout) opts.onLayout(); };
     slideNav();
@@ -684,7 +830,7 @@
       if (!a || (a.target && a.target !== '_self')) return;
       const href = a.getAttribute('href');
       if (!href || href.startsWith('#') || /^(mailto|https?):/.test(href)) return;
-      if (/^\/login/.test(href)) { e.preventDefault(); toast('The sign-in page is not part of this file'); return; }
+      if (/^\/(login|sign-in)/.test(href)) { e.preventDefault(); toast('The sign-in page is not part of this file'); return; }
       const r = resolve(href);
       if (!r) return;
       e.preventDefault();
@@ -797,7 +943,7 @@
     async function navigate({ key, target }, push) {
       const sequence = ++navigation;
       if (!hasRecruiterSession()) {
-        location.replace('/login#recruiter');
+        location.replace('/sign-in#recruiter');
         return;
       }
       const leave = new Event('beforeunload', { cancelable: true });
@@ -808,6 +954,7 @@
       }
       try {
         const page = await loadPage(key);
+        if (live) refresh(true);
         if (sequence === navigation) renderPage(page, target, push);
       } catch (error) {
         if (sequence === navigation) {
@@ -866,12 +1013,19 @@
     else setTimeout(prefetch, 300);
   }
 
+  if (live) {
+    const update = () => { try { refresh(); } catch (error) { console.warn('Applicant refresh failed', error); } };
+    window.addEventListener('focus', update);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
+    setInterval(() => { if (!document.hidden) update(); }, 5000);
+  }
+
   window.RW = {
-    $, $$, esc, reduceMotion, params, hash, url, NOW, TZ, TZ_LABEL, SLOT_MIN, fmt, fmtDate, fmtLong, fmtShort, fmtTime, fmtRange, dayKey, ymdOf, ptToUtc, ago,
-    matchScore, normalizeSkills, hasSkill, cleanSkills,
+    $, $$, esc, reduceMotion, params, hash, url, NOW, TZ, TZ_LABEL, SLOT_MIN, fmt, fmtDate, fmtLong, fmtShort, fmtTime, fmtSlotTime, fmtRange, dayKey, ymdOf, ptToUtc, ago,
+    matchScore, normalizeSkills, hasSkill, cleanSkills, skillKey, refresh, live,
     get state() { return state; }, persist, resetDemo, onChange: (fn) => listeners.add(fn),
     company, candidate, jobs, job, applicants, allApplicants, application, awaitingBooking, ownSlots, openSlots, slot, view,
-    JOB_TYPES, STATUSES, SIZES, createJob, updateJob, deleteJob, deleteBlockers, setStatus, createSlot, deleteSlot, updateCompany,
+    JOB_TYPES, STATUSES, SIZES, createJob, updateJob, deleteJob, deleteBlockers, deleteBlockedText, pickJob, setStatus, createSlot, deleteSlot, updateCompany,
     ICON, logoHTML, avatarHTML, initials, scoreHTML, statusHTML, candTagsHTML, bodyHTML, ivCellHTML, whenShort,
     toast, setupPopover, closePopovers, moveIndicator, renderChrome, mountShell, notifications,
   };

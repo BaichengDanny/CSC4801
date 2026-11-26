@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/shell.css">
 <link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/html.js"></script>
 <script src="../shared/match.js"></script>
 <script src="assets/matchwork.js"></script>
 <style>
@@ -167,7 +168,7 @@
     return `<section class="card sec" id="book-${esc(a.id)}" aria-labelledby="bk-${esc(a.id)}" tabindex="-1">
       <div class="sec-head">
         <div><h2 id="bk-${esc(a.id)}">Book your interview</h2><p>${esc(j.company)} invited you to a 30-minute interview. Pick a time that works.</p></div>
-        <span class="tz">${ICON.clock}Times in ${esc(MW.TZ_LABEL)}, UTC−8</span>
+        <span class="tz">${ICON.clock}Times in ${esc(MW.TZ_LABEL)}</span>
       </div>
       <div class="bk-job">${MW.logoHTML(j, 'sm')}<div><h3>${esc(j.title)}</h3><div class="meta"><span>${esc(j.company)}</span><span aria-hidden="true">·</span><span>${esc(j.location)}</span></div></div></div>
       ${open.length ? `
@@ -178,7 +179,7 @@
           </button>`).join('')}</div>
         <p class="bk-label" id="tl-${esc(a.id)}">Choose a time on ${esc(MW.fmt(daySlots[0].start, { weekday: 'long', month: 'short', day: 'numeric' }))}</p>
         <div class="slots" role="radiogroup" aria-labelledby="tl-${esc(a.id)}">${daySlots.map((s) => `
-          <label class="slot" data-slot="${esc(s.id)}"><input type="radio" name="slot-${esc(a.id)}" value="${esc(s.id)}"${s.id === p.slotId ? ' checked' : ''}><span class="r-sm">${esc(MW.fmtTime(s.start))}</span></label>`).join('')}</div>
+          <label class="slot" data-slot="${esc(s.id)}"><input type="radio" name="slot-${esc(a.id)}" value="${esc(s.id)}"${s.id === p.slotId ? ' checked' : ''}><span class="r-sm">${esc(MW.fmtSlotTime(s.start))}</span></label>`).join('')}</div>
         ${notes[a.id] ? `<p class="bk-msg r-sm" role="alert">${esc(notes[a.id])}</p>` : ''}
         <div class="panel bk-bar">
           <p>${chosen ? `<b>${esc(MW.fmt(chosen.start, { weekday: 'short', month: 'short', day: 'numeric' }))}</b>, ${esc(MW.fmtRange(chosen.start, chosen.end))}` : 'No time selected yet'}</p>
@@ -189,7 +190,6 @@
 
   function ivRow(a, past) {
     const j = a.job, s = a.slot;
-    const days = Math.ceil((new Date(s.start) - MW.NOW) / 864e5);
     return `<div class="ivr${past ? ' past' : ''}">
       <div class="leaf r-md"><span class="m">${esc(MW.fmt(s.start, { month: 'short' }))}</span><span class="d">${esc(MW.fmt(s.start, { day: 'numeric' }))}</span></div>
       <div style="min-width:0">
@@ -197,7 +197,7 @@
         <div class="meta"><span>${esc(j.company)}</span><span aria-hidden="true">·</span><span>${esc(j.location)}</span></div>
         <div class="when"><span>${ICON.cal}${esc(MW.fmt(s.start, { weekday: 'long' }))}</span><span>${ICON.clock}${esc(MW.fmtRange(s.start, s.end))}</span></div>
       </div>
-      <div class="side">${past ? MW.statusHTML(a.status) : `<span class="soon">${days <= 1 ? 'Tomorrow' : `In ${days} days`}</span>`}
+      <div class="side">${past ? MW.statusHTML(a.status) : `<span class="soon">${esc(MW.relativeDay(s.start))}</span>`}
         <a class="link-arrow" href="applications#${esc(a.id)}">Application ${ICON.arrow}</a></div>
     </div>`;
   }
@@ -299,6 +299,7 @@
     const sec = document.getElementById(location.hash.slice(1));
     if (sec) requestAnimationFrame(() => { sec.scrollIntoView({ block: 'start' }); sec.focus({ preventScroll: true }); });
   }
+  MW.onChange(() => { render(); renderCal(); });
 })();
 </script>
 <span id="mw-ready" hidden></span>

@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../candidate/assets/shell.css">
 <link rel="stylesheet" href="assets/recruiter.css">
 <link rel="expect" href="#mw-ready" blocking="render">
+<script src="../shared/html.js"></script>
 <script src="../shared/match.js"></script>
 <script src="assets/recruiter.js"></script>
 <style>
@@ -285,7 +286,8 @@
       ${interviewHTML(a)}
       <div>
         <div class="ad-sub">History</div>
-        <ol class="timeline">${a.events.map(([ev, at], i) => `<li class="${ev === 'Rejected' ? 'neg' : ''}${i === a.events.length - 1 && a._fresh ? ' new' : ''}"><span class="pt" aria-hidden="true"></span><span class="ev">${esc(ev)}</span><time datetime="${esc(at)}">${esc(RW.fmtShort(at))}</time></li>`).join('')}</ol>
+        <ol class="timeline">${a.events.map(([ev, at], i) => `<li class="${ev === 'Rejected' ? 'neg' : ''}${i === a.events.length - 1 && a._fresh ? ' new' : ''}"><span class="pt" aria-hidden="true"></span><span class="ev">${esc(ev)}</span>
+          ${at ? `<time class="event-time" datetime="${esc(at)}">${esc(RW.fmtShort(at))}</time>` : '<span class="event-time">Time unknown</span>'}</li>`).join('')}</ol>
       </div>
       <div class="ad-foot">
         <p>${ICON.lock}Their resume is private to them.</p>
@@ -352,6 +354,7 @@
   renderPick();
   renderTabs();
   renderList(false);
+  RW.onChange(() => { renderPick(); renderTabs(); renderList(false); });
 })();
 </script>
 <span id="mw-ready" hidden></span>
